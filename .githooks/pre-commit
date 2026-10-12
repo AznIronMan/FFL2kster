@@ -1,0 +1,15 @@
+#!/bin/sh
+# Block any Game Boy ROM, save, state, or archive from being committed.
+fail=0
+for f in $(git diff --cached --name-only --diff-filter=ACMR); do
+  case "$(printf '%s' "$f" | tr 'A-Z' 'a-z')" in
+    *.gb|*.gbc|*.sgb|*.sav|*.srm|*.state|*.ss[0-9]|*.zip|*.7z|*.rar)
+      echo "pre-commit: blocked ROM/save/archive file: $f" >&2; fail=1; continue;;
+  esac
+  # Nintendo logo at 0x104 marks a Game Boy ROM regardless of name.
+  sig=$(git show ":$f" 2>/dev/null | dd bs=1 skip=260 count=4 2>/dev/null | od -An -tx1 | tr -d ' \n')
+  if [ "$sig" = "ceed6666" ]; then
+    echo "pre-commit: blocked file with Game Boy ROM header: $f" >&2; fail=1
+  fi
+done
+[ $fail -eq 0 ] || { echo "ROMs must never be committed. Users supply their own." >&2; exit 1; }

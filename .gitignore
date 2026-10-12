@@ -1,0 +1,66 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Local secrets, private notes, and internal tracking
+.private/
+.tasks/
+*.env
+.env
+.env.*
+!.env.example
+
+# ROMs, saves, and save states (never commit game data)
+input/*.gb
+input/*.gbc
+input/*.sav
+input/reference/*
+!input/reference/.gitkeep
+*.gb
+*.gbc
+*.sgb
+*.sav
+*.srm
+*.state
+*.ss[0-9]
+*.zip
+*.7z
+*.rar
+
+# Extracted game data / databases
+project/*.sqlite
+project/*.sqlite3
+project/*.db
+
+# Generated build output (keep folder placeholders only)
+build/*
+!build/test-artifacts/
+build/test-artifacts/*
+!build/test-artifacts/.gitkeep
+
+# Reverse-engineering scratch
+project/scratch/*
+!project/scratch/.gitkeep
+
+# Logs and runtime output
+logs/
+*.log
+*.pid
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/
