@@ -287,5 +287,9 @@ Architecture guidance for the importer and the web app; not new feature work.
 - The **tower/arena game** (docs/END_GOAL.md) is a **separate mode built on the same engine and
   data**, implemented after the ports; its own rules (e.g. stats beyond the original's one-byte
   fields) live in its data model, not in the faithful game's memory layout.
+- The cap break (HP past 999, stats past 99) applies to **every combatant**: party, enemies,
+  NPCs/guests and anything added later, with no fixed ceiling as the goal ("ideally infinite").
+  Inside the original memory layout the ceiling is 65,535 HP and 255 per stat; going past that
+  belongs to the remaster data model. Map: docs/CAPS.md.
 - Findings that serve either (e.g. where the 999/99 caps and the number displays are checked)
   are recorded as they come up; no feature work for them ahead of the port.

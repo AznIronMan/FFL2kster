@@ -479,3 +479,8 @@ Recorded per direction note A (docs/DECISIONS.md); nothing was changed, no featu
 - **Battle exit timing.** 0D:4152 reads the buttons once on entry and leaves on the next change to
   a non-zero value; after a long victory computation the read happens after the next joypad tick.
 - Text code 0x48 is now covered (72/78 codes over all sweeps).
+- **Max HP can pass 999 in the original (verified, controlled change).** Growth stops only once
+  max HP ≥ 999, and its step can overshoot: max HP 990 grew to 1,015-1,023 (HP pair forced to
+  (200, 0)). The status screens clamp the shown value to 999 (00:1204). Field items behave the same
+  way by the listing (probable): +40 max HP refused only at ≥ 999, +3 stat refused only at ≥ 99.
+  Map of all caps: docs/CAPS.md.
