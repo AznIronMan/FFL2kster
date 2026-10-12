@@ -116,6 +116,23 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("b")
     s.set_defaults(fn=cmd_diff)
 
+    def cmd_states(a):
+        from . import rom as rl
+        from .project import load_project
+        p = load_project(a.project)
+        if rl.sha256(rl.load_rom(a.rom)) != p.supported_sha256:
+            print("ROM does not match project's supported ROM", file=sys.stderr)
+            return 2
+        from .states import make_states
+        print(json.dumps(make_states(a.rom, a.out), indent=2))
+        return 0
+
+    s = sub.add_parser("make-states", help="regenerate test save states from cold boot (PyBoy)")
+    s.add_argument("--rom", default="input/original.gb")
+    s.add_argument("--project", default="project/project.json")
+    s.add_argument("--out", default="build/states")
+    s.set_defaults(fn=cmd_states)
+
     from . import analysis  # noqa: F401  registers analysis subcommands
     analysis.add_commands(sub)
     try:
