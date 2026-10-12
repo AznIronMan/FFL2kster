@@ -93,3 +93,16 @@
   0/1; script 7 checks 3).
 - `rules.py` mirrors the ROM's integer arithmetic and quirks (e.g. rand(0..0) returns a raw
   table byte), so the port can choose parity or a cleaned-up variant deliberately.
+
+## 2026-10-12 — Port direction (user decisions)
+
+- Platforms: single TypeScript web core; Tauri for Windows/macOS/Linux, Capacitor for iOS/Android,
+  PWA for browsers.
+- Fidelity: faithful core (original rules, RNG, 160×144, timing) with opt-in extras.
+- Assets: the engine ships with no game content; an in-app importer converts the user's ROM
+  (hash-checked) into the data package on first run.
+- First milestone: vertical slice (import → title → party creation → first town → world map →
+  battle → save/load).
+- Consequence (proposed, docs/PORT_PLAN.md): interpret the original event-script and calc-VM
+  bytecode at runtime over a WRAM-shaped state buffer; Python toolkit stays the reference and
+  parity oracle.
