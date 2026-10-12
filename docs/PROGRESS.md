@@ -1,4 +1,4 @@
-# Milestone 1 Progress
+# Progress
 
 Checklist derived from `GOAL.md` and the milestone-1 Definition of Done. Each
 item is checked only when its evidence (test output, diff, screenshot) has been
@@ -103,3 +103,19 @@ Fresh copy of the tracked tree + `input/original.gb` only, new venv, `pip instal
 - `tools/controlled_change.py`: identical results to the exploration run (15 cases, 4 controls clean).
 - `pytest -v`: **30 passed** (incl. 4 emulator acceptance tests) in 7.9 s.
 - Without the ROM: 28 skipped, 2 passed, 0 failed.
+
+
+## Milestones 2–7 (2026-10-12)
+
+| Milestone | Result | Key evidence |
+|---|---|---|
+| M2a items/abilities | done | item table, uses, prices; damage and equip effects by controlled change |
+| M2b meat/growth | done | measured matrix → formula 32,940/32,940; HP growth chance controlled change |
+| M3 text | done | 906 entries; 880/900 exact alignment; reinsertion visible in PyBoy |
+| M4 encounters/drops | done | formation edits visible; reward byte changes (no drop / 66 GP / meat) |
+| M5 maps/events | done | 212 maps; shop/chest/song events and collision by controlled change |
+| M6 graphics | done | monster art, tilesets, sprites, font |
+| M7 music | done (timbre open) | sequence decode, loop periods frame-exact in PyBoy |
+| Data package | done | `export-all` reproduces `data/` byte-for-byte; docs/PORT_READINESS.md |
+
+Test suite: 68 passed (56 fast + 12 emulator, ~11 s).

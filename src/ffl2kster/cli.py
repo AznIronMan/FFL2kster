@@ -156,6 +156,31 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--out", default="data/battle")
     s.set_defaults(fn=cmd_rules)
 
+    def cmd_export_all(a):
+        """Regenerate the whole processed data package from the user's ROM."""
+        import os
+        from . import rom as rl
+        from .schema import enemies as en, items as it
+        rom = rl.load_rom(a.rom)
+        sha = rl.sha256(rom)
+        strip = lambda rows: [{k: v for k, v in r.items() if k != "raw_record"} for r in rows]
+        os.makedirs("data", exist_ok=True)
+        (Path("data") / "monsters.json").write_text(json.dumps(
+            {"source_sha256": sha, "fields": [f.__dict__ for f in en.FIELDS],
+             "records": strip(en.extract(rom))}, indent=1) + "\n")
+        (Path("data") / "items.json").write_text(json.dumps(
+            {"source_sha256": sha, "records": it.extract(rom)}, indent=1) + "\n")
+        print("wrote data/monsters.json, data/items.json")
+        rc = 0
+        for argv in (["text-export"], ["encounters-export"], ["events-export"], ["music-export"],
+                     ["rules-export"]) + ((["maps-export"],) if os.path.isdir("build/maps") else ()):
+            rc |= main(argv + ["--rom", a.rom])
+        return rc
+
+    s = sub.add_parser("export-all", help="regenerate the full processed data package in data/")
+    s.add_argument("--rom", default="input/original.gb")
+    s.set_defaults(fn=cmd_export_all)
+
     from . import analysis  # noqa: F401  registers analysis subcommands
     analysis.add_commands(sub)
     from .schema import encounters, enemies, items, maps, text

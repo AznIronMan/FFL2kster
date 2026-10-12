@@ -3,10 +3,11 @@
 Private, local editor and patch compiler for *Final Fantasy Legend II* (USA) /
 *SaGa 2* on the original Game Boy. The output is a real, self-contained `.gb`.
 
-Version: `0.1.0`
-Status: **Milestone 1 complete**: one verified data domain (the 256-entry monster/enemy
-stats table), a hash-gated patch compiler, a SQLite project store, and an automated
-PyBoy original-vs-patched acceptance test. See `docs/PROGRESS.md`.
+Version: `0.2.0`
+Status: **Data gathering complete (milestones 1–7)**: monsters, items, battle/growth/meat
+rules (decoded bank-0C "calc VM"), encounters, text, events/scripts, maps, collision, shops,
+chests, graphics and music are decoded, exported to `data/` and backed by tests. See
+`docs/PORT_READINESS.md` (port planning input) and `docs/PROGRESS.md`.
 
 ## Bring your own ROM
 
@@ -40,6 +41,8 @@ python -m ffl2kster db-import                              # (re)import table + 
 python -m ffl2kster db-edit enemy 120 hp 200 --reason "..."
 python -m ffl2kster build --db project/ffl2kster.sqlite    # build from the database
 python -m ffl2kster make-states                            # regenerate PyBoy save states
+python -m ffl2kster export-all                             # regenerate the processed data package
+python -m ffl2kster items | text-export | events-export | music-export | rules-export
 python -m pytest                                           # all tests (emulator tests ~10 s)
 python -m pytest -m "not emu"                              # fast tests only
 ```
@@ -54,10 +57,13 @@ Editable enemy fields (verified): `hp`, `str`, `agl`, `mana`, `def`.
 ```text
 input/        original.gb (read-only, gitignored), optional .sav, reference/
 project/      project.json manifest + edit fixture, ffl2kster.sqlite, scratch/
-src/ffl2kster rom/header, build engine, schema/enemies, db, emu harness, states, CLI
+src/ffl2kster rom/header, build engine, schemas (enemies, items, text, encounters, maps), db,
+              calcvm (bank-0C VM decompiler), rules, events, music, emu harness, states, CLI
 tools/        reverse-engineering helpers (text decoder, scans, explorer, controlled changes)
 tests/        pytest suite incl. PyBoy acceptance test (marker: emu)
-docs/         ROM_MAP.md, FINDINGS.md, DECISIONS.md, PROGRESS.md
+docs/         ROM_MAP.md, FINDINGS.md, DECISIONS.md, PROGRESS.md, BATTLE_RULES.md,
+              EVENTS.md, MUSIC.md, PORT_READINESS.md
+data/         processed data package (see data/README.md)
 build/        generated output only (ROMs, states, analysis, test-artifacts/)
 ```
 
@@ -70,6 +76,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `0.2.0` — Milestones 2–7: items, text (6 tables), encounters, rewards/drops, meat formula,
+  growth, calc-VM decompiler and rules, event system (scripts, shops, chests, music events),
+  maps/NPCs/collision, graphics, font, music→MIDI; `export-all`; port-readiness summary.
 - `0.1.0` — Milestone 1: enemy table schema (verified), patch compiler with semantic diff
   report, SQLite project store, deterministic PyBoy save-state generator, acceptance test.
 - `0.0.3` — Clarified raw vs processed game-data policy.

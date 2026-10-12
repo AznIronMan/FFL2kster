@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ffl2kster"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local editor and patch compiler for Final Fantasy Legend II (USA) on Game Boy"
 requires-python = ">=3.10"
 dependencies = []
