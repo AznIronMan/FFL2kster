@@ -7,6 +7,12 @@ compact storage). Per trace directory build/traces/NAME:
   screens.dx.gz 160x144 shade bytes per frame, each XORed with the previous frame, gzip
   waits.dx.gz   machine 8000-FFFF where every rst $10 ends (00:00E4, vblank), each XORed with the previous
                 one (the first with start.bin), gzip; waits.json lists the frame of each.
+  marks.bin     with marks=[(bank, addr)]: machine 8000-FFFF each time the CPU reaches a mark after the
+                start (marks.json: frame, waits recorded before it, address, registers); with
+                stop_after=N the recording ends N frames after the first mark.
+  With switch=[((bank, addr), steps), ...]: the first time the CPU reaches one of those addresses
+  after the start, the rest of the button plan is replaced by its STEPS (a later switch replaces
+  an earlier one; the frames actually played are what trace.json lists).
 The emulator is reused across traces (`Recorder`), so a sweep runs in one process."""
 import gzip, json, os, sys
 import numpy as np
@@ -35,7 +41,8 @@ class Recorder:
     def close(self):
         self.e.__exit__(None, None, None)
 
-    def record(self, name, state, steps, hook=(0, 0x1A43), pokes=(), plan="", max_pre=3000, meta=None):
+    def record(self, name, state, steps, hook=(0, 0x1A43), pokes=(), plan="", max_pre=3000, meta=None,
+               marks=(), stop_after=None, switch=None):
         """Load STATE, run to HOOK (apply POKES there, snapshot), then one button set per frame."""
         pb = self.pb
         out = f"build/traces/{name}"
@@ -65,8 +72,33 @@ class Recorder:
                 armed[0] = False
                 waits.append(bytes(pb.memory[0x8000:0x10000]))
                 wait_frames.append(nframes[0])
+        mark_mem, mark_meta = bytearray(), []
+
+        def mk_mark(bank, addr):
+            def at_mark(_):
+                if not start:
+                    return
+                r = pb.register_file
+                mark_mem.extend(bytes(pb.memory[0x8000:0x10000]))
+                mark_meta.append({"frame": nframes[0], "waits": len(wait_frames), "at": f"{bank:02X}:{addr:04X}",
+                                  "regs": {"a": r.A, "f": r.F, "b": r.B, "c": r.C, "d": r.D, "e": r.E, "hl": r.HL}})
+            return at_mark
+        switch = list(switch or [])
+        switched = []  # [frame, steps] of the latest switch
+
+        def mk_switch(i):
+            def at_switch(_):
+                if start and i not in fired:
+                    fired.add(i)
+                    switched[:] = [nframes[0], switch[i][1]]
+            return at_switch
+        fired = set()
         hb, ha = hook
         pb.hook_register(hb, ha, cb, None)
+        for i, ((sb, sa), _st) in enumerate(switch):
+            pb.hook_register(sb, sa, mk_switch(i), None)
+        for mb, ma in marks:
+            pb.hook_register(mb, ma, mk_mark(mb, ma), None)
         pb.hook_register(0, 0x00D9, arm, None)
         pb.hook_register(0, 0x00E4, at_halt, None)
         try:
@@ -79,7 +111,18 @@ class Recorder:
                 raise RuntimeError(f"{name}: hook {hb:02X}:{ha:04X} not reached")
             prev = LUT[np.asarray(pb.screen.ndarray)[:, :, 0]].tobytes()  # last frame before the hook
             screens, hram, frames, held = [], bytearray(), [], set()
-            for b in steps:
+            si = 0
+            while True:
+                if switched:
+                    j = si - switched[0]
+                    if j >= len(switched[1]):
+                        break
+                    b = switched[1][j]
+                elif si < len(steps):
+                    b = steps[si]
+                else:
+                    break
+                si += 1
                 want = set() if b == "none" else set(b.split("+"))
                 for k in held - want:
                     pb.button_release(k)
@@ -93,11 +136,22 @@ class Recorder:
                 hram += bytes(m[0xFF80:0x10000])
                 frames.append({"btn": b, "ff89": m[0xFF89], "ff8a": m[0xFF8A],
                                "lcd": [m[0xFF40], m[0xFF42], m[0xFF43], m[0xFF4A], m[0xFF4B], m[0xFF47], m[0xFF48], m[0xFF49]]})
+                if stop_after is not None and mark_meta and len(frames) >= mark_meta[0]["frame"] + stop_after:
+                    break
             for k in held:
                 pb.button_release(k)
         finally:
             pb.hook_deregister(0, 0x00D9)
             pb.hook_deregister(0, 0x00E4)
+            for mb, ma in marks:
+                pb.hook_deregister(mb, ma)
+            for (sb, sa), _st in switch:
+                pb.hook_deregister(sb, sa)
+        if marks:
+            open(f"{out}/marks.bin", "wb").write(bytes(mark_mem))
+            json.dump({"marks": mark_meta}, open(f"{out}/marks.json", "w"))
+        elif os.path.exists(f"{out}/marks.json"):
+            os.replace(f"{out}/marks.json", f"{out}/marks.json.old")
         open(f"{out}/start.bin", "wb").write(start["mem"])
         open(f"{out}/hram.bin", "wb").write(bytes(hram))
         open(f"{out}/prev.bin", "wb").write(prev)

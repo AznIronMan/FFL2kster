@@ -22,6 +22,9 @@ export interface VmHooks {
 export type VmNatives = (addr: number, mem: Memory) => Co<unknown>;
 
 export class CalcVm {
+  /** Statement addresses executed (bank 0C), collected while `CalcVm.coverage` is set (parity
+   *  sweeps: which effect handlers and script paths ran). */
+  static coverage: Set<number> | null = null;
   steps = 0;
   constructor(readonly mem: Memory, readonly hooks: VmHooks = {}, readonly maxSteps = 200_000) {}
 
@@ -95,6 +98,7 @@ export class CalcVm {
     const m = this.mem;
     {
       if (++this.steps > this.maxSteps) throw new Error("calc VM step limit");
+      CalcVm.coverage?.add(pc);
       const op = m.rd(pc), code = op & 0x1f, mode = (op >> 5) & 7;
       if (code === 0x1f) return -1;
       switch (code) {
@@ -220,6 +224,7 @@ export class CalcVm {
         let sign = m.rd(ACC + 2);
         this.negate(ACC + 2);
         sign ^= m.rd(OPR + 2);
+        m.wr(0xc1ab, sign); // 0C:4264 / 0C:42CD keep the result sign in C1AB
         this.negate(OPR + 2);
         const a = m.rd16(ACC), b = m.rd16(OPR);
         if (code === 0x01) {

@@ -88,6 +88,13 @@ export interface BattleReplayOptions {
   /** Stop at the first divergent wait (default false: keep going to the end or an error). */
   stopAtDivergence?: boolean;
   watch?: (wait: number, frame: number, exp: Uint8Array, got: Uint8Array) => void;
+  /** CPU-time pauses: between two waits the original may spend frames in code without changing
+   *  the picture (e.g. a long calc-VM computation before a polled raster effect), where the port
+   *  spends none. With this option a frame whose screen differs is matched against a later
+   *  trace frame of the same stretch when every trace frame skipped repeats the picture shown
+   *  before (a pause); the delay holds until the next wait, where the machine is compared
+   *  exactly again. Only the original may pause, and only on an unchanged picture. */
+  pauses?: boolean;
   /** Called for every compared frame with the port's and the trace's screen (debugging). */
   onScreen?: (frame: number, got: Uint8Array, exp: Uint8Array) => void;
 }
@@ -112,11 +119,18 @@ export interface BattleReplay {
   tickPhase: number;
   rephased: number;
   rephasedJoy: number;
+  /** Trace frames skipped as CPU-time pauses of the original (option `pauses`). */
+  paused: number;
 }
 
 /** Blink timer and joypad repeat re-phasing, as in replay.ts / menuharness.ts. */
 const BLINK = new Set([0xc7c6, 0xc7c7, 0xd6c1, 0xd6c2]);
 const JOY = new Set([0xc774, 0xc775]);
+/** Joypad history C770-C773 and FF89/FF8A with the repeat state and the blink timer: when a
+ *  long code segment (victory: write-back, growth) ends near a frame boundary, the original's
+ *  frame tick may sample the buttons once more or less before its next wait depending on CPU
+ *  time (as in sweep.test.ts JOYPAD). Re-phased when they are the only difference at a wait. */
+const JOYPAD = new Set([0xc770, 0xc771, 0xc772, 0xc773, 0xff89, 0xff8a, 0xc774, 0xc775]);
 
 /** C0E1/C0E2: 00:033F (16-bit division, used by the calc VM) saves the SM83 stack pointer there
  *  (restored through the RAM stub C0E0 `ld sp,nnnn`); like the call stack (replay.ts STACK) it
@@ -178,6 +192,8 @@ export function replayBattle(name: string, mods: BattleModules, opts: BattleRepl
   const diffs: FrameDiff[] = [], waits: WaitDiff[] = [];
   let nWaits = 0, f = -1, tickPhase = 0, frames = 0, rephased = 0, rephasedJoy = 0, lastRephase = -2, matched = -1;
   let pre: Uint8Array | null = null, error: string | undefined;
+  let delay = 0, delayWait = -1, paused = 0;
+  const scr = (k: number) => t.screens.subarray(k * FRAME_BYTES, (k + 1) * FRAME_BYTES);
   const btn = (k: number) => buttonBits(t.meta.frames[Math.min(Math.max(k, 0), n - 1)]!.btn);
   // Busy frames (frames the original spent without waiting) are run after the code segment, with
   // their own trace frames' buttons; the frame of the wait itself then gets its buttons back
@@ -217,7 +233,7 @@ export function replayBattle(name: string, mods: BattleModules, opts: BattleRepl
       lastRephase = i;
       diff = [];
     }
-    if (diff.length && diff.every((a) => JOY.has(a))) {
+    if (diff.length && diff.every((a) => JOYPAD.has(a) || BLINK.has(a)) && diff.some((a) => JOYPAD.has(a))) {
       for (const a of diff) m.wr(a, exp[a - 0x8000]!);
       rephasedJoy++;
       diff = [];
@@ -235,12 +251,25 @@ export function replayBattle(name: string, mods: BattleModules, opts: BattleRepl
       break;
     }
     if (opts.stopAtDivergence && waits.length) break;
+    // A trace that ends before the battle returns (no mark) is compared up to its last wait: the
+    // original's next wait lies beyond the recording, so frames after it are not placed.
+    if (!mark && wf.length && nWaits >= wf.length) break;
     if (rig.g.done || f < 0 || f >= n || f >= lastFrame) continue;
     if (nWaits < wf.length && wf[nWaits] === f) continue;
     frames++;
-    const expScreen = t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES);
+    if (delayWait !== nWaits) { delay = 0; delayWait = nWaits; }
+    const next = nWaits < wf.length ? wf[nWaits]! : lastFrame;
+    if (delay && f + delay >= next) continue; // beyond the stretch: not placed
+    let expScreen = scr(f + delay);
+    let pixels = screenDiff(rig.ppu.frame, expScreen);
+    if (pixels && opts.pauses && f + delay > 0) {
+      const shown = scr(f + delay - 1);
+      for (let d = delay + 1; f + d < next; d++) {
+        if (screenDiff(scr(f + d - 1), shown)) break; // the skipped frame changed the picture
+        if (!screenDiff(rig.ppu.frame, scr(f + d))) { paused += d - delay; delay = d; expScreen = scr(f + d); pixels = 0; break; }
+      }
+    }
     opts.onScreen?.(f, rig.ppu.frame, expScreen);
-    const pixels = screenDiff(rig.ppu.frame, expScreen);
     if (pixels) diffs.push({ frame: f, pixels, wram: [], vram: [], oam: [], hram: [] });
   }
   const end: [number, number, number][] = [];
@@ -251,7 +280,7 @@ export function replayBattle(name: string, mods: BattleModules, opts: BattleRepl
   dumpCoverage(name, rig);
   return {
     trace: t, installed, missing: mods.missing, nWaits, expectedWaits: wf.length, matchedWaits: matched < 0 ? nWaits : matched,
-    waits, diffs, frames, error, returned: endSnap !== null, end, tickPhase, rephased, rephasedJoy,
+    waits, diffs, frames, error, returned: endSnap !== null, end, tickPhase, rephased, rephasedJoy, paused,
   };
 }
 
@@ -262,7 +291,7 @@ export function battleReport(r: BattleReplay): string {
   return [
     `${r.trace.name}: installed [${r.installed.join(", ")}]${r.missing.length ? `, missing [${r.missing.join(", ")}]` : ""}`,
     `waits: engine ${r.nWaits}, trace ${r.expectedWaits}, matched before the first divergence ${r.matchedWaits}` +
-      ` (tick phase ${r.tickPhase}, blink ${r.rephased}, joypad ${r.rephasedJoy})`,
+      ` (tick phase ${r.tickPhase}, blink ${r.rephased}, joypad ${r.rephasedJoy}${r.paused ? `, paused ${r.paused}` : ""})`,
     r.waits.length ? `divergent waits (${r.waits.length}): ${r.waits.slice(0, 12).map((x) => `${x.wait}@${x.frame}[${x.diff.slice(0, 6).map(hx).join(",")}${x.diff.length > 6 ? ",…" : ""}]`).join(" ")}` : "all waits match",
     w ? `first divergent wait ${w.wait} (trace frame ${w.frame}): ${w.values.slice(0, 12).map(([a, e, g]) => `${hx(a)}:${hx(e)}/${hx(g)}`).join(" ")}${w.diff.length > 12 ? ` +${w.diff.length - 12}` : ""}` : "no divergent wait",
     r.diffs.length ? `first screen difference: frame ${r.diffs[0]!.frame} (${r.diffs[0]!.pixels} px); ${r.diffs.length} frames differ of ${r.frames}` : `screens: ${r.frames} frames identical`,

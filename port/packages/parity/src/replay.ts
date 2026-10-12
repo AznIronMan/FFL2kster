@@ -1,7 +1,7 @@
 /** Replay a PyBoy trace through the field engine and compare every frame. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { VSYNC, SoftReset } from "@ffl2k/core";
+import { VSYNC, SoftReset, CalcVm } from "@ffl2k/core";
 import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, tickInFrame, ROOT, type Trace } from "./index.js";
 
 export interface WaitDiff {
@@ -102,11 +102,14 @@ export function lateWrite(got: Uint8Array, exp: Uint8Array, prev: Uint8Array): b
 
 /** With COVERAGE=1, write the ops the engine ran (text control codes, field events) to
  *  build/sweep/cov/<trace>.json (tools/sweep_coverage.py aggregates). */
+if (process.env.COVERAGE) CalcVm.coverage = new Set();
+
 export function dumpCoverage(name: string, rig: Rig): void {
   if (!process.env.COVERAGE) return;
   const dir = resolve(ROOT, "build/sweep/cov");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(resolve(dir, `${name}.json`), JSON.stringify({ text: rig.engine.text.coverage, field: rig.engine.field.coverage }));
+  writeFileSync(resolve(dir, `${name}.json`), JSON.stringify({ text: rig.engine.text.coverage, field: rig.engine.field.coverage, vm: CalcVm.coverage ? [...CalcVm.coverage].sort((x, y) => x - y) : [] }));
+  if (CalcVm.coverage) CalcVm.coverage = new Set();
 }
 
 export function replayField(name: string, opts: ReplayOptions = {}): { trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number; rephased: number; rasterEdges: number; lateWrites: number; error?: { message: string; wait: number } } {
