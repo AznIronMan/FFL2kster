@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ffl2kster"
+version = "0.0.3"
+description = "Local editor and patch compiler for Final Fantasy Legend II (USA) on Game Boy"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+emu = ["pyboy>=2.8", "numpy", "pillow"]
+dev = ["pytest>=7", "pyboy>=2.8", "numpy", "pillow"]
+
+[project.scripts]
+ffl2kster = "ffl2kster.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+markers = ["emu: requires PyBoy emulator and save states (slow)"]
