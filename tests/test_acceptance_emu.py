@@ -231,3 +231,32 @@ def test_chest_and_sound_events_controlled_change(setup):
     assert base[0x2B9:0x2BB] == b"\xff\xff" and chest[0x2B9:0x2BB] == bytes([0x2A, rom[0x33E80 + 0x2A]])
     _, _, _, snd = shop_probe.run(0x05, st, rp, kind=7, ram=True)
     assert base[0x31A] == 0x0A and snd[0x31A] == 0x05
+
+
+def test_music_timing_matches_decoded_sequences(setup):
+    """Loop period of each channel observed in the driver (CB04/CB1C/CB34) equals
+    length_ticks / (2·tempo/256) frames (song 7: 1404 / 1415 / 1404)."""
+    from ffl2kster import music
+    rom = setup["rom"].read_bytes()
+    s = music.parse_song(rom, 7)
+    pred = [round(c["length_ticks"] / (2 * music.tempo(s) / 256)) for c in s["channels"]]
+    with Emulator(setup["rom"]) as e:
+        e.load_state(setup["so_dir"] if "so_dir" in setup else setup["tmp"] / "states_orig" / "first_town.state")
+        pb = e.pb
+        pb.memory[0xFFB0] = 0; pb.tick(30, False); pb.memory[0xFFB0] = 7
+        start, hit, near = None, [None] * 3, [False] * 3
+        for f in range(1900):
+            pb.tick(1, False)
+            if start is None and pb.memory[0xFFB3] == 7:
+                start = f
+            if start is None:
+                continue
+            for c, a in enumerate((0xCB04, 0xCB1C, 0xCB34)):
+                p = pb.memory[a] | pb.memory[a + 1] << 8
+                ch = s["channels"][c]
+                if hit[c] is None:
+                    if p >= ch["loop_at"] - 3:
+                        near[c] = True
+                    elif near[c] and ch["loop_to"] <= p < ch["loop_to"] + 6:
+                        hit[c] = f - start
+    assert hit == pred

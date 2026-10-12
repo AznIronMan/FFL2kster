@@ -348,3 +348,10 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
 - Chests: kinds 9/0B (item, default uses 0C:7E80) and 0A (MAGI): 230 placements — probable.
 - `rst $20` DE mapping corrected: d = 0 → story[e] (bank 0B), d ≥ 1 → field[(d−1)·256+e] (bank 0A),
   battle → battle[D90C].
+
+## 2026-10-12 — Music sequence format (M7)
+
+- Sequence format, command set and timing fully decoded (docs/MUSIC.md). All 19 songs parse; the
+  loop periods predicted from the decode equal the driver's observed periods frame-exactly
+  (songs 2 and 7). Export: 19 MIDI files + songs.json (`music-export`).
+- Map music is set by event kind 7 (`sound`) from triggers/objects/scripts (docs/EVENTS.md).
