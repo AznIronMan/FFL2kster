@@ -24,3 +24,8 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBReq
 export const savePackage = (p: DataPackage) => tx("readwrite", (s) => s.put(p, KEY));
 export const loadPackage = () => tx<DataPackage | undefined>("readonly", (s) => s.get(KEY));
 export const clearPackage = () => tx("readwrite", (s) => s.delete(KEY));
+
+const SRAM_KEY = "sram";
+/** Battery RAM (the game's save slots), kept on this device only. */
+export const saveSram = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, SRAM_KEY));
+export const loadSram = () => tx<Uint8Array | undefined>("readonly", (s) => s.get(SRAM_KEY));

@@ -9,7 +9,7 @@ import { exportMaps } from "./maps.js";
 import { songSummary, instruments, sfx, parseSong, NSONGS } from "./music.js";
 import { vramBg, monsterGraphic, spritePage } from "./gfx.js";
 
-export const PACKAGE_FORMAT = 1;
+export const PACKAGE_FORMAT = 2;
 /** ROM banks kept as read-only data segments for the engine (tables, graphics, layouts 08/09, scripts
  *  0A/0B, calc VM 0C, music 0E, dictionary/phrases/RNG 0F). Stored only on the user's device. */
 export const SEGMENT_BANKS = Array.from({ length: 16 }, (_, i) => i);

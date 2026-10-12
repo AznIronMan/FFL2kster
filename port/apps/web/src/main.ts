@@ -2,6 +2,8 @@
  *  summary plus a graphics check. Game screens arrive in P1 (vertical slice). */
 import { checkRom, importRom, decodeTile, type DataPackage } from "@ffl2k/importer";
 import { clearPackage, loadPackage, savePackage } from "./storage";
+import { Player } from "./player";
+import { PACKAGE_FORMAT } from "@ffl2k/importer";
 
 const app = document.getElementById("app")!;
 const SHADES = [[255, 255, 255], [170, 170, 170], [85, 85, 85], [0, 0, 0]] as const;
@@ -81,17 +83,39 @@ function showSummary(pkg: DataPackage) {
   };
   pick.oninput = draw;
   draw();
+  const play = el("button", { class: "primary" }, "Play");
+  play.onclick = () => showPlayer(pkg);
   const reset = el("button", {}, "Remove game data from this device");
   reset.onclick = async () => { await clearPackage(); showImporter("Game data removed."); };
   app.replaceChildren(
     el("h1", {}, "FFL2kster"),
-    el("p", { class: "lead" }, "Game data is ready on this device. Gameplay arrives in the next milestone; for now you can inspect what was imported."),
+    el("p", { class: "lead" }, "Game data is ready on this device."),
+    el("section", { class: "panel" }, el("div", { class: "row" }, play, el("span", { class: "muted" }, "Arrows move, Z = A, X = B, Enter = Start, Shift = Select. Gamepads work too."))),
     el("section", { class: "panel" }, dl),
     el("section", { class: "panel" }, el("div", { class: "row" }, "Monster graphic #", pick), view),
     el("section", { class: "panel" }, reset),
   );
 }
 
-const existing = await loadPackage().catch(() => undefined);
-if (existing) showSummary(existing);
-else showImporter();
+function showPlayer(pkg: DataPackage) {
+  const canvas = el("canvas", { class: "pixel screen" }) as HTMLCanvasElement;
+  const status = el("p", { class: "muted" }, "");
+  const back = el("button", {}, "Back");
+  back.onclick = () => location.reload();
+  app.replaceChildren(el("div", { class: "player" }, canvas), el("div", { class: "row" }, back, status));
+  const player = new Player(pkg, { canvas, onStatus: (msg) => { status.textContent = msg; } });
+  void player.start();
+}
+
+// ?rom=<url>: import a ROM the user serves themselves (testing convenience; nothing is uploaded).
+const romUrl = new URLSearchParams(location.search).get("rom");
+if (romUrl) {
+  const r = await fetch(romUrl);
+  const status = el("p", {});
+  app.replaceChildren(el("h1", {}, "FFL2kster"), status);
+  await handle(new File([await r.arrayBuffer()], "rom.gb"), status);
+}
+
+const existing = romUrl ? await loadPackage() : await loadPackage().catch(() => undefined);
+if (existing && existing.format === PACKAGE_FORMAT) showSummary(existing);
+else showImporter(existing ? "The game data format changed; please choose your ROM again to rebuild it." : undefined);
