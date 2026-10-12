@@ -334,7 +334,7 @@ export class TextEngine {
 
   /** 00:0A2B — draw a w x h frame into the window buffer (C800, D000 when C799); returns the
    *  position after the last byte. Tiles F7-FF: corners and edges. */
-  private drawFrame(w: number, h: number): number {
+  drawFrame(w: number, h: number): number {
     const m = this.m;
     let hl = m.rd(0xc799) ? 0xd000 : 0xc800;
     const inner = (w - 2) & 0xff;
@@ -360,7 +360,7 @@ export class TextEngine {
   }
 
   /** 00:0AC2 — copy the window buffer (w x h) to the BG map at de, then window on at WY C7A5. */
-  private *blit(de: number, w: number, h: number): Co {
+  *blit(de: number, w: number, h: number): Co {
     const m = this.m;
     const src = m.rd(0xc799) ? 0xd000 : 0xc800;
     yield* this.copyRect(src, de, w, h);
@@ -371,7 +371,7 @@ export class TextEngine {
   }
 
   /** 00:0AF3 — copy h rows of w bytes from hl to de (stride 32) inside a VRAM access window. */
-  private *copyRect(hl: number, de: number, w: number, h: number): Co {
+  *copyRect(hl: number, de: number, w: number, h: number): Co {
     const m = this.m;
     yield* vramBegin(this.g);
     for (let r = 0; r < h; r++) {
@@ -384,7 +384,7 @@ export class TextEngine {
 
   /** 00:0A5C — after a window message: copy the buffer to the screen at (C79B, C79C) of 9C00
    *  (sliding windows C79A copy their visible part from C7C8 first). */
-  private *blitWindow(): Co {
+  *blitWindow(): Co {
     const m = this.m;
     if (m.rd(0xc7d2) & 1) return;
     const de = 0x9c00 + m.rd(0xc79b) + 32 * m.rd(0xc79c);
@@ -1350,6 +1350,7 @@ export function spriteTick(m: Memory): void {
 export function statusIndex(m: Memory, v: number): number {
   for (let i = 0; i < 8; i++) {
     const bit = m.romAt(0x0f, 0x4238 + i);
+    m.wr(0xc0ea, (((bit & 7) << 3) | 0x47) & 0xff); // 00:0504
     if ((v >> (bit & 7)) & 1) return (bit + 1) & 0xff;
   }
   return 0;

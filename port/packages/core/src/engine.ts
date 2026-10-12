@@ -8,6 +8,10 @@ import { FieldEngine, type FieldCalls } from "./field/loop.js";
 import { installRasterHandlers } from "./field/effects.js";
 import { loadPlayerTiles, playerSpriteSource, loadObjectTiles, drawPlayer } from "./field/sprites.js";
 import { TextEngine, spriteTick, type Regs } from "./text/engine.js";
+import { Bank1 } from "./menu/bank1.js";
+import { enterField, saveFieldPosition } from "./field/load.js";
+import { fill, copy, copyBank } from "./sys.js";
+import { vramBegin, vramEnd } from "./field/sprites.js";
 
 export class NotPorted extends Error {
   constructor(what: string) {
@@ -21,6 +25,7 @@ export class Engine {
   readonly g: Game;
   readonly field: FieldEngine;
   readonly text: TextEngine;
+  readonly bank1: Bank1;
   /** Overrides for routines not ported yet (tests stub them). */
   readonly extra = new Map<number, (e: Engine, regs: Regs) => Co<number | void>>();
 
@@ -43,6 +48,68 @@ export class Engine {
         throw new SoftReset();
       },
     });
+    this.bank1 = new Bank1(this.g, this.text, { saveFieldPosition: (g) => saveFieldPosition(g.m) });
+  }
+
+  /** 00:0200 — power-on / reset, then the title (01:500F) and the field (00:1900 new game,
+   *  00:1903 continue). */
+  *main(): Co {
+    yield* this.boot();
+    yield* this.fromTitle();
+  }
+
+  /** From the title screen on (traces start here). */
+  *fromTitle(): Co {
+    const m = this.g.m;
+    m.selectBank(0x01);
+    const cont = yield* this.bank1.title();
+    yield* enterField(this.g, this.rom, cont);
+    yield* this.field.loop();
+  }
+
+  /** 00:0200 — clear RAM (keeping the RNG counters C0A0-C0FF over a warm reset), seed the RNG
+   *  counters from DIV on a cold start, set up vectors and load the shared tiles. */
+  *boot(): Co {
+    const m = this.g.m, g = this.g;
+    m.wr(0xff40, 0x80);
+    m.io[0x0f] = 0;
+    m.hram[0x7f] = 0;
+    for (const r of [0x41, 0x47, 0x48, 0x49, 0x43, 0x42]) m.wr(0xff00 | r, 0);
+    const warm = m.rd(0xc776) === 0x1b && m.rd(0xc777) === 0xe4 ? 1 : 0;
+    fill(m, 0xc000, 0xa0, 0);
+    fill(m, 0xc100, 0xd00, 0);
+    fill(m, 0xcf00, 0x1100, 0);
+    fill(m, 0xff80, 0x7f, 0);
+    m.wr(0xc776, 0x1b);
+    m.wr(0xc777, 0xe4);
+    m.wr(0xc778, warm);
+    if (!warm) {
+      let a = m.io[0x04]!;
+      for (let i = 0; i < 0x40; i++) m.wr(0xc0a0 + i, a++);
+    }
+    m.wr(0xc779, 0xa0);
+    m.wr(0xc77a, 0xcc);
+    copy(m, 0x00f2, 0xff80, 8);
+    copy(m, 0x00e6, 0xc0e0, 0x0c);
+    this.g.hooks.soundInit?.(g);
+    m.io[0x45] = 0;
+    m.io[0x0f] = 0;
+    m.hram[0x7f] = 0x03;
+    m.wr(0xff41, 0x40);
+    m.wr(0xc703, 0xc3); m.wr(0xc704, 0xdf); m.wr(0xc705, 0x16);
+    m.wr(0xc706, 0xc3); m.wr(0xc707, 0xd9); m.wr(0xc708, 0x16);
+    m.selectBank(0x03);
+    yield* vramBegin(g);
+    copyBank(m, 0x03, 0x7f00, 0x8700, 0x100);
+    yield* vramEnd(g);
+    m.selectBank(0x04);
+    yield* vramBegin(g);
+    copyBank(m, 0x04, 0x4800, 0x8800, 0x800);
+    yield* vramEnd(g);
+    m.wr(0x0000, 0x0a);
+    if (!(m.rd(0xa781) === 0x1b && m.rd(0xa782) === 0xe4)) m.wr(0xa780, 1);
+    m.wr(0x0000, 0);
+    for (let k = 0; k < 4; k++) fill(m, 0xc200 + 0x20 * k, 4, 0xff);
   }
 
   /** Call a routine by original address. */
@@ -51,6 +118,8 @@ export class Engine {
     if (x) return yield* x(this, regs);
     const m = this.g.m;
     switch (addr) {
+      case 0x1500c: return yield* this.bank1.menu.run();
+      case 0x15006: return yield* this.bank1.companions();
       case 0x1906: return yield* this.field.sequence(regs.hl ?? 0);
       case 0x1909: return yield* this.field.refreshNpcs();
       case 0x1915: // 00:1B5F — rebuild the field, then bank 0D

@@ -105,15 +105,24 @@ export function sampleJoypad(m: Memory, held: number): boolean {
 
 // ---------------------------------------------------------------- bits, flags, variables
 
+/** 00:0504 / 050B / 0512 — bit test/set/reset through the self-modified opcode at C0EA
+ *  (CB 47 + 8 b: bit; CB C7: set; CB 87: res). The opcode byte stays in RAM. */
+export function bitOp(m: Memory, op: 0x47 | 0xc7 | 0x87, b: number): void {
+  m.wr(0xc0ea, (((b & 7) << 3) | op) & 0xff);
+}
+
 /** 00:062E — memo/flag bit n lives in C306 + n/8, bit n%8. */
 export function flagTest(m: Memory, n: number): boolean { // 00:0615
+  bitOp(m, 0x47, n);
   return ((m.rd(0xc306 + (n >> 3)) >> (n & 7)) & 1) !== 0;
 }
 export function flagSet(m: Memory, n: number): void { // 00:0621
+  bitOp(m, 0xc7, n);
   const a = 0xc306 + (n >> 3);
   m.wr(a, m.rd(a) | (1 << (n & 7)));
 }
-export function flagClear(m: Memory, n: number): void { // 00:0B5B path (0512 = res)
+export function flagClear(m: Memory, n: number): void { // 0512 = res
+  bitOp(m, 0x87, n);
   const a = 0xc306 + (n >> 3);
   m.wr(a, m.rd(a) & ~(1 << (n & 7)));
 }
@@ -123,13 +132,16 @@ function bit2Addr(d: number, e: number): number {
   return 0xc31d + ((2 * d) & 0xff) + ((e & 8) ? 1 : 0);
 }
 export function bit2Test(m: Memory, d: number, e: number): boolean { // 00:066E
+  bitOp(m, 0x47, e);
   return ((m.rd(bit2Addr(d, e)) >> (e & 7)) & 1) !== 0;
 }
 export function bit2Set(m: Memory, d: number, e: number): void { // 00:0B50 (050B = set)
+  bitOp(m, 0xc7, e);
   const a = bit2Addr(d, e);
   m.wr(a, m.rd(a) | (1 << (e & 7)));
 }
 export function bit2Clear(m: Memory, d: number, e: number): void { // 00:0B5B (0512 = res)
+  bitOp(m, 0x87, e);
   const a = bit2Addr(d, e);
   m.wr(a, m.rd(a) & ~(1 << (e & 7)));
 }

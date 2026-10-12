@@ -42,10 +42,14 @@ def main():
     frames, screens, wram, vram, oam, hram = [], bytearray(), bytearray(), bytearray(), bytearray(), bytearray()
     with Emulator("input/original.gb") as e:
         pb = e.pb
-        st = state if "/" in state else f"build/states/{state}.state"
-        e.load_state(st)
+        if state != "boot":  # "boot": from power-on
+            st = state if "/" in state else f"build/states/{state}.state"
+            e.load_state(st)
         hb, ha = (int(x, 16) for x in hook.split(":"))
         start = {}
+        frames_ref = frames
+        waits, wait_frames = bytearray(), []
+        armed = [False]
 
         def cb(_):
             if start:
@@ -55,8 +59,21 @@ def main():
             start["mem"] = bytes(pb.memory[0x8000:0x10000])
             start["frame"] = pb.frame_count
             start["ly"] = pb.memory[0xFF44]
+
+        # Frame waits are recorded from the start snapshot on, including those in the same tick.
+        def arm(_):
+            if start:
+                armed[0] = True
+
+        def at_halt(_):
+            if armed[0]:
+                armed[0] = False
+                waits.extend(bytes(pb.memory[0x8000:0x10000]))
+                wait_frames.append(len(frames_ref))
         pb.hook_register(hb, ha, cb, None)
-        for _ in range(600):
+        pb.hook_register(0, 0x00D9, arm, None)
+        pb.hook_register(0, 0x00DE, at_halt, None)  # first instruction after the halt wakes
+        for _ in range(3000):
             pb.tick(1, False)
             if start:
                 break
@@ -64,19 +81,6 @@ def main():
         if not start:
             raise SystemExit(f"hook {hook} not reached")
         open(f"{out}/start.bin", "wb").write(start["mem"])
-        waits, wait_frames = bytearray(), []
-        armed = [False]
-
-        def arm(_):
-            armed[0] = True
-
-        def at_halt(_):
-            if armed[0]:
-                armed[0] = False
-                waits.extend(bytes(pb.memory[0x8000:0x10000]))
-                wait_frames.append(len(frames))
-        pb.hook_register(0, 0x00D9, arm, None)
-        pb.hook_register(0, 0x00DE, at_halt, None)  # first instruction after the halt wakes
         held = set()
         for b in steps:
             want = set() if b == "none" else set(b.split("+"))

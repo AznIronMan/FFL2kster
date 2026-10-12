@@ -26,6 +26,11 @@ export class Game {
   readonly m: Memory;
   /** Buttons physically held this frame (BTN bits). */
   buttons = 0;
+  /** Interrupt master enable (the original's di/ei); off: no vblank or STAT handlers. */
+  ime = true;
+  /** Per-line hook installed by code that writes registers at given lines while polling LY
+   *  with interrupts off (e.g. the title intro's palette bands); runs before STAT handling. */
+  lineHook: ((ly: number) => void) | null = null;
   frame = 0;
   /** STAT interrupt handlers by original address (target of the jp at C706). */
   readonly statHandlers = new Map<number, LineHandler>();
@@ -35,6 +40,11 @@ export class Game {
   onFrameDone: (() => void) | null = null;
   /** Called right after the game code reaches a frame wait, before the frame's lines. */
   onWait: ((kind: number | void) => void) | null = null;
+  /** Frames to spend before the next wait completes, as if the CPU were still busy (the
+   *  original spends frames in CPU-bound stretches such as layout drawing). Set from onWait;
+   *  onBusyFrame(k) is called before each. */
+  busyFrames = 0;
+  onBusyFrame: ((k: number) => void) | null = null;
   /** Called for each frame wait of the game code (with the yielded marker), after the line-0
    *  tick — the state the original has when halted in rst $10. */
   onYield: ((kind: number | void) => void) | null = null;
@@ -45,6 +55,7 @@ export class Game {
     statFfa5?: (g: Game) => void; // 01:5033 when FFA5 != 0
     spriteTickFf96?: (g: Game) => void; // 00:176C when FF96 != 0
     softReset?: (g: Game) => void; // A+B+Select+Start
+    soundInit?: (g: Game) => void; // 0E:4003
   } = {};
   private main: Co | null = null;
   /** Set when the main coroutine returned (or threw). */
@@ -59,12 +70,12 @@ export class Game {
     this.done = false;
   }
 
-  /** Run one video frame. */
+  /** Run one video frame (plus any busy frames requested at the wait). */
   runFrame(): void {
     const io = this.m.io;
     io[0x44] = 0x90;
     // vblank interrupt (IE bit 0)
-    if (this.m.hram[0x7f]! & 0x01) this.vblank();
+    if (this.ime && this.m.hram[0x7f]! & 0x01) this.vblank();
     let waited = false, kind: number | void = undefined;
     if (this.main && !this.done) {
       try {
@@ -80,8 +91,24 @@ export class Game {
         throw e;
       }
     }
+    for (let k = 0; this.busyFrames > 0; k++) {
+      this.busyFrames--;
+      this.onBusyFrame?.(k);
+      this.lines(false);
+      io[0x44] = 0x90;
+      if (this.ime && this.m.hram[0x7f]! & 0x01) this.vblank();
+      this.frame++;
+    }
+    this.lines(waited, kind);
+    this.frame++;
+  }
+
+  /** Lines 0-143 (STAT, draw), then 145-153. */
+  private lines(waited: boolean, kind?: number | void): void {
+    const io = this.m.io;
     for (let ly = 0; ly < 144; ly++) {
       io[0x44] = ly;
+      this.lineHook?.(ly);
       this.statCheck(ly);
       if (ly === 0 && waited) this.onYield?.(kind);
       this.onLine?.(ly);
@@ -92,11 +119,11 @@ export class Game {
       io[0x44] = ly;
       this.statCheck(ly);
     }
-    this.frame++;
   }
 
   private statCheck(ly: number): void {
     const m = this.m;
+    if (!this.ime) return;
     if (!(m.hram[0x7f]! & 0x02) || !(m.io[0x41]! & 0x40) || m.io[0x45] !== ly) return;
     const vec = m.wram[0x707]! | (m.wram[0x708]! << 8); // C706: jp nnnn
     const h = this.statHandlers.get(vec);
