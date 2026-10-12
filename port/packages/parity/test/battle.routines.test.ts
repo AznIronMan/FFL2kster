@@ -54,6 +54,11 @@ function* runEntry(rig: Rig, ent: Ent, calls: number[]): Generator<void, Record<
 /** Scratch the VM's arithmetic helpers leave (FF90: A saved; C0E1-C0E2: SP saved by division). */
 const VM_SCRATCH = new Set([0xff90, 0xc0e1, 0xc0e2]);
 
+// Without captured fixtures (CI has no ROM) the file still declares a (skipped) suite.
+describe.skipIf(BATTLE_CAPTURES.length === 0 || !haveRom())("battle routine captures", () => {
+  it("are present", () => expect(BATTLE_CAPTURES.length).toBeGreaterThan(0));
+});
+
 for (const cap of BATTLE_CAPTURES) {
   const idxPath = resolve(DIR, cap, "index.json");
   const have = haveRom() && existsSync(idxPath) && existsSync(resolve(DIR, cap, "0000.out.json"));
