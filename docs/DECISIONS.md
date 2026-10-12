@@ -277,3 +277,15 @@ Architecture guidance for the importer and the web app; not new feature work.
 - PyBoy 2.8.1 gives identical traces on the Linux VM and on macOS (checked byte for byte on a
   sweep trace), so long recordings and replays may run on whichever host is faster
   (build/.venv-mac, gitignored).
+
+## 2026-10-12 — Direction note D: faithful first, then QoL options, then the tower/arena game
+
+- Course unchanged: finish porting and mapping the original (PORT_PLAN P4-P6) before anything else.
+- Quality-of-life changes (e.g. caps above 999 HP / 99 stats, wider number displays, fast text,
+  battle speed) belong to the **QoL version**: each is an **opt-in option**, off by default, and the
+  faithful game with every option off must still pass the full parity suite (P5 rule).
+- The **tower/arena game** (docs/END_GOAL.md) is a **separate mode built on the same engine and
+  data**, implemented after the ports; its own rules (e.g. stats beyond the original's one-byte
+  fields) live in its data model, not in the faithful game's memory layout.
+- Findings that serve either (e.g. where the 999/99 caps and the number displays are checked)
+  are recorded as they come up; no feature work for them ahead of the port.
