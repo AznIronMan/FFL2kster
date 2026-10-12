@@ -132,13 +132,18 @@ export function loadLayout(m: Memory, rom: Uint8Array): void {
     bank = 0x08;
     m.selectBank(0x08);
   }
-  const off = bank * 0x4000 + hl - 0x4000;
+  // the drawer reads the stream as the CPU does with the bank mapped: a pointer that runs past the
+  // bank (some unused destinations) reads RAM from 8000 up
+  const view = new Uint8Array(0x10000);
+  for (let a = 0; a < 0x10000; a++) view[a] = m.romAt(bank, a);
+  const off = hl;
   const vars = Array.from({ length: 32 }, (_, v) => varGet(m, v));
   const saved = new Uint8Array(256);
   for (let i = 0; i < 256; i++) saved[i] = m.rd(0xc500 + i);
   const initial = new Uint8Array(4096);
   for (let i = 0; i < 4096; i++) initial[i] = m.rd(0xd000 + i);
-  const res = drawLayout(rom, off, {
+  void rom;
+  const res = drawLayout(view, off, {
     vars, initial, saved, triggerCount: m.rd(0xc451),
     cursor: [m.rd(0xc473), m.rd(0xc474)], lastEnd: [m.rd(0xc475), m.rd(0xc476)],
   });

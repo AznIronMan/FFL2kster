@@ -76,9 +76,12 @@ export class Memory {
     this.wr(a + 1, (v >> 8) & 0xff);
   }
 
-  /** Read from a specific ROM bank regardless of the mapped bank (like 00:00D2). */
+  /** Read address a as the CPU sees it with ROM bank `bank` mapped (like 00:00D2): the bank only
+   *  affects 4000-7FFF; addresses from 8000 up (table indexes that run past the ROM) read RAM. */
   romAt(bank: number, a: number): number {
+    a &= 0xffff;
     if (a < 0x4000) return this.seg(0)?.[a] ?? 0xff;
+    if (a >= 0x8000) return this.rd(a);
     return this.seg(bank)?.[a - 0x4000] ?? 0xff;
   }
 

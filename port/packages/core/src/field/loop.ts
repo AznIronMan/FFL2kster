@@ -662,8 +662,9 @@ export class FieldEngine {
   /** 00:3F4E — MAGI c found. */
   private *magiPickup(c: number): Co {
     const m = this.m;
-    const b = m.romAt(0x0c, 0x7f80 + c);
-    const hl = 0xc2da + 2 * c;
+    // 8-bit address arithmetic as in 00:3F4E: 7F00 | (80 + c) and C2DA + (2c & FF)
+    const b = m.romAt(0x0c, 0x7f00 | ((0x80 + c) & 0xff));
+    const hl = 0xc2da + ((2 * c) & 0xff);
     m.wr(hl, m.rd(hl) + 1);
     m.wr(hl + 1, b);
     m.wr(0xc2d9, m.rd(0xc2d9) + 1);
@@ -843,8 +844,15 @@ export function inputDir(ff89: number): number {
 }
 
 /** 00:3846 / 00:37F6 — one swirl tile, written during vblank (cost model as VblankWriter). */
+/** Pacing of 00:3846 (one tile of the swirl): the tile is written only while LY is 0x90-0x97
+ *  (the poll at 00:387C), so the spiral advances a few tiles per frame. Time is counted in
+ *  T-cycles from the start of that window; an iteration that writes costs SWIRL_WRITE, one that
+ *  skips the cell (other layer) SWIRL_SKIP — measured against PyBoy (about 7 writes per window;
+ *  skipped cells about one per line, the VRAM-access STAT handler 16A8 firing on every line).
+ *  The swirl starts a few lines into vblank, after the step that changed the layer. */
+const SWIRL_WINDOW = 8 * 456, SWIRL_FRAME = 154 * 456, SWIRL_WRITE = 532, SWIRL_SKIP = 456;
 class SwirlWriter {
-  private budget = 0;
+  private t = 4 * 456;
   *tile(m: Memory, hl: number, d: number, b: number, c: number, second: boolean): Co {
     const x = (m.rd(0xc42c) + ((c << 24) >> 25)) & 0xff;
     const y = (m.rd(0xc42d) + ((b << 24) >> 25)) & 0xff;
@@ -854,22 +862,27 @@ class SwirlWriter {
     const k = (m.rd(0xc43c) ^ v) & 0xff;
     let t: number;
     if (!second) {
-      if (k >= 0x20) return this.spend(60);
+      if (k >= 0x20) return yield* this.spend(SWIRL_SKIP);
       t = (k * 4 + d) & 0xff;
     } else {
-      if (k < 0x20) return this.spend(60);
+      if (k < 0x20) return yield* this.spend(SWIRL_SKIP);
       const layer = m.rd(0xc43c);
       const s = ((((layer >> 4) | (layer << 4)) & 0xff) - 1) & 0xff;
       t = ((s === 1 ? 1 : 2) * 4 + d) & 0xff;
     }
-    if (this.budget < 70) {
+    if (this.t >= SWIRL_WINDOW) {
+      // wait for the next window
       yield;
-      this.budget = 8 * 114;
+      this.t = 0;
     }
-    this.budget -= 70;
     m.wr(hl, t);
+    yield* this.spend(SWIRL_WRITE);
   }
-  private spend(n: number): void {
-    this.budget = Math.max(0, this.budget - n);
+  private *spend(n: number): Co {
+    this.t += n;
+    while (this.t >= SWIRL_FRAME) {
+      yield;
+      this.t -= SWIRL_FRAME;
+    }
   }
 }

@@ -337,26 +337,26 @@ export class TextEngine {
   drawFrame(w: number, h: number): number {
     const m = this.m;
     let hl = m.rd(0xc799) ? 0xd000 : 0xc800;
-    const inner = (w - 2) & 0xff;
+    const inner = ((w - 2) & 0xff) || 256; // 00:006D dec-loop: 0 means 256
     let rows = (h - 2) & 0xff;
     let a = 0xf7;
     // top: F7, F8 x inner, F9
-    m.wr(hl++, a);
-    for (let i = 0; i < inner; i++) m.wr(hl++, (a + 1) & 0xff);
+    m.wr(hl++ & 0xffff, a);
+    for (let i = 0; i < inner; i++) m.wr(hl++ & 0xffff, (a + 1) & 0xff);
     a = (a + 2) & 0xff;
-    m.wr(hl++, a);
+    m.wr(hl++ & 0xffff, a);
     a = (a + 1) & 0xff; // FA
     do {
-      m.wr(hl++, a);
-      for (let i = 0; i < inner; i++) m.wr(hl++, 0xff);
-      m.wr(hl++, (a + 1) & 0xff);
+      m.wr(hl++ & 0xffff, a);
+      for (let i = 0; i < inner; i++) m.wr(hl++ & 0xffff, 0xff);
+      m.wr(hl++ & 0xffff, (a + 1) & 0xff);
       rows = (rows - 1) & 0xff;
     } while (rows);
     a = (a + 2) & 0xff; // FC
-    m.wr(hl++, a);
-    for (let i = 0; i < inner; i++) m.wr(hl++, (a + 1) & 0xff);
-    m.wr(hl++, (a + 2) & 0xff);
-    return hl;
+    m.wr(hl++ & 0xffff, a);
+    for (let i = 0; i < inner; i++) m.wr(hl++ & 0xffff, (a + 1) & 0xff);
+    m.wr(hl++ & 0xffff, (a + 2) & 0xff);
+    return hl & 0xffff;
   }
 
   /** 00:0AC2 — copy the window buffer (w x h) to the BG map at de, then window on at WY C7A5. */
@@ -397,10 +397,11 @@ export class TextEngine {
         d = 0xd000 + ((m.rd(0xc79d) + 1) & 0xff);
         hl = (hl + m.rd(0xc797)) & 0xffff;
       }
-      const b = (m.rd(0xc79d) - 2) & 0xff, c = (m.rd(0xc79e) - 2) & 0xff;
+      // dec-loops (00:0AA8): a size of 0 means 256
+      const b = ((m.rd(0xc79d) - 2) & 0xff) || 256, c = ((m.rd(0xc79e) - 2) & 0xff) || 256;
       for (let r = 0; r < c; r++) {
-        for (let i = 0; i < b; i++) m.wr(d + i, m.rd(hl + i));
-        d += b + 2;
+        for (let i = 0; i < b; i++) m.wr((d + i) & 0xffff, m.rd((hl + i) & 0xffff));
+        d = (d + b + 2) & 0xffff;
         hl = (hl + m.rd(0xc77e)) & 0xffff;
       }
     }
@@ -477,10 +478,13 @@ export class TextEngine {
       case 0x0f: return yield* this.resetWindow();
       case 0x10: yield* this.calls.far(g, 0x1909); return yield* frameDma(g);
       case 0x11: {
-        for (let b = this.next(); b; b = (b - 1) & 0xff) {
+        // 00:0CC0: dec-loop, so a count of 0 means 256 (512 frames)
+        let b = this.next();
+        do {
           yield* frameDma(g);
           yield* frameDma(g);
-        }
+          b = (b - 1) & 0xff;
+        } while (b);
         return;
       }
       case 0x12: { const e = this.next(); const v = varGet(m, e); varSet(m, e, v === 0x0f ? v : v + 1); return; }
@@ -1256,7 +1260,7 @@ export class TextEngine {
    *  (C0 C9); 9999999 and more shows as 8 blanks. */
   private formatGp(n: number): void {
     const m = this.m;
-    let hl = n ? (0xc745 + 3 * (n - 1)) & 0xffff : 0xc2a2;
+    let hl = n ? 0xc745 + ((3 * (n - 1)) & 0xff) : 0xc2a2; // 00:131A: 8-bit offset
     if ((m.rd(hl) & m.rd(hl + 1) & m.rd(hl + 2)) === 0xff) {
       fill(m, hl, 8, 0xff);
       m.wr(hl + 8, 0);

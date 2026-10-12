@@ -41,6 +41,8 @@ export interface ReplayOptions {
   /** Accept frames drawn under a raster STAT handler whose only differences are lines shown one
    *  line early or late (see rasterEdge); default true. Counted in `rasterEdges`. */
   rasterSlack?: boolean;
+  /** Return (with `error` and the wait count reached) instead of throwing when the engine fails. */
+  keepGoing?: boolean;
   /** Tick-phase state besides the blink timer that may be re-phased (copied from the trace) when
    *  it is the only difference at a wait (counted in `rephased`). */
   rephase?: (addr: number) => boolean;
@@ -96,7 +98,7 @@ export function lateWrite(got: Uint8Array, exp: Uint8Array, prev: Uint8Array): b
   return true;
 }
 
-export function replayField(name: string, opts: ReplayOptions = {}): { trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number; rephased: number; rasterEdges: number; lateWrites: number } {
+export function replayField(name: string, opts: ReplayOptions = {}): { trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number; rephased: number; rasterEdges: number; lateWrites: number; error?: { message: string; wait: number } } {
   const t = loadTrace(name);
   const rom = loadRom();
   const rig = new Rig(rom);
@@ -106,6 +108,7 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
   rig.g.start(opts.start === "title" ? rig.engine.fromTitle() : rig.engine.field.loop());
   // frames drawn while a raster STAT handler (not the frame tick 16D9 / VRAM-access 16A8) is installed
   let rasterFrame = false, rasterEdges = 0, lateWrites = 0;
+  let error: { message: string; wait: number } | undefined;
   /** The engine's previous compared screen, when it matched the trace (the state the original
    *  still shows on lines drawn before a late write). */
   let lastGot: Uint8Array | null = t.prevScreen ?? null;
@@ -194,7 +197,11 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
       rig.g.runFrame();
     } catch (e) {
       // A+B+Select+Start in the frame tick: the original jumps to 00:0200 (boot, then the title)
-      if (!(e instanceof SoftReset)) throw e;
+      if (!(e instanceof SoftReset)) {
+        if (!opts.keepGoing) throw e;
+        error = { message: String(e instanceof Error ? e.message : e), wait: nWaits };
+        break;
+      }
       rig.g.start(rig.engine.main());
       continue;
     }
@@ -218,7 +225,7 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
     }
     diffs.push({ frame: f, pixels, wram: [], vram: [], oam: [], hram: [], got: rig.ppu.frame.slice(), raster: rasterFrame });
   }
-  return { trace: t, diffs, waits, nWaits, tickPhase, busy, rephased, rasterEdges, lateWrites };
+  return { trace: t, diffs, waits, nWaits, tickPhase, busy, rephased, rasterEdges, lateWrites, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {
