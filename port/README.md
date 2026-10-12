@@ -1,4 +1,7 @@
-# FFL2kster port (web first)
+# FFTOL web port — Legend II (web first)
+
+Part of FFTOL (Tower of Legends); the port of *Final Fantasy Legend II* built on the FFL2kster
+toolkit.
 
 A TypeScript engine that plays the game from data built **on the player's device from their own
 ROM**. The repository and every build contain no game content.

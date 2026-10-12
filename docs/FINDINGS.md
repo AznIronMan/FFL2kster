@@ -413,3 +413,25 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
 - UI/window tiles: VRAM 0x8800–0x8FFF is always ROM 04:4800 (font + frames; verified in all map
   captures). Battle/field sprite tiles come from the bank-03/04 sprite pages already exported
   (battle VRAM 0x8000.. = pages 0x00, 0x02–0x03, 0x0B, 0x2A, 0x3F).
+
+## 2026-10-12 — Conflicts with direction notes B and C (flagged, not changed)
+
+Recorded per direction note A (docs/DECISIONS.md); nothing was changed, no feature work.
+
+- **TS importer hash gate** (`port/packages/importer/src/rom.ts`, `checkRom`): one constant
+  `SUPPORTED_SHA256`; any other hash is rejected. Conflicts with note B (variant registry: per
+  game, per region/revision hashes with layout-evidence status) and note C.2 (an unmatched hash
+  must offer a manual game selection and an unverified import mode with size/header warnings).
+- **Python toolkit** (`project/project.json` `supported_rom.sha256`, `src/ffl2kster/project.py`):
+  one supported hash per project; the patch compiler refuses others. Correct for the verified
+  build path; a registry keyed by game/region is needed once variants exist (note B).
+- **Web saves** (`port/apps/web/src/storage.ts`): battery RAM and the data package live in
+  IndexedDB with no file export/import yet (note C.1).
+- **One package per device** (`storage.ts` single key): the app stores one data package; several
+  games or variants side by side will need keys by game/variant (notes B, END_GOAL).
+- **Engine addresses**: the native port mirrors the US Legend II code routine by routine and reads
+  data at that revision's ROM addresses. A revision whose code or tables moved (e.g. a Japanese
+  release) needs its own layout evidence and per-variant addresses before it can run on the
+  verified path; under note C's unverified mode the selected game's layout is used best-effort.
+  To be weighed when the first variant arrives (keeping addresses in data rather than code where
+  that is free).

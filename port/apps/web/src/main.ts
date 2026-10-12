@@ -5,6 +5,8 @@ import { clearPackage, loadPackage, savePackage } from "./storage";
 import { Player } from "./player";
 import { PACKAGE_FORMAT } from "@ffl2k/importer";
 
+/** Displayed title: the project (FFTOL, Tower of Legends) and the game this port plays. */
+const TITLE = "Tower of Legends · Legend II";
 const app = document.getElementById("app")!;
 const SHADES = [[255, 255, 255], [170, 170, 170], [85, 85, 85], [0, 0, 0]] as const;
 
@@ -43,7 +45,7 @@ function showImporter(message?: string) {
   drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); const f = e.dataTransfer?.files[0]; if (f) void handle(f, status); };
   input.onchange = () => { const f = input.files?.[0]; if (f) void handle(f, status); };
   app.replaceChildren(
-    el("h1", {}, "FFL2kster"),
+    el("h1", {}, TITLE),
     el("p", { class: "lead" }, "This engine ships with no game content. Choose your own copy of the game ROM; it is read only on this device to build the game data."),
     el("section", { class: "panel" }, drop, input, status),
   );
@@ -88,7 +90,7 @@ function showSummary(pkg: DataPackage) {
   const reset = el("button", {}, "Remove game data from this device");
   reset.onclick = async () => { await clearPackage(); showImporter("Game data removed."); };
   app.replaceChildren(
-    el("h1", {}, "FFL2kster"),
+    el("h1", {}, TITLE),
     el("p", { class: "lead" }, "Game data is ready on this device."),
     el("section", { class: "panel" }, el("div", { class: "row" }, play, el("span", { class: "muted" }, "Arrows move, Z = A, X = B, Enter = Start, Shift = Select. Gamepads work too."))),
     el("section", { class: "panel" }, dl),
@@ -112,7 +114,7 @@ const romUrl = new URLSearchParams(location.search).get("rom");
 if (romUrl) {
   const r = await fetch(romUrl);
   const status = el("p", {});
-  app.replaceChildren(el("h1", {}, "FFL2kster"), status);
+  app.replaceChildren(el("h1", {}, TITLE), status);
   await handle(new File([await r.arrayBuffer()], "rom.gb"), status);
 }
 

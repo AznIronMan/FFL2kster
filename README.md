@@ -1,13 +1,27 @@
-# FFL2kster
+# FFTOL — Tower of Legends
 
-Private, local editor and patch compiler for *Final Fantasy Legend II* (USA) /
-*SaGa 2* on the original Game Boy. The output is a real, self-contained `.gb`.
+Private preservation and modding project for the Game Boy *Final Fantasy Legend* trilogy
+(*SaGa*). It currently holds **FFL2kster**, the toolkit for *Final Fantasy Legend II* (USA) /
+*SaGa 2*: a local editor and patch compiler whose output is a real, self-contained `.gb`, the
+decoded data package, and a faithful TypeScript port of the game that runs in a web browser
+on data imported from the player's own ROM.
 
-Version: `0.2.0`
-Status: **Data gathering complete (milestones 1–7)**: monsters, items, battle/growth/meat
-rules (decoded bank-0C "calc VM"), encounters, text, events/scripts, maps, collision, shops,
-chests, graphics and music are decoded, exported to `data/` and backed by tests. See
-`docs/PORT_READINESS.md` (port planning input) and `docs/PROGRESS.md`.
+Version: `0.3.0`
+Status: **Port P1 (vertical slice) complete.** The web port plays from the title through
+party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
+and saves and loads, verified frame by frame against the original in an emulator. Data
+gathering (milestones 1–7) is complete. See `docs/PORT_PLAN.md` (the active course),
+`docs/PROGRESS.md` and `docs/END_GOAL.md` (the long-term destination, not current scope).
+
+## Names
+
+| Name | What it is |
+|---|---|
+| **FFTOL** | The project (this folder and the GitHub repository `fftol`). |
+| **Tower of Legends** (short **TOL**) | Full title. Private working title: an unrelated Steam game already uses it, so a public or store release needs a distinguisher (see `docs/END_GOAL.md`). |
+| **F²** | Logo mark (visual glyph only). |
+| **FFL1kster**, **FFL2kster**, **FFL3kster** | Per-game toolkits for Legend I, II and III. Only **FFL2kster** exists (the Python package `ffl2kster`, its CLI and the Legend II port); the other two are reserved names. |
+| **TOLkster** | The future master engine of `docs/END_GOAL.md`. Name reserved; nothing is built. |
 
 ## Bring your own ROM
 
@@ -64,7 +78,7 @@ tests/        pytest suite incl. PyBoy acceptance test (marker: emu)
 docs/         ROM_MAP.md, FINDINGS.md, DECISIONS.md, PROGRESS.md, BATTLE_RULES.md,
               EVENTS.md, MUSIC.md, PORT_READINESS.md
 data/         processed data package (see data/README.md)
-port/         web port (TypeScript): importer done (P0), engine next — see port/README.md
+port/         web port (TypeScript): importer, engine, renderer, sound, web app — see port/README.md
 build/        generated output only (ROMs, states, analysis, test-artifacts/)
 ```
 
@@ -77,6 +91,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `0.3.0` — Port P1 vertical slice (field, text, menus, shops, inns, save/load, encounters,
+  battle, sound driver and synth, web player); project renamed FFTOL — Tower of Legends, with
+  FFL2kster as its Legend II toolkit.
 - `0.2.0` — Milestones 2–7: items, text (6 tables), encounters, rewards/drops, meat formula,
   growth, calc-VM decompiler and rules, event system (scripts, shops, chests, music events),
   maps/NPCs/collision, graphics, font, music→MIDI; `export-all`; port-readiness summary.

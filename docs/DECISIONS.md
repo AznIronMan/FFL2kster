@@ -148,3 +148,67 @@
   lost (the game detects buttons by edges over two samples).
 - Sound: the driver runs in the engine (`installSound`); the APU synth is a separate pure-TS model
   fed with timestamped register writes; output via AudioWorklet (secure contexts only).
+
+## 2026-10-12 — Project renamed: FFTOL — Tower of Legends (Geon)
+
+- Naming scheme:
+  - **FFTOL**: the project (local folder `FFTOL`, GitHub repository `AznIronMan/fftol`).
+  - **Tower of Legends** (short **TOL**): full title. **F²**: logo mark (visual glyph only).
+  - **FFL1kster / FFL2kster / FFL3kster**: per-game toolkits. FFL2kster is the existing Legend II
+    toolkit (Python package `ffl2kster`, CLI, data package, web port). FFL1kster and FFL3kster
+    are reserved names; nothing is created for them.
+  - **TOLkster**: the future master engine of docs/END_GOAL.md; name reserved, nothing built.
+- Caution kept with the title: an unrelated Steam platformer already uses "Tower Of Legends";
+  fine for private use, a public or store release needs a distinguisher (not solved now).
+- Renamed: the local folder (FFL2kster → FFTOL, same parent), the GitHub repository
+  (FFL2kster → fftol; the old URL redirects) and the git remote; README title, intro and a new
+  "Names" section; AGENTS.md project identity and upstream URL; the Python package description
+  and the npm workspace description; port/README.md title; the web app's page title and heading
+  ("Tower of Legends · Legend II"); the repository tree in docs/PORT_PLAN.md. Version 0.3.0.
+- Deliberately not renamed (FFL2kster is the Legend II toolkit, and history keeps its names):
+  the Python package/CLI `ffl2kster` and `src/ffl2kster`; `project/project.json` name and the
+  SQLite store `project/ffl2kster.sqlite`; the build output `build/FFL2kster.gb` and its test
+  copies; the npm scopes `@ffl2k/*` and workspace name `ffl2k-port`; the `FFL2K-xxxx` task ids;
+  the PyBoy/toolkit internals; past changelog entries, DECISIONS/FINDINGS/PROGRESS entries,
+  GOAL.md (Milestone 1) and milestone records; `.private/FFL2kster-Starter-Brief.md`; the
+  claude.ai project named "FFL2kster" (renamed only by its owner in the app).
+
+## 2026-10-12 — Direction note A: END_GOAL.md is the destination, not the course (Geon)
+
+- docs/END_GOAL.md (combined trilogy engine on TOLkster, unified meat graph, Tower Run + Arena,
+  editor over the data layer) changes no current priority. The active course stays
+  docs/PORT_PLAN.md: the Legend II port phases (P1 vertical slice is complete as of this date;
+  next is P2 full field).
+- No end-goal work yet: no FFL1kster/FFL3kster pipelines, no TOLkster, no arena, tower run or
+  editor GUI.
+- Standing instruction: where current work can avoid Legend-II-only assumptions at no cost
+  (data-driven over hardcoded), take the free option and record it here; where a genuine
+  conflict exists, flag it in docs/FINDINGS.md rather than build something the capstone would
+  have to tear out.
+
+## 2026-10-12 — Direction note B: multi-region ROM variants (Geon)
+
+- Geon will supply additional ROM variants (regions/languages, e.g. the Japanese SaGa releases)
+  so players can import their own regional ROMs. No action until those ROMs arrive.
+- The importer must not hardcode a single-SHA / single-variant assumption. It keeps a variant
+  registry: per game, per region/revision — known hashes and layout-evidence status.
+- A variant counts as supported only after it passes the same verification the US Legend II ROM
+  passed (identity check, layout evidence, acceptance tests). Support for an unverified variant
+  is never claimed. (Current single-hash gates are flagged in docs/FINDINGS.md.)
+
+## 2026-10-12 — Direction note C: hosting model and unverified-import override (Geon)
+
+Architecture guidance for the importer and the web app; not new feature work.
+
+1. Web hosting: the web build may be statically hosted (GitHub Pages or a private server). The
+   host serves code only. ROMs are imported client-side in the player's browser and never
+   uploaded. Saves/states live in browser storage (IndexedDB) and must be exportable and
+   importable as files, so players are not tied to one browser.
+2. Hash verification with a manual override: hash checks identify known variants (the verified
+   path). An unmatched hash is not a dead end: the player may choose which game/engine the ROM
+   belongs to and import anyway in a clearly labelled **unverified** mode — extraction is
+   best-effort with the chosen game's layout, sanity checks (file size, header/internal name)
+   still warn, and the verified-path guarantees (parity, claimed support) do not apply.
+   Rationale: uncommon dumps and revisions exist, and patched ROMs, fan translations and ROM
+   hacks can never match a canonical hash — including this project's own FFL2kster-patched
+   ROMs, which mod support depends on importing.

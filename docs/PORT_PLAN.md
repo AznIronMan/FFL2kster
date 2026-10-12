@@ -98,7 +98,7 @@ The UI tiles in item 5 are probably uncompressed and found the same way as the f
 ## Repository layout
 
 ```text
-FFL2kster/
+FFTOL/
   src/ffl2kster, tools/, tests/   Python reference toolkit (unchanged)
   data/                           processed package (reference/golden output)
   port/

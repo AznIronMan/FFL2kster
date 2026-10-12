@@ -1,18 +1,22 @@
 # AGENTS.md
 
 This file defines repository rules for human operators and AI coding agents
-working on FFL2kster.
+working on FFTOL (Tower of Legends) and its toolkits.
 
 ## Project Identity
 
-- Project name: FFL2kster
-- Description: Private, local editor and patch compiler for *Final Fantasy
-  Legend II* (USA) / *SaGa 2* on the original Game Boy
+- Project name: FFTOL (full title: Tower of Legends, short TOL; logo mark F²)
+- Toolkits: FFL2kster (Legend II, exists: editor, patch compiler, data package,
+  web port); FFL1kster / FFL3kster (reserved); TOLkster (future master engine,
+  reserved — see docs/END_GOAL.md)
+- Description: Private preservation and modding project for the Game Boy
+  *Final Fantasy Legend* trilogy; currently the Legend II toolkit and port
+  (*Final Fantasy Legend II* (USA) / *SaGa 2*)
 - Maintainer: Street Kings Productions
 - Company: Clark & Burke LLC
 - Website: https://www.cnb.llc
 - Developer email: streetkings@cnb.llc
-- Current version: `0.1.0`
+- Current version: `0.3.0`
 
 ## Required Workflow
 
@@ -33,7 +37,8 @@ working on FFL2kster.
 
 ## GitHub Sync
 
-- Public upstream: `https://github.com/AznIronMan/FFL2kster.git`
+- Public upstream: `https://github.com/AznIronMan/fftol.git` (renamed from
+  `FFL2kster` on 2026-10-12; GitHub redirects the old URL)
 - Work on `main` by default. Commit completed, reviewed work and push with
   `git push origin main` unless the operator says not to push.
 - Review every diff for ROM data, secrets, and private notes before staging.

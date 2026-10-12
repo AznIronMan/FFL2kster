@@ -2,7 +2,7 @@
   "name": "ffl2k-port",
   "private": true,
   "version": "0.1.0",
-  "description": "Web port engine for FFL2kster. Ships no game content: assets are imported from the user's own ROM.",
+  "description": "FFTOL (Tower of Legends) web port of Final Fantasy Legend II, built on the FFL2kster toolkit. Ships no game content: assets are imported from the user's own ROM.",
   "type": "module",
   "workspaces": ["packages/*", "apps/*"],
   "scripts": {
