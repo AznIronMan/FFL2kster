@@ -1,12 +1,13 @@
 # Port plan
 
-Status: draft for approval, 2026-10-12. Inputs: docs/PORT_READINESS.md and the decisions below.
+Status: approved 2026-10-12; **P0 complete** (see the P0 report in docs/PROGRESS.md). Web is the
+first target; iOS/Android are optional later goals. Inputs: docs/PORT_READINESS.md.
 
 ## Decisions
 
 | Topic | Decision |
 |---|---|
-| Platforms | One web codebase. Desktop (Windows, macOS, Linux) via **Tauri**; iOS and Android via **Capacitor**; browsers as a PWA. |
+| Platforms | One web codebase, **web first**. Desktop (Windows, macOS, Linux) via **Tauri** later; iOS and Android via **Capacitor** are optional ("hopeful, not required"). |
 | Stack | TypeScript, Vite, Canvas2D/WebGL, WebAudio (AudioWorklet), npm workspaces. |
 | Fidelity | **Faithful core, optional extras.** Original rules, RNG, 160×144 look and timing by default. Enhancements are opt-in toggles. |
 | Assets | **The engine ships with no game content.** On first run the player picks their own ROM. An in-app importer checks its SHA-256 and builds the data package locally (IndexedDB on web, app data folder in wrappers). |

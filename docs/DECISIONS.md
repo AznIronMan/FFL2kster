@@ -106,3 +106,16 @@
 - Consequence (proposed, docs/PORT_PLAN.md): interpret the original event-script and calc-VM
   bytecode at runtime over a WRAM-shaped state buffer; Python toolkit stays the reference and
   parity oracle.
+
+## 2026-10-12 — P0 decisions
+
+- Web is the first and only required target for now; mobile wrappers are optional later goals.
+- The data package keeps bytecode/data **segments** (banks 00, 07–0F) next to the decoded JSON so the
+  runtime interpreters (event scripts, calc VM, layouts, music) can run the original data. It is
+  built and stored only on the player's device (IndexedDB), never bundled or uploaded; the app has
+  a "remove game data" control.
+- An SM83 interpreter (`ffl2kster.sm83`) is kept as a test oracle for ROM routines; it is never
+  shipped. Layout drawing is re-implemented exactly (Python + TypeScript) and checked against it.
+- The Python toolkit remains the reference; TypeScript ports are accepted only when golden tests
+  show identical output (`port/packages/importer/test/golden.test.ts`).
+- npm (workspaces) rather than pnpm; Node/npm tooling runs on the macOS host (native esbuild).

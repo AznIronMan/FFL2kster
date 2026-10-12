@@ -119,3 +119,19 @@ Fresh copy of the tracked tree + `input/original.gb` only, new venv, `pip instal
 | Data package | done | `export-all` reproduces `data/` byte-for-byte; docs/PORT_READINESS.md |
 
 Test suite: 68 passed (56 fast + 12 emulator, ~11 s).
+
+## Port P0 — Foundations (2026-10-12)
+
+| Item | Result | Evidence |
+|---|---|---|
+| Map layout format (00:2253) | decoded, Python + TS renderers | bit-exact vs ROM routine in SM83 interpreter: 211 captures, 28 conditional maps × 20 random progress states, 300 fuzzed streams |
+| Tileset sources (07:7800 → bank 02, UI 04:4800) | decoded | VRAM equality on 211 maps (animated metatiles 30/31 excluded) |
+| Monster graphics (0D:6400/6500/6510) | decoded | all 256 equal battle VRAM |
+| Music instruments, waveforms, 57 SFX | decoded | SFX register timelines frame-exact in PyBoy |
+| UI / sprite tiles | located | 0x8800 block = 04:4800 on all maps; battle sprites = bank-03 pages |
+| `port/` workspace | done | npm workspaces, TS strict, Vitest, Vite web shell |
+| TS importer | done | golden tests equal Python output for every domain, MIDI bytes, layouts, graphics |
+| CI | green | GitHub Actions: typecheck, tests (ROM tests skip), build, no-content check; Python fast tests |
+| Browser check | done | built web app imported the ROM in the desktop browser pane, persisted across reload, removal works |
+
+Tests: Python 74 passed (61 fast + 13 emulator); TypeScript 12 passed with the ROM present.

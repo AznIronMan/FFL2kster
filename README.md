@@ -64,6 +64,7 @@ tests/        pytest suite incl. PyBoy acceptance test (marker: emu)
 docs/         ROM_MAP.md, FINDINGS.md, DECISIONS.md, PROGRESS.md, BATTLE_RULES.md,
               EVENTS.md, MUSIC.md, PORT_READINESS.md
 data/         processed data package (see data/README.md)
+port/         web port (TypeScript): importer done (P0), engine next — see port/README.md
 build/        generated output only (ROMs, states, analysis, test-artifacts/)
 ```
 
