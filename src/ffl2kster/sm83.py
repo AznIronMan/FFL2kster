@@ -35,6 +35,9 @@ class CPU:
             return self.rom[self.bank * 0x4000 + a - 0x4000]
         if 0xE000 <= a < 0xFE00:
             a -= 0x2000
+        if a == 0xFF44:  # LY: advance on every read so "wait for line N" loops terminate
+            self.ly = (getattr(self, "ly", 0) + 1) % 154
+            return self.ly
         return self.mem[a]
 
     def wr(self, a: int, v: int) -> None:
