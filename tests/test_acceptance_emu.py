@@ -260,3 +260,17 @@ def test_music_timing_matches_decoded_sequences(setup):
                     elif near[c] and ch["loop_to"] <= p < ch["loop_to"] + 6:
                         hit[c] = f - start
     assert hit == pred
+
+
+def test_collision_attribute_controlled_change(setup):
+    """Metatile attributes (07:7000 + 32·tileset → C520): blocked when attr & C434 (2 on foot)."""
+    res = {}
+    for val in (None, 0x03, 0x02, 0x01):
+        with Emulator(setup["rom"]) as e:
+            e.load_state(setup["tmp"] / "states_orig" / "first_town.state")
+            assert bytes(e.pb.memory[0xC520:0xC540]) == setup["rom"].read_bytes()[0x1F000:0x1F020]
+            if val is not None:
+                e.pb.memory[0xC520 + 0x12] = val
+            p0 = e.position(); e.press("up")
+            res[val] = e.position() != p0
+    assert res == {None: True, 0x03: False, 0x02: False, 0x01: True}

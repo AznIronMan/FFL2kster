@@ -355,3 +355,13 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   loop periods predicted from the decode equal the driver's observed periods frame-exactly
   (songs 2 and 7). Export: 19 MIDI files + songs.json (`music-export`).
 - Map music is set by event kind 7 (`sound`) from triggers/objects/scripts (docs/EVENTS.md).
+
+## 2026-10-12 — Collision / metatile attributes (M5 gap)
+
+- Header byte 2 = **tileset**; 00:1BB9 copies 32 attribute bytes from **07:7000 + 32·tileset**
+  to C520 (RAM equals the ROM row in the first town). Movement (00:2739) looks up
+  attr[metatile & 0x1F] (trigger tiles use the original metatile saved at C500+k) and blocks when
+  attr & C434 ≠ 0; C434 = 2 on foot. **Verified** by RAM controlled change on the town path
+  metatile 0x12: 03/02 block, 01/00 pass; 0x80 pushed the player back (special, hypothesis).
+- Header flags low nibble (C451; formerly "music_or_set") = number of metatile ids from 3 that
+  become trigger tiles 0x40+k at load (00:2647; probable). Export: `tile_attributes` in maps.json.

@@ -23,3 +23,10 @@ def test_first_town_triggers_match_observed_transitions(rom_bytes):
 def test_world_header(rom_bytes):
     h = M.header(rom_bytes, 0x4807)
     assert h["encounters"] and h["zone"] == 0 and h["rate"] == 0x0A and len(h["triggers"]) == 14
+
+
+def test_tile_attributes_first_town(rom_bytes):
+    """Town tileset 0: path metatile 0x12 walkable, surrounding 0x16 blocked (the RAM copy at
+    C520 equals this row; RAM controlled change 01→03 on 0x12 stops the player)."""
+    t = M.tile_attributes(rom_bytes, M.header(rom_bytes, 0x4833)["b2"])
+    assert not t[0x12]["blocks_walking"] and t[0x16]["blocks_walking"]

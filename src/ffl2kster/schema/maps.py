@@ -70,7 +70,9 @@ def header(rom: bytes, ptr: int) -> dict:
         lbank, laddr = 0x09, lp
     return {"header": ptr, "offset": o, "layout_ptr": lp, "layout_bank": lbank,
             "layout_address": laddr, "layout_offset": romlib.bank_to_file(lbank, laddr),
-            "b2": r[2], "flags": flags, "music_or_set": flags & 0x0F, "flag7": bool(flags & 0x80),
+            "b2": r[2], "tileset": r[2], "flags": flags,
+            # C451: metatiles 3..3+n-1 become trigger tiles 0x40+k at load (00:2647; probable)
+            "trigger_metatiles": flags & 0x0F, "flag7": bool(flags & 0x80),
             "encounters": bool(flags & 0x40), "field_4_5": (flags >> 4) & 3,
             "zone": zone, "rate": rate, "triggers": trig,
             "tail_offset": o + i + 1 + 2 * L}
@@ -100,6 +102,21 @@ def objects(rom: bytes, hd: dict) -> dict:
     return {"sprites": sprites, "npcs": npcs, "end_offset": o + 1}
 
 
+TILE_ATTR = 0x1F000   # 07:7000 + 32*tileset (header b2), loaded to C520 by 00:1BB9
+
+
+def tile_attributes(rom: bytes, tileset: int) -> list[dict]:
+    """Per-metatile attributes (index = metatile & 0x1F). Movement test 00:2739: blocked when
+    attr & C434 != 0, C434 = 2 on foot (verified by RAM controlled change: 03/02 block, 01/00
+    pass); bit 7 = special movement (0x80 pushed the player back; hypothesis); bit 0 = blocks
+    other movement modes (hypothesis); bits 4-5 / 6 unknown (likely priority/animation)."""
+    out = []
+    for m in range(32):
+        a = rom[TILE_ATTR + 32 * tileset + m]
+        out.append({"metatile": m, "attr": a, "blocks_walking": bool(a & 2), "special": bool(a & 0x80)})
+    return out
+
+
 def all_headers(rom: bytes) -> list[int]:
     return sorted({dest_record(rom, i)["header"] for i in range(DEST_COUNT)})
 
@@ -120,7 +137,9 @@ def export(rom: bytes, layouts: dict | None = None) -> dict:
         if layouts and f"{h:04x}" in layouts:
             hd["layout"] = layouts[f"{h:04x}"]
         hdrs[f"{h:04x}"] = hd
-    return {"destinations": dests, "headers": hdrs}
+    tilesets = sorted({h["b2"] for h in hdrs.values()})
+    return {"destinations": dests, "headers": hdrs,
+            "tile_attributes": {str(t): tile_attributes(rom, t) for t in tilesets}}
 
 
 def add_commands(sub) -> None:
