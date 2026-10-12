@@ -12,6 +12,11 @@ import { Bank1 } from "./menu/bank1.js";
 import { enterField, saveFieldPosition } from "./field/load.js";
 import { fill, copy, copyBank } from "./sys.js";
 import { vramBegin, vramEnd } from "./field/sprites.js";
+import { installSound } from "./sound/index.js";
+import { installBattle } from "./battle/main.js";
+import { installBattleDisplay } from "./battle/display.js";
+import { installBattleMenus } from "./menu/battle.js";
+import { installFieldMenus } from "./menu/field.js";
 
 export class NotPorted extends Error {
   constructor(what: string) {
@@ -49,6 +54,12 @@ export class Engine {
       },
     });
     this.bank1 = new Bank1(this.g, this.text, { saveFieldPosition: (g) => saveFieldPosition(g.m) });
+    // Subsystems that register their routines by original address (engine.extra) and hooks.
+    installSound(this.g);
+    installBattle(this);
+    installBattleDisplay(this);
+    installBattleMenus(this);
+    installFieldMenus(this);
   }
 
   /** 00:0200 — power-on / reset, then the title (01:500F) and the field (00:1900 new game,

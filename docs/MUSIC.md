@@ -94,3 +94,57 @@ Each channel steps its modulation lists every **3rd frame** (FFB4 rotates 0/1/2)
 ## Open
 - Song names are known only for 5 (title, probable), 10 (town), 12 (world) and 17 (battle).
   Event-script `sound` events show where every song is used.
+
+## Port: driver and synth
+
+**Driver** (`port/packages/core/src/sound/`): every routine reachable from 0E:4000 and 0E:4003
+(26 routines plus the three command tables) is ported one function per routine, with all state
+at the original addresses (CB00-CBC7, FFB0-FFBD) and all sequence/envelope/vibrato/waveform/SFX
+data read from the ROM at run time. Findings from the code (verified by the fixtures below):
+
+- Channel blocks are 0x18 bytes at CB02 / CB1A / CB32 (initialised from 0E:4175); CB1A doubles
+  as the pulse-1 SFX frame counter and CB4A is the noise SFX counter. The octave byte is
+  octave×24 (a byte offset into the 0E:419A word table).
+- Song requests (FFB0) and SFX requests (FFB2) are only handled while no SFX is playing on
+  pulse 1. FFB0 = 0 runs the full init (0E:4048).
+- FFB1 is a jingle request: CB00-CB61 are saved to CB62, song FFB1 plays, and when all three
+  channels have ended (or FFB1 is cleared) the saved song is restored (0E:411D), including
+  pulse 2's duty/volume, pulse 1 and the waveform (pointer kept in FFBA/BB).
+- The modulation step (one channel per frame, FFB4) is skipped while the channel's last tick
+  counter (FFB5-B7) is 0, i.e. right after a new note.
+- Original quirks kept: the pulse note-on loads the envelope pointer instead of storing it
+  (harmless), the end of song channel 1 silences pulse 2's NR23/24, and the list loop 0E:4916
+  writes two bytes into the ROM area (MBC writes, no effect).
+- `installSound(g)` sets `hooks.soundTick` (bank 0E selected around the call and the previous
+  FF88 bank restored, as 00:16F9 does) and `hooks.soundInit` (bank 0E selected and left, as
+  `ld a,$0E; rst $28; call $4003` at 00:0280 does).
+
+**Verification (verified).** `tools/sound_capture.py` runs PyBoy with hooks on the driver's
+entry/exit and on every `ldh [$10-$3F],a` / `ld [c],a` instruction, and records per driver call
+the driver RAM before/after and the ordered register writes (build/sound/fixtures, gitignored).
+`port/packages/core/test/sound.test.ts` replays them chained (the port's RAM carries over; only
+bytes the game changed between calls are injected) and requires identical RAM (CB00-CBFF,
+FFB0-FFBF) and identical write sequences: 80,581 driver calls and 117,040 register writes
+identical, covering all 19 songs (2,230-4,430 frames each: every looping song past its loop
+point, song 1 to its end, song 15 — 12,660 frames, no loop — for its first 4,430), all 57 SFX
+over music and alone, overlapping SFX, a song request during an SFX, song changes and a stop
+mid-song, the jingle (FFB1) with its restore and an early cancel, and the boot init. Paths not
+reached by the recordings: the no-op command slots, an E5 duty change on channel 1 during an
+SFX, envelope hold (0xFF) and envelope list loops.
+
+**Synthesizer** (`port/packages/audio/src/apu.ts`): a DMG APU fed with time-stamped register
+writes (pulse 1 with sweep, pulse 2, wave, noise 15/7-bit LFSR, lengths, envelopes, 512 Hz frame
+sequencer, trigger and DAC semantics, NR50/51/52), rendering stereo Float32 at any rate. Each
+sample is the exact average of the channel outputs over its span (box filter), followed by the
+DMG high-pass filter. The web player feeds it from `Memory.onSoundWrite` and plays through an
+AudioWorklet ring buffer (first key/click starts audio, M mutes).
+
+**Synth vs PyBoy (probable: different filtering, same musical output).**
+`port/packages/audio/test/apu.test.ts` renders the recorded writes of every song and of all
+SFX in "digital" mode (PyBoy's unipolar sum of 4-bit channel outputs) and compares with PyBoy's
+own 48 kHz buffer of the same run (APU powered off first so both start from the same state).
+Exact samples differ (PyBoy point-samples; pulse duty positions depend on history), so the
+metrics are: loudness (means of 4096-sample windows) correlation ≥ 0.95 and mean error ≤ 5 %;
+median RMS ratio of 1024-sample windows in [0.9, 1.05]; median spectral cosine similarity of
+1024-sample windows ≥ 0.9. Results over 20 recordings (≈ 17 minutes of audio): loudness
+correlation 0.977-1.000, error 0.5-2.5 %, RMS ratio 0.943-0.996, spectral cosine 0.916-0.983.

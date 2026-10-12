@@ -1,6 +1,6 @@
 /** Replay a PyBoy trace through the field engine and compare every frame. */
-import { VSYNC } from "@ffl2k/core";
-import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, type Trace } from "./index.js";
+import { VSYNC, SoftReset } from "@ffl2k/core";
+import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, tickInFrame, type Trace } from "./index.js";
 
 export interface WaitDiff {
   wait: number;
@@ -31,6 +31,12 @@ export interface ReplayOptions {
   start?: "field" | "title";
   /** Addresses excluded from memory comparison (scratch whose timing differs). */
   ignore?: (addr: number) => boolean;
+  /** Called with the rig after the start snapshot is loaded, before the engine starts (e.g. to
+   *  install routines into `rig.engine.extra` or load battery RAM). */
+  setup?: (rig: Rig) => void;
+  /** Tick-phase state besides the blink timer that may be re-phased (copied from the trace) when
+   *  it is the only difference at a wait (counted in `rephased`). */
+  rephase?: (addr: number) => boolean;
 }
 
 
@@ -45,6 +51,7 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
   const rig = new Rig(rom);
   const m = rig.g.m;
   m.loadFull(t.start);
+  opts.setup?.(rig);
   rig.g.start(opts.start === "title" ? rig.engine.fromTitle() : rig.engine.field.loop());
   const n = t.meta.frames.length;
   const wf = t.waitFrames ?? [];
@@ -53,18 +60,27 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
   const waits: WaitDiff[] = [];
   let nWaits = 0, f = -1, tickPhase = 0, busy = 0, rephased = 0, lastRephase = -2;
   let pre: Uint8Array | null = null;
+  /** The state after the busy frames, before the wait frame's own tick. */
+  let preBusy: Uint8Array | null = null;
   const btn = (k: number) => buttonBits(t.meta.frames[Math.min(Math.max(k, 0), n - 1)]!.btn);
   rig.g.onWait = (kind) => {
     const prev = f;
     f = kind === VSYNC && nWaits < wf.length ? wf[nWaits]! : f + 1;
     // frames the original spent busy (no wait) before this one: run them as busy frames
     if (opts.busyFrames !== false && f - prev > 1 && prev >= 0) {
-      rig.g.busyFrames = f - prev - 1;
-      rig.g.onBusyFrame = (k) => { rig.g.buttons = btn(prev + 1 + k); };
+      const nb = f - prev - 1, cur = f;
+      rig.g.busyFrames = nb;
+      // buttons of each busy frame, then (after the last one's lines) those of the wait's frame
+      rig.g.onBusyFrame = (k) => {
+        rig.g.buttons = btn(prev + 1 + k);
+        if (k === nb - 1) rig.g.onFrameDone = () => { rig.g.buttons = btn(cur); preBusy = m.snapshotFull(); rig.g.onFrameDone = null; };
+        return tickInFrame(t, prev + 1 + k);
+      };
       busy += f - prev - 1;
     }
     rig.g.buttons = btn(f);
     pre = kind === VSYNC ? m.snapshotFull() : null;
+    preBusy = null;
   };
   const compare = (exp: Uint8Array, got: Uint8Array): number[] => {
     const diff: number[] = [];
@@ -91,12 +107,19 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
       const d2 = compare(exp, pre);
       if (!d2.length) { tickPhase++; diff = d2; }
     }
+    // After busy frames the original's code may have spanned the busy frames' ticks (which then
+    // saw its state half-way): accept the state before this frame's tick, up to the blink phase.
+    if (diff.length && preBusy) {
+      const d3 = compare(exp, preBusy);
+      if (d3.every((a) => BLINK.has(a))) { tickPhase++; diff = d3; }
+    }
     // Tick-phase counters: the blink timer C7C6/C7C7 advances in the frame tick, which on the
     // hardware can fall inside a long code segment; re-phase it when it is the only difference.
     // ... and accept the sprite positions (OAM) that follow from it in the same frame.
     const isOam = (a: number) => a >= 0xfe00 && a < 0xfea0;
-    if (diff.length && diff.every((a) => BLINK.has(a) || isOam(a)) && (diff.some((a) => BLINK.has(a)) || lastRephase === i - 1)) {
-      for (const a of diff) if (BLINK.has(a)) m.wr(a, exp[a - 0x8000]!);
+    const phased = (a: number) => BLINK.has(a) || (opts.rephase?.(a) ?? false);
+    if (diff.length && diff.every((a) => phased(a) || isOam(a)) && (diff.some(phased) || lastRephase === i - 1)) {
+      for (const a of diff) if (phased(a)) m.wr(a, exp[a - 0x8000]!);
       rephased++;
       lastRephase = i;
       diff = [];
@@ -104,7 +127,14 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
     if (diff.length) waits.push({ wait: i, frame: wf[i] ?? -1, diff, values: diff.slice(0, 24).map((a) => [a, exp[a - 0x8000]!, got[a - 0x8000]!, pre ? pre[a - 0x8000]! : -1]) });
   };
   while (f < n - 1 && !(nWaits >= wf.length && wf.length)) {
-    rig.g.runFrame();
+    try {
+      rig.g.runFrame();
+    } catch (e) {
+      // A+B+Select+Start in the frame tick: the original jumps to 00:0200 (boot, then the title)
+      if (!(e instanceof SoftReset)) throw e;
+      rig.g.start(rig.engine.main());
+      continue;
+    }
     if (f < 0 || f >= n) continue;
     // several waits can fall in one trace frame (the start tick): compare its screen once, at the last
     if (nWaits < wf.length && wf[nWaits] === f) continue;
@@ -130,7 +160,11 @@ export function summarize(diffs: FrameDiff[]): string {
  *  depends on CPU time; the replay re-phases these when they are the only difference. */
 const BLINK = new Set([0xc7c6, 0xc7c7, 0xd6c1, 0xd6c2]);
 
-/** Sound driver state and the sound requests it consumes (FFB1/FFB2); the driver is not ported yet. */
+/** Sound: APU registers (the emulator's read-back values differ from the written values the
+ *  port stores) and the driver's RAM CB00-CBFF / FFB1-FFBF. The driver is verified separately,
+ *  byte for byte per call with identical register writes (core/test/sound.test.ts); in whole-game
+ *  traces its state depends on whether the frame tick fell before or after the code that posts a
+ *  sound request (CPU time within a frame, not modelled), a one-frame shift. */
 const SOUND = (a: number) => (a >= 0xcb00 && a < 0xcc00) || (a >= 0xffb1 && a < 0xffc0) || (a >= 0xff10 && a < 0xff40);
 /** The SM83 call stack (SP starts at CF00) holds return addresses the port does not have. */
 const STACK = (a: number) => a >= 0xce00 && a < 0xcf00;

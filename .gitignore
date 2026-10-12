@@ -68,3 +68,6 @@ venv/
 htmlcov/
 dist/
 *.egg-info/
+
+# vitest/vite config bundles left behind when temp files cannot be removed
+*.timestamp-*.mjs

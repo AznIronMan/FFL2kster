@@ -373,11 +373,13 @@ export class TextEngine {
   /** 00:0AF3 — copy h rows of w bytes from hl to de (stride 32) inside a VRAM access window. */
   *copyRect(hl: number, de: number, w: number, h: number): Co {
     const m = this.m;
+    // dec-loops: a width or height of 0 means 256; after each row de += (0x20 - w) & 0xff.
     yield* vramBegin(this.g);
-    for (let r = 0; r < h; r++) {
-      for (let i = 0; i < w; i++) m.wr(de + i, m.rd(hl + i));
-      hl += w;
-      de = (de + 0x20) & 0xffff;
+    for (let r = 0; r < (h || 256); r++) {
+      const n = w || 256;
+      for (let i = 0; i < n; i++) m.wr((de + i) & 0xffff, m.rd((hl + i) & 0xffff));
+      hl = (hl + n) & 0xffff;
+      de = (de + n + ((0x20 - w) & 0xff)) & 0xffff;
     }
     yield* vramEnd(this.g);
   }
@@ -561,7 +563,7 @@ export class TextEngine {
         return yield* this.endMenu();
       }
       case 0x35: {
-        this.formatGp(0);
+        this.formatGp(this.next());
         const n = (this.next() + 2) & 0xff;
         return yield* this.printZ(0xc785 + ((8 - n) & 0xff));
       }
@@ -754,7 +756,7 @@ export class TextEngine {
     const a = this.next();
     let hl: number;
     if (a < 0x10) hl = 0xc7e0 + a;
-    else if (a >= 0x30) hl = 0xc21f + ((m.rd(0xc709) * 16) & 0xff);
+    else if (a >= 0x30) hl = 0xc21f + ((m.rd(0xc709) * 32) & 0xff);
     else hl = 0xc71d + (((a - 0x20) * 2) & 0xff);
     const v = m.rd(hl);
     if (v === 0xff) return yield* this.blanks(8);
@@ -765,10 +767,10 @@ export class TextEngine {
   private *magiCount(): Co {
     const m = this.m;
     const a = this.next();
-    const hl = a < 0x10 ? 0xc7e0 + a : 0xc21f + ((m.rd(0xc709) * 16) & 0xff);
+    const hl = a < 0x10 ? 0xc7e0 + a : 0xc21f + ((m.rd(0xc709) * 32) & 0xff);
     const v = m.rd(hl);
     if (v === 0xff) return yield* this.blanks(1);
-    yield* this.number(m.rd(0xc2da + 2 * v) & 0x0f, 4);
+    yield* this.number(m.rd(0xc2da + ((2 * v) & 0xff)) & 0x0f, 4);
   }
 
   /** 00:10BB — item name (0F:6640 table) from inventories, equipment, enemies. */

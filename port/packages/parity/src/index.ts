@@ -81,3 +81,12 @@ export function screenDiff(a: Uint8Array, b: Uint8Array): number {
   for (let i = 0; i < FRAME_BYTES; i++) if (a[i] !== b[i]) n++;
   return n;
 }
+
+/** Whether the original's frame tick ran in trace frame f: the sound driver (called first by the
+ *  tick, 00:16F9) advances its frame counter FFB4 on every call. Used for busy frames only, where
+ *  the port cannot know CPU time: a CPU-bound stretch with the LCD off (map loads) or interrupts
+ *  masked gets no tick. */
+export function tickInFrame(t: Trace, f: number): boolean {
+  if (f <= 0 || (f + 1) * 128 > t.hram.length) return true;
+  return t.hram[f * 128 + 0x34] !== t.hram[(f - 1) * 128 + 0x34];
+}

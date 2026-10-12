@@ -1,11 +1,15 @@
-/** The game player: runs the engine at the Game Boy's 59.73 Hz, draws the PPU frame on a canvas
- *  and maps keyboard/gamepad input. Battery RAM (saves) is persisted in IndexedDB. */
+/** The game player: runs the engine at the Game Boy's 59.73 Hz, draws the PPU frame on a canvas,
+ *  plays the sound driver through the APU model (audio.ts; starts on the first key/click, 'M'
+ *  mutes) and maps keyboard/gamepad input. Battery RAM (saves) is persisted in IndexedDB. */
 import { Engine, NotPorted, SoftReset, BTN } from "@ffl2k/core";
 import { Ppu, regsFromIo, SCREEN_W, SCREEN_H } from "@ffl2k/render";
 import type { DataPackage } from "@ffl2k/importer";
 import { loadSram, saveSram } from "./storage";
+import { AudioOut } from "./audio";
 
 const FRAME_MS = 1000 / 59.7275;
+/** Minimum frames a key press is held for the game (taps are stretched to this). */
+const MIN_PRESS = 4;
 /** DMG-like greens are an optional extra; default is the plain 4 greys. */
 const PALETTE = [[0xff, 0xff, 0xff], [0xaa, 0xaa, 0xaa], [0x55, 0x55, 0x55], [0x00, 0x00, 0x00]];
 
@@ -26,16 +30,28 @@ export class Player {
   private last = 0;
   private acc = 0;
   private held = 0;
+  /** Keys released by the user but held until MIN_PRESS frames have passed. */
+  private releasing = 0;
+  private readonly pressedAt = new Map<number, number>();
   private img: ImageData;
   private ctx: CanvasRenderingContext2D;
   private sramDirty = false;
   private lastSram = new Uint8Array(0x2000);
+  private readonly audio = new AudioOut();
 
   constructor(readonly pkg: DataPackage, readonly ui: PlayerUi) {
     ui.canvas.width = SCREEN_W;
     ui.canvas.height = SCREEN_H;
     this.ctx = ui.canvas.getContext("2d")!;
     this.img = this.ctx.createImageData(SCREEN_W, SCREEN_H);
+    const gesture = () => void this.audio.start();
+    window.addEventListener("keydown", gesture, { once: true });
+    window.addEventListener("pointerdown", gesture, { once: true });
+    window.addEventListener("keydown", (e) => {
+      if (e.code !== "KeyM" || e.repeat) return;
+      const muted = this.audio.toggleMute();
+      if (this.running) this.ui.onStatus(muted ? "Sound muted (M)" : "Sound on (M)");
+    });
     window.addEventListener("keydown", (e) => this.key(e, true));
     window.addEventListener("keyup", (e) => this.key(e, false));
     document.addEventListener("visibilitychange", () => { if (document.hidden) void this.persist(); });
@@ -51,6 +67,7 @@ export class Player {
 
   async start(): Promise<void> {
     this.engine = new Engine(this.pkg.segments, this.romBytes());
+    this.audio.attach(this.engine.g);
     const m = this.engine.g.m;
     const sram = await loadSram().catch(() => undefined);
     if (sram) {
@@ -73,7 +90,23 @@ export class Player {
     const b = KEYS[e.code];
     if (b === undefined) return;
     e.preventDefault();
-    this.held = down ? this.held | b : this.held & ~b;
+    if (down) {
+      if (!(this.held & b)) this.pressedAt.set(b, this.engine?.g.frame ?? 0);
+      this.held |= b;
+      this.releasing &= ~b;
+    } else this.releasing |= b;
+  }
+
+  /** Apply key releases once each press has been seen for MIN_PRESS frames: a tap shorter than
+   *  a frame (or than the game's joypad edge detection) is not lost. */
+  private applyReleases(): void {
+    const f = this.engine?.g.frame ?? 0;
+    for (let b = 1; b < 0x100; b <<= 1) {
+      if (this.releasing & b && f - (this.pressedAt.get(b) ?? 0) >= MIN_PRESS) {
+        this.held &= ~b;
+        this.releasing &= ~b;
+      }
+    }
   }
 
   private pad(): number {
@@ -100,10 +133,13 @@ export class Player {
     while (this.acc >= FRAME_MS && n < 4) {
       this.acc -= FRAME_MS;
       n++;
+      this.applyReleases();
       this.engine.g.buttons = this.held | this.pad();
       try {
         this.engine.g.runFrame();
+        this.audio.endFrame(this.engine.g.frame);
       } catch (e) {
+        this.audio.endFrame(this.engine.g.frame);
         if (e instanceof SoftReset) {
           void this.persist();
           this.engine.g.start(this.engine.main());

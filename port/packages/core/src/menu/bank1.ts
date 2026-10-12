@@ -28,7 +28,7 @@ export class Bank1 {
   // ------------------------------------------------------------ shared helpers
 
   /** rst $18 with page CC after a frame (the "rst $10; ld a,$cc; rst $18" idiom). */
-  private *frameCC(): Co {
+  *frameCC(): Co {
     yield* vsync(this.g);
     this.m.wr(0xff46, 0xcc);
   }
@@ -41,7 +41,7 @@ export class Bank1 {
   }
 
   /** 00:00CA — copy n bytes from ROM bank b to VRAM inside an access window. */
-  private *vramFromRom(bank: number, hl: number, de: number, n: number): Co {
+  *vramFromRom(bank: number, hl: number, de: number, n: number): Co {
     const prev = this.m.selectBank(bank);
     yield* vramBegin(this.g);
     copyBank(this.m, bank, hl, de, n);
@@ -57,7 +57,7 @@ export class Bank1 {
   }
 
   /** 01:5E43 — clear the portrait entries and the CC sprite page; C796 = C7DA = 0. */
-  private clearSprites(): void {
+  clearSprites(): void {
     const m = this.m;
     fill(m, 0xc7a6, 0x20, 0);
     fill(m, 0xcc00, 0xa0, 0);
@@ -66,13 +66,13 @@ export class Bank1 {
   }
 
   /** 01:5E40 — cursors off (00:0546), then 5E43. */
-  private resetSprites(): void {
+  resetSprites(): void {
     fill(this.m, 0xff97, 4, 0xff);
     this.clearSprites();
   }
 
   /** 00:0533 / 00:0536 — menu item list cleared (FF9B = 0 for 0533). */
-  private clearMenu(resetCursor = true): void {
+  clearMenu(resetCursor = true): void {
     const m = this.m;
     if (resetCursor) m.hram[0x1b] = 0;
     m.wr(0xc7ca, 0);
@@ -81,19 +81,19 @@ export class Bank1 {
   }
 
   /** 01:5E25 */
-  private reset5E25(): void {
+  reset5E25(): void {
     this.resetSprites();
     this.clearMenu(true);
   }
 
   /** 01:5E2B */
-  private reset5E2B(): void {
+  reset5E2B(): void {
     this.resetSprites();
     this.clearMenu(false);
   }
 
   /** 01:5E35 — also the scroll offsets C797/C798. */
-  private reset5E35(): void {
+  reset5E35(): void {
     this.resetSprites();
     this.m.wr(0xc797, 0);
     this.m.wr(0xc798, 0);
@@ -101,13 +101,13 @@ export class Bank1 {
   }
 
   /** 01:5E31 */
-  private reset5E31(): void {
+  reset5E31(): void {
     this.m.wr(0xc798, 0);
     this.reset5E35();
   }
 
   /** 01:5F0E — frame, then palettes D2 D2 81 (also kept in C700-C702). */
-  private *palettes(): Co {
+  *palettes(): Co {
     const m = this.m;
     yield* vsync(this.g);
     m.wr(0xff47, 0xd2); m.wr(0xc700, 0xd2);
@@ -116,7 +116,7 @@ export class Bank1 {
   }
 
   /** 01:5F22 — frame, palettes 0. */
-  private *black(): Co {
+  *black(): Co {
     yield* vsync(this.g);
     this.m.wr(0xff47, 0);
     this.m.wr(0xff48, 0);
@@ -124,7 +124,7 @@ export class Bank1 {
   }
 
   /** 01:5F44 — frame, window on at the top-left (WY 0, WX 7, LCDC E3). */
-  private *windowOn(): Co {
+  *windowOn(): Co {
     yield* vsync(this.g);
     this.m.wr(0xff4a, 0);
     this.m.wr(0xff4b, 7);
@@ -132,7 +132,7 @@ export class Bank1 {
   }
 
   /** 01:5F2B — fill the window map rows with tile 0x75 (18 rows of 20). */
-  private *blankWindow(): Co {
+  *blankWindow(): Co {
     const m = this.m;
     yield* vramBegin(this.g);
     for (let r = 0, hl = 0x9c00; r < 0x12; r++, hl += 0x20) fill(m, hl, 0x14, 0x75);
@@ -140,7 +140,7 @@ export class Bank1 {
   }
 
   /** 01:5DF8 — full-screen menu: sprites off, black, cleared, window on, FF96 = 3. */
-  private *screenNew(): Co {
+  *screenNew(): Co {
     const m = this.m;
     m.hram[0x16] = 0;
     yield* this.black();
@@ -151,7 +151,7 @@ export class Bank1 {
   }
 
   /** 01:5E0D — like 5DF8 with a blank window and normal palettes. */
-  private *screenMenu(): Co {
+  *screenMenu(): Co {
     const m = this.m;
     m.hram[0x16] = 0;
     this.reset5E31();
@@ -206,17 +206,17 @@ export class Bank1 {
   }
 
   /** 01:5271 / 01:527C / 01:5287 — saved cursor/scroll of menu a (C340 + 2a). */
-  private loadCursor(a: number): void {
+  loadCursor(a: number): void {
     const m = this.m, hl = 0xc340 + 2 * a;
     m.hram[0x1b] = m.rd(hl);
     m.wr(0xc798, m.rd(hl + 1));
   }
-  private storeCursor(a: number): void {
+  storeCursor(a: number): void {
     const m = this.m, hl = 0xc340 + 2 * a;
     m.wr(hl, m.hram[0x1b]!);
     m.wr(hl + 1, m.rd(0xc798));
   }
-  private clearCursor(a: number): void {
+  clearCursor(a: number): void {
     const m = this.m, hl = 0xc340 + 2 * a;
     m.wr(hl, 0);
     m.wr(hl + 1, 0);

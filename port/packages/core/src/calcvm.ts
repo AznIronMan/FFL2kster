@@ -6,6 +6,7 @@
  *  animation D910) are presentation hooks supplied by the caller. */
 import type { Memory } from "./memory.js";
 import { rand } from "./rng.js";
+import type { Co } from "./game.js";
 
 export const SCRIPT_TABLE = 0x4680; // bank 0C
 const ACC = 0xc1a5, OPR = 0xc1a8, LEFT = 0xc1ac, MODE = 0xc1a4, TGT = 0xc1a1, TGT_MODE = 0xc1a3, SP_PTR = 0xc1af;
@@ -13,6 +14,12 @@ const ACC = 0xc1a5, OPR = 0xc1a8, LEFT = 0xc1ac, MODE = 0xc1a4, TGT = 0xc1a1, TG
 export interface VmHooks {
   native?(addr: number, mem: Memory): void;
 }
+
+/** Native calls for the generator variant (`runCo` / `runScriptCo`): a coroutine run at the exact
+ *  point the ROM interpreter calls the native (0C:410E: `push bc; ret` with A = high byte of the
+ *  address, DE = the next statement), so natives that wait frames (0x0020 rst $20 battle message,
+ *  0x01E0 → 0D:5000 animation) keep the original timing. */
+export type VmNatives = (addr: number, mem: Memory) => Co<unknown>;
 
 export class CalcVm {
   steps = 0;
@@ -31,14 +38,65 @@ export class CalcVm {
 
   /** Run from address de (bank 0C mapped) until the statement-level end (0x1F). */
   run(de: number): void {
+    let pc = this.begin(de);
+    for (;;) {
+      pc = this.statement(pc);
+      if (pc < 0) return;
+      if (this.nativeReq >= 0) {
+        const t = this.nativeReq;
+        this.nativeReq = -1;
+        this.native(t);
+      }
+    }
+  }
+
+  /** Generator variant of runScript: 0D:4361 → farcall 0C:4000 (bank 0C mapped and FF88 = 0C
+   *  for the whole run, as the far call does; the previous bank is restored afterwards). */
+  *runScriptCo(n: number, natives: VmNatives): Co {
+    const m = this.mem;
+    const prev = m.selectBank(0x0c);
+    try {
+      yield* this.runCo(m.rd16(SCRIPT_TABLE + 2 * n), natives);
+    } finally {
+      m.selectBank(prev);
+    }
+  }
+
+  /** Generator variant of run: natives are coroutines run where the ROM interpreter calls them.
+   *  VM state in WRAM (C1A0-C1B0, stack C1B1+) is identical to run(). */
+  *runCo(de: number, natives: VmNatives): Co {
+    let pc = this.begin(de);
+    for (;;) {
+      pc = this.statement(pc);
+      if (pc < 0) return;
+      if (this.nativeReq >= 0) {
+        const t = this.nativeReq;
+        this.nativeReq = -1;
+        yield* natives(t, this.mem);
+      }
+    }
+  }
+
+  /** Native requested by the last statement (03 a16), or -1. */
+  private nativeReq = -1;
+
+  /** 0C:4000 — VM stack pointer C1AF = C1B1. */
+  private begin(de: number): number {
     const m = this.mem;
     m.wr(SP_PTR, 0xb1);
     m.wr(SP_PTR + 1, 0xc1);
-    let pc = de;
-    for (;;) {
+    this.nativeReq = -1;
+    return de;
+  }
+
+  /** 0C:400A — execute the statement at pc; returns the next pc, or -1 at the end (0x1F). A native
+   *  call (03) is left in nativeReq for the caller to run. */
+  private statement(pc: number): number {
+    const m = this.mem;
+    {
       if (++this.steps > this.maxSteps) throw new Error("calc VM step limit");
       const op = m.rd(pc), code = op & 0x1f, mode = (op >> 5) & 7;
-      if (code === 0x1f) return;
+      if (code === 0x1f) return -1;
       switch (code) {
         case 0x00: { // assign
           let l = m.rd(pc + 1), h = 0xcf;
@@ -60,7 +118,7 @@ export class CalcVm {
           pc = this.expression(pc, true);
           break;
         case 0x02: pc = m.rd16(pc + 1); break;
-        case 0x03: { const t = m.rd16(pc + 1); pc += 3; this.native(t); break; }
+        case 0x03: { const t = m.rd16(pc + 1); pc += 3; this.nativeReq = t; break; }
         case 0x04: m.wr(0xc1a0, m.rd(pc + 1)); pc += 2; break;
         case 0x05: { const t = m.rd16(pc + 1); this.push(pc + 3); pc = t; break; }
         case 0x06: pc = this.pop(); break;
@@ -79,6 +137,7 @@ export class CalcVm {
         default: throw new Error(`calc VM: bad statement ${op.toString(16)} at 0C:${pc.toString(16)}`);
       }
     }
+    return pc;
   }
 
   private push(v: number): void {

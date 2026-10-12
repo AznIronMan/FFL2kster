@@ -53,3 +53,43 @@ describe.skipIf(!HAVE)("calc VM parity with the ROM interpreter", () => {
     });
   }
 });
+
+describe.skipIf(!HAVE)("calc VM generator variant (runScriptCo) parity with the ROM interpreter", () => {
+  const rom = HAVE ? new Uint8Array(readFileSync(ROM)) : new Uint8Array();
+  const files = HAVE ? readdirSync(GOLD).filter((f) => f.endsWith(".json")).sort() : [];
+  for (const f of files) {
+    it(`snapshot ${f}`, () => {
+      const g = JSON.parse(readFileSync(resolve(GOLD, f), "utf8"));
+      const mem = new Memory(segments(rom));
+      const snap = new Uint8Array(readFileSync(resolve(SNAP, f.replace(".json", ".bin"))));
+      mem.loadSnapshot(snap);
+      mem.bank = mem.hram[0x08]! & 0x1f || 1;
+      const before = mem.snapshot();
+      const bankBefore = mem.bank;
+      const events: object[] = [];
+      let frames = 0, bankInNative = -1;
+      const vm = new CalcVm(mem);
+      const co = vm.runScriptCo(g.script, function* (addr, m) {
+        bankInNative = m.hram[0x08]!;
+        if (addr === 0x0020) events.push({ type: "message", id: m.rd(0xd90c), args: Array.from({ length: 12 }, (_, i) => m.rd(0xd900 + i)) });
+        else if (addr === 0x01e0) events.push({ type: "anim", id: m.rd(0xd910), sfx: m.rd(0xffb2) });
+        else throw new Error(`native ${addr}`);
+        yield; // a native that waits a frame
+      });
+      while (!co.next().done) frames++;
+      const after = mem.snapshot();
+      const changes: number[][] = [];
+      for (let i = 0; i < 0x4000; i++) {
+        const a = 0xc000 + i;
+        if (a >= 0xe000 && a < 0xfe00) continue; // echo RAM
+        if (before[i] !== after[i] && a < 0xffc0 && !IGNORE.has(a)) changes.push([a, before[i]!, after[i]!]);
+      }
+      const expected = (g.changes as number[][]).filter((c) => !IGNORE.has(c[0]!) && !(c[0]! >= 0xe000 && c[0]! < 0xfe00));
+      expect(events).toEqual(g.events);
+      expect(frames).toBe(g.events.length);
+      if (g.events.length) expect(bankInNative).toBe(0x0c); // natives run with bank 0C mapped (FF88)
+      expect(mem.bank).toBe(bankBefore);
+      expect(changes).toEqual(expected);
+    });
+  }
+});

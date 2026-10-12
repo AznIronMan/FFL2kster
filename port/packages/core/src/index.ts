@@ -9,3 +9,5 @@ export * as field from "./field/index.js";
 export * as text from "./text/index.js";
 export * from "./engine.js";
 export * as menu from "./menu/index.js";
+export * as battle from "./battle/index.js";
+export * from "./sound/index.js";

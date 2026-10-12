@@ -10,7 +10,12 @@ registers, key WRAM bytes), screens.bin (160x144 shade bytes per frame), wram.bi
 per frame), vram.bin (8000-9FFF per frame), oam.bin (FE00-FE9F per frame), hram.bin (FF80-FFFF),
 and waits.bin: the machine (8000-FFFF) at every frame wait (first wake from the `halt` of rst $10, 00:00DE,
 after the OAM page flip), the engine's `yield` points, with waits.json listing the frame of each.
-Usage: python tools/trace_record.py NAME STATE "btn:frames,..." [total] [--hook BB:AAAA]
+With --mark BB:AAAA[,BB:AAAA...] the machine is also saved each time the CPU reaches one of those
+addresses after the start (e.g. the return address of a hooked routine): marks.bin + marks.json
+(frame, number of waits recorded before it, address, registers of each).
+With --poke AAAA=VV[,AAAA=VV...] those bytes are written when the hook is reached, before the
+start snapshot (to set up a situation, e.g. battle inventories).
+Usage: python tools/trace_record.py NAME STATE "btn:frames,..." [total] [--hook BB:AAAA] [--mark BB:AAAA,...] [--poke AAAA=VV,...]
   btn in up/down/left/right/a/b/start/select/none (several joined by '+'); each item holds the
   buttons for N frames."""
 import json, os, sys
@@ -29,6 +34,16 @@ def main():
     if "--hook" in sys.argv:
         hook = sys.argv[sys.argv.index("--hook") + 1]
         args.remove(hook)
+    marks_at = []
+    if "--mark" in sys.argv:
+        mk = sys.argv[sys.argv.index("--mark") + 1]
+        args.remove(mk)
+        marks_at = [tuple(int(x, 16) for x in t.split(":")) for t in mk.split(",")]
+    pokes = []
+    if "--poke" in sys.argv:
+        pk = sys.argv[sys.argv.index("--poke") + 1]
+        args.remove(pk)
+        pokes = [tuple(int(x, 16) for x in t.split("=")) for t in pk.split(",")]
     name, state, plan = args[0], args[1], args[2]
     total = int(args[3]) if len(args) > 3 else None
     steps = []
@@ -54,6 +69,8 @@ def main():
         def cb(_):
             if start:
                 return
+            for pa, pv in pokes:
+                pb.memory[pa] = pv
             r = pb.register_file
             start["regs"] = {"a": r.A, "f": r.F, "b": r.B, "c": r.C, "d": r.D, "e": r.E, "hl": r.HL, "sp": r.SP, "pc": r.PC}
             start["mem"] = bytes(pb.memory[0x8000:0x10000])
@@ -74,10 +91,23 @@ def main():
         pb.hook_register(0, 0x00D9, arm, None)
         pb.hook_register(0, 0x00DE, at_halt, None)  # first instruction after the halt wakes
         for _ in range(3000):
-            pb.tick(1, False)
+            # rendered: PyBoy keeps the window line counter only in rendered frames, so the first
+            # recorded frame would show the window shifted after unrendered ones
+            pb.tick(1, True)
             if start:
                 break
         pb.hook_deregister(hb, ha)
+        marks, mark_meta = bytearray(), []
+
+        def mk_mark(bank, addr):
+            def at_mark(_):
+                r = pb.register_file
+                marks.extend(bytes(pb.memory[0x8000:0x10000]))
+                mark_meta.append({"frame": len(frames_ref), "waits": len(wait_frames), "at": f"{bank:02X}:{addr:04X}",
+                                  "regs": {"a": r.A, "f": r.F, "b": r.B, "c": r.C, "d": r.D, "e": r.E, "hl": r.HL}})
+            return at_mark
+        for mb, ma in marks_at:
+            pb.hook_register(mb, ma, mk_mark(mb, ma), None)
         if not start:
             raise SystemExit(f"hook {hook} not reached")
         open(f"{out}/start.bin", "wb").write(start["mem"])
@@ -104,7 +134,10 @@ def main():
             pb.button_release(k)
     open(f"{out}/waits.bin", "wb").write(bytes(waits))
     json.dump({"frames": wait_frames}, open(f"{out}/waits.json", "w"))
-    json.dump({"state": state, "plan": plan, "hook": hook, "start": {k: v for k, v in start.items() if k != "mem"},
+    if marks_at:
+        open(f"{out}/marks.bin", "wb").write(bytes(marks))
+        json.dump({"marks": mark_meta}, open(f"{out}/marks.json", "w"))
+    json.dump({"state": state, "plan": plan, "hook": hook, "pokes": [f"{a:04X}={v:02X}" for a, v in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
                "frames": frames}, open(f"{out}/trace.json", "w"))
     for fn, data in (("screens", screens), ("wram", wram), ("vram", vram), ("oam", oam), ("hram", hram)):
         open(f"{out}/{fn}.bin", "wb").write(bytes(data))

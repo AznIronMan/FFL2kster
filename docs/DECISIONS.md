@@ -120,3 +120,31 @@
 - The Python toolkit remains the reference; TypeScript ports are accepted only when golden tests
   show identical output (`port/packages/importer/test/golden.test.ts`).
 - npm (workspaces) rather than pnpm; Node/npm tooling runs on the macOS host (native esbuild).
+
+## 2026-10-12 — P1 decisions (vertical slice)
+
+- Native port, not a runtime CPU emulator: each original routine is a TypeScript function (one per
+  routine, original address in its doc comment) over the original memory map; banked routines
+  are addressed `bank << 16 | address` and registered in `engine.extra` by the module that ports
+  them. Waits are generators (`yield VSYNC` = rst $10).
+- Frame model: the code segment runs at vblank, the STAT handlers (frame tick at LY = LYC = 0,
+  raster handlers by C706 address) per line, the wait state is taken after the line-0 tick. CPU
+  time inside a frame is not modelled. Consequences, handled in the parity harness and listed per
+  trace: busy frames where the original spends frames without waiting (the trace's frame gaps;
+  a busy frame gets the frame tick only if the original's sound counter FFB4 advanced in it — map
+  loads run with the LCD off); tick-phase tolerances (state accepted just before the tick; blink
+  timer C7C6/C7C7 and, per trace, joypad history / RNG counter re-phased when they are the only
+  difference); a wait reached by code polling LY with interrupts off is compared at the frame's
+  end; frames drawn while the original is mid-copy (tearing) listed explicitly.
+- Parity is checked at every rst $10 (machine 8000-FFFF) and every frame's screen against PyBoy
+  traces, with an ignore set: APU registers and sound-driver RAM (the driver itself is checked
+  byte for byte per call with identical register writes, core/test/sound.test.ts), the SM83 stack
+  CE00-CEFF and its saved pointer C0E1/C0E2 (battle), DIV/IF/STAT/LY/LYC, write-before-read
+  scratch (C477-C47D, FF90-FF95), the derived sprite page CC00-CC9F and OAM.
+- A soft reset is taken at the next frame (the port finishes the interrupted code segment); its
+  RNG/joypad side effects are a documented re-phase in the load trace. Modelling the reset inside
+  the frame was tried and matched worse (vector/handler state at the boot's first waits).
+- The web player stretches key taps to at least 4 frames so a press shorter than a frame is not
+  lost (the game detects buttons by edges over two samples).
+- Sound: the driver runs in the engine (`installSound`); the APU synth is a separate pure-TS model
+  fed with timestamped register writes; output via AudioWorklet (secure contexts only).

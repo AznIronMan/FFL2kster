@@ -135,3 +135,26 @@ Test suite: 68 passed (56 fast + 12 emulator, ~11 s).
 | Browser check | done | built web app imported the ROM in the desktop browser pane, persisted across reload, removal works |
 
 Tests: Python 74 passed (61 fast + 13 emulator); TypeScript 12 passed with the ROM present.
+
+## Port P1 — Vertical slice (2026-10-12)
+
+| Item | Result | Evidence (PyBoy ground truth unless noted) |
+|---|---|---|
+| Engine runtime (frame model, interrupts, joypad, banks) | done | all traces below, wait-for-wait |
+| Field: walking, NPCs, collision, doors, map loads | done | walk1 204 waits, door1 310 |
+| Text/script interpreter (78 control codes, windows) | done | talk1 452 waits; field-menu traces |
+| Title, new game intro, class choice, name entry, save slots | done | title1 481 waits (boot → field) |
+| Save and load (battery RAM) | done | fm_menu_save (battery RAM equal), ld_continue (soft reset → Continue → slot 0 → field) |
+| Start/Select menus, shops, inns, field item use | done | 17 fm_* traces, 8,071 waits; party block and battery RAM equal at the end |
+| Encounters and formation setup | done | bt_field (world map → encounter → battle), 00:2AE6/2B14 oracle 46 cases |
+| Battle loop, calc-VM actions, rewards, meat, growth, defeat | done | 6 bt_* battle traces, 8,590 waits, machine equal at the return; routine oracle 3,879 cases |
+| Battle display and animations (0F:6080, 0D:5000) | done | 164 routine traces (~7.3k waits), 1,352 oracle snapshots |
+| Battle menus (bank 1) | done | 8 bm_* traces, 1,623 waits, oracle for the tile animations |
+| Sound driver (bank 0E) | done | 80,581 driver calls: RAM and APU write sequence identical (all songs, all 57 SFX) |
+| APU synth | done | vs PyBoy audio: loudness correlation ≥ 0.977, spectral cosine ≥ 0.916 on all songs/SFX |
+| Web build | done | builds; plays title, intro and story in the desktop browser pane; no ROM data in dist |
+
+Tests: TypeScript 4,277 passed (7 skipped: diagnostics); Python 75 passed. Not covered by a trace:
+the Memo screen (the original corrupts RAM when it is opened from the test states), field item
+outcomes CFF4 = 6/7/>8, healing by text code 0x3F, the ending animation, confusion (VM script 4).
+Safari and Firefox were not tested from here (Chromium-based pane only).
