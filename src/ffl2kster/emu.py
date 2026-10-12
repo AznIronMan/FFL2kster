@@ -45,6 +45,11 @@ class BattleSnapshot:
     def enemy_stats(self) -> list[int]:
         return list(self.block[14:18])
 
+    @property
+    def individual_hp(self) -> list[int]:
+        """Per-enemy current HP at D541 + 8*i (probable: moves with max HP under controlled change)."""
+        return [self.block[0x41 + 8 * i] | (self.block[0x42 + 8 * i] << 8) for i in range(self.block[1])]
+
 
 class Emulator:
     """Context manager running a private copy of a ROM (PyBoy may write .ram files)."""
@@ -102,7 +107,7 @@ class Emulator:
         loaded = bool(self.hook_hits)
         self.pb.tick(settle, False)
         return BattleSnapshot(self.rom_path, loaded, list(self.hook_hits),
-                              bytes(self.pb.memory[ENEMY_BLOCK:ENEMY_BLOCK + 0x40]),
+                              bytes(self.pb.memory[ENEMY_BLOCK:ENEMY_BLOCK + 0x60]),
                               self.wram(), self.screenshot())
 
 

@@ -34,7 +34,9 @@ def cmd_info(a) -> int:
 
 def _load_edits(a, project):
     if getattr(a, "db", None):
-        from .db import load_edits
+        from .db import db_sha, load_edits
+        if db_sha(a.db) != project.supported_sha256:
+            raise BuildError("database was not imported from the project's supported ROM")
         return load_edits(a.db)
     return None
 
@@ -43,6 +45,8 @@ def cmd_build(a) -> int:
     project = load_project(a.project)
     try:
         report = build(a.rom, project, a.out, a.diff, edits=_load_edits(a, project))
+        report_src = "database " + a.db if a.db else "project.json"
+        print(f"edits from {report_src}")
     except BuildError as e:
         print(f"build failed: {e}", file=sys.stderr)
         return 2

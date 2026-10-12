@@ -31,6 +31,11 @@ input/reference/*
 *.7z
 *.rar
 
+# SQLite transient files
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
 # Raw ROM extracts (regenerate with the committed extraction tools)
 *.raw
 build/extract/

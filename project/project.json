@@ -1,12 +1,21 @@
 {
   "name": "FFL2kster",
-  "schema_version": 0,
+  "schema_version": 1,
   "supported_rom": {
     "title": "SAGA2",
     "region": "USA",
     "size": 262144,
     "sha256": "ef66c90aeaab71672aefc6f39569b70925c08bda4996fe68f1452ed4a898486e"
   },
+  "database": "project/ffl2kster.sqlite",
   "settings": {},
-  "edits": []
+  "edits": [
+    {
+      "domain": "enemy",
+      "id": 120,
+      "field": "hp",
+      "value": 200,
+      "reason": "milestone-1 proof edit: first world-map enemy (3x Jaguar) max HP 45 -> 200"
+    }
+  ]
 }
