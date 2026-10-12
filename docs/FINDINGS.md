@@ -266,3 +266,27 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   Long sword, so human enemies appear to drop items from their own lists (probable, one
   observation); meat drops come from monsters (M2b). Drop probabilities not measured.
 - Export: `python -m ffl2kster encounters-export` → `data/encounters.json`.
+
+## 2026-10-12 — Maps, warps and triggers (M5, part 1)
+
+- **Decoded map buffer**: D000–DFFF = 64×64 metatile bytes (verified: renders built from the
+  buffer + captured VRAM match the on-screen viewport, mean pixel diff 4.7–9.9/255 with sprites).
+  Metatile m (0x00–0x3F) = tiles 4m..4m+3 (TL, TR, BL, BR). Map coords = player (C42C+5, C42D+4).
+- **Destination records** 07:4000 + 4·i, 511 records → 212 unique map headers (bank 07, from 07:4800).
+  Loader 00:1C61 (player X = (b2&0x3F)−5, facing = b2>>6, Y = (b3&0x3F)−4). Warp index from
+  C442/C443: i = C442 + 256·((C443&1)^1); 0x1FF = return to saved position (C316–C319);
+  C443 = 0x0E → alternate table 07:6F80. Hook on 00:1C61 confirmed record 21 (07:4054) for a door.
+- **Map header** (00:1CAF + 00:1CC4): [layout ptr][b2][flags][zone, rate if flags&0x40][L]
+  [L × (dest lo, dest hi/flags)]… Buffer value 0x40+k is trigger k. Town: 7 triggers resolve to
+  the Mr. S hall (25,21) and four interiors (8,11)/(40,11)/(8,43)/(40,43) — exactly the explorer's
+  observed transitions. World header: encounters on, zone 0, rate 0x0A, 14 triggers.
+- **Layout source**: layout ptr < 0x4000 → bank 08 at 0x4000+ptr, else bank 09; drawn by a
+  command interpreter at 00:2253 (dispatch 00:2263: fill, checkerboard fill, single tile, …).
+  Command semantics not yet decoded (needed for a map editor, not for export).
+- **Capture method** (`tools/map_capture.py`): the town door's record 07:4054 is replaced in a
+  disposable ROM by each map's representative record; walking through loads that map; all 212
+  maps captured (header fields, buffer, VRAM, OAM, screenshot). `maps-export` → data/maps/maps.json
+  (headers, resolved warps, layouts). Renders: `tools/map_render.py` → build/maps/render/.
+- Open: 6-byte records after the trigger list (not the live NPC objects — X values not found in
+  WRAM), meaning of bit 7 tiles (5 in the town, at doorsteps), 29 maps with values ≥0x40 beyond
+  their trigger count, NPC/chest/event placement, collision table.
