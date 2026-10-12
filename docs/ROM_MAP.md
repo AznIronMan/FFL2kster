@@ -80,10 +80,26 @@ character-name list (hypothesis).
 WarMach), then Human M … Imp (party creation list as shown on screen), then bosses and
 location names at 0x3F6C0+.
 
-### Bank-0C 8-byte table at `0C:6F80` — **hypothesis**
+### Items / weapons / armor / spells / abilities — `0C:6F80` (0x32F80–0x3377F) — **verified (location)**
 
-Read by bank-01 code with ×8 indexing (`ld de/bc, $6f80/$6f82/$6f85`, bank 0x0C). Likely
-item/equipment data; not investigated.
+256 × 8 bytes, one id space shared with the name table at `0F:6640` (ids 0x00–0x7F items,
+0x80–0xFF monster abilities). See `src/ffl2kster/schema/items.py`.
+
+| Byte | Field | Status | Meaning / evidence |
+|---|---|---|---|
+| 0 | `usage` | probable | target/use class; controlled change alters targeting |
+| 1 | `flags1` | hypothesis | 08 shields/Defend/Tank, 10 Rune, 01 Revenge/Counter |
+| 2 | `equip` | probable (0x40 verified) | slot nibble 1/2/4/8 = helm/body/gloves/boots; 0x40 stat bonus; 0x10 resist |
+| 3 | `effect` | verified | battle action routine id (Long 0x31→0x14 changes behaviour) |
+| 4 | `power` | verified | weapon power (damage = power·STR − 5·DEF ± rnd); armor DEF bonus |
+| 5 | `param` | probable (stat bonus verified) | element/status bits, accuracy/evade, stat bonus `SSSS AAAA` |
+| 6–7 | `anim` | hypothesis | presentation word |
+
+### Item uses — `0C:7E80` (0x33E80), 1 byte × 256 — **verified**
+254 = unlimited ("-" on screen). Loaded into (id, uses) pairs in party/enemy ability slots.
+
+### Item prices — `0F:7860` (0x3F860), 3 bytes LE × 120 (ids 0x00–0x77) — **probable**
+Location verified by code (`01:6678`); GP semantics not yet seen on a shop screen.
 
 ## Routines
 
@@ -98,7 +114,7 @@ item/equipment data; not investigated.
 
 | Address | Meaning | Status | Evidence |
 |---|---|---|---|
-| `C200 + 32·n` (n=0..4) | Party slots (4 members + guest): name[4], id/type, HP cur (+7), HP max (+9), STR/AGL/MANA/DEF (+0x0B..0x0E), … | verified (HP, stats) | RAM matches records 240/225; writing 11/22/33/44 to +0x0B..+0x0E shows STR 11 / AGL 22 / MANA 33 / DEF 44 |
+| `C200 + 32·n` (n=0..4) | Party slots (4 members + guest): name[4], id/type, HP cur (+7), HP max (+9), STR/AGL/MANA/DEF (+0x0B..0x0E), 8 × (item id, uses) at +0x0F (0xFF = empty) | verified (HP, stats) | RAM matches records 240/225; writing 11/22/33/44 to +0x0B..+0x0E shows STR 11 / AGL 22 / MANA 33 / DEF 44 |
 | `C42C` / `C42D` | Player map X / Y (tile) | verified | step-diff: ±1 per step in each direction, used for navigation |
 | `D500` | Enemy group block: alive, total, name[8], id, type, HP max (lo,hi), STR, AGL, MANA, DEF, (ability, uses)… | verified | controlled changes map 1:1 to D50C–D512; 4 species observed |
 | `D541 + 8·i` | Per-enemy current HP | probable | moves with max HP (45→45/43/43, 99→99/92/92, 200→200/180/180); reaches 0 when "Jaguar fell." |

@@ -148,3 +148,41 @@ Next idea (not tried): trace the main-loop dispatcher / jump-table index in HRAM
 First town: DFS explorer (`tools/explore.py`) mapped ~158 tiles. Four position "jumps" were
 building interiors. The exit is the east end of the y=19 corridor at (40,19), where a
 Mr. S event ("I'd better come with you!") plays before the world map.
+
+## 2026-10-12 — Item / weapon / armor / ability table (M2)
+
+Locations (code-verified):
+- Item record: `01:5DB0` computes `id*8 + 0x6F80` in bank 0C, copies 8 bytes → **0C:6F80**, 256 ids.
+- Initial uses: `0D:4335` reads bank 0C at `0x7E80 + id` for every ability slot → **0C:7E80**.
+- Price: `01:6678` computes `3*id + 0x7860` in bank 0F, copies 3 bytes (id 0xFF → 0) → **0F:7860**,
+  120 entries (ids 0x00–0x77); unrelated data follows.
+- Names `0F:6640 + 8*id`; the first byte may be an icon glyph (0xA7 sword, 0xAC armor, ...).
+
+Screen-text reader: tile ids on BG/window equal the text codes (0xF0 '.', 0xF7–0xFE frame),
+so battle messages, status screens and dialogue can be read programmatically
+(`Emulator.screen_text()`, `battle_events()`).
+
+Controlled experiments (same battle state, A presses only):
+| Change | Observation | Conclusion |
+|---|---|---|
+| Long power (b4) 7→0/1/4/10/14/20/30/50 | AAAA's first hit: none/none/none/35/59/95/155/275 (orig 17) | damage = 6·power − 25 exactly (STR 6, Jaguar DEF 5) |
+| party STR 3/6/9/12 (set before battle), power 20 | 35/95/161/219 vs predicted 35/95/155/215 | ≈ power·STR, plus a small STR-dependent random term |
+| Jaguar DEF 0/2/5/8/12, power 20 | 120/110/95/80/60 | − 5·DEF exactly |
+| AA slot DEF 30 | Jaguar Tusk damage disappears | target DEF applies to enemy attacks too |
+| Long b3 0x31→0x14 | every hit "Missed" | b3 selects the action routine (bow routine, accuracy from b5 = 0) |
+| Long b0 0xA1→0xB1 / 0xA2 | untargeted "defended" / attack option missing | b0 controls target class |
+| Long b5 0x00→0x80 | no change vs Jaguar | consistent with element bit (no weakness) |
+| Jaguar STR 6→12 / Tusk power 8→16 | Tusk 39 → 86 / 87 | monster attacks follow the same power·STR rule |
+
+Equipment (unequip via Equip menu, slot DEF byte C20E and stats observed):
+- Unequipping Bronze armor: DEF 3 → 0; with armor power patched to 30: 3 → 229 (3−30 wrapped).
+  → armor b4 is added/subtracted on equip/unequip; record DEF for Human M already includes it.
+- 11 items injected into the armor slot and unequipped: every DEF drop = b4; when `b2 & 0x40`,
+  b5 hi nibble selects stats (8 STR, 4 AGL, 2 MANA) and lo nibble is the amount (Giant gloves
+  8A → STR+10, Hermes 4A → AGL+10, Hecate 2F → MANA+15, Geta 85 → STR+5, Kimono 45 → AGL+5,
+  Battle armor 85 → STR+5, Parasuit CF → STR+15 & AGL+15). `b2 & 0x10` items (Dragon helm/armor,
+  Ninja gloves, Arthur) change no stats → b5 there is probably resistances.
+- The status screen always shows the slot's stored stats; armor DEF is folded in at equip time.
+
+Open: b1 flags, b6–7 presentation word, price semantics on a shop screen (no shop reached in
+the first town's explored area), uses write-back timing (not updated mid-battle).

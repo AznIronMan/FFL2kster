@@ -45,6 +45,21 @@ CREATE TABLE IF NOT EXISTS edits (
     id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT NOT NULL, target_id INTEGER NOT NULL,
     field TEXT NOT NULL, value INTEGER NOT NULL, reason TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL, UNIQUE (domain, target_id, field));
+CREATE TABLE IF NOT EXISTS domain_records (
+    domain TEXT NOT NULL, id INTEGER NOT NULL, name TEXT NOT NULL, kind TEXT,
+    record_offset INTEGER NOT NULL, bank INTEGER NOT NULL, address INTEGER NOT NULL,
+    extra_json TEXT, PRIMARY KEY (domain, id));
+CREATE TABLE IF NOT EXISTS domain_fields (
+    domain TEXT NOT NULL, id INTEGER NOT NULL, field TEXT NOT NULL,
+    original_value INTEGER, source_offset INTEGER NOT NULL, source_bank INTEGER NOT NULL,
+    source_address INTEGER NOT NULL, size INTEGER NOT NULL, status TEXT NOT NULL,
+    PRIMARY KEY (domain, id, field));
+CREATE VIEW IF NOT EXISTS domain_effective AS
+    SELECT f.domain, f.id, r.name, f.field, f.original_value,
+           COALESCE(x.value, f.original_value) AS effective_value,
+           x.value IS NOT NULL AS edited, f.source_bank, f.source_address, f.status
+    FROM domain_fields f JOIN domain_records r ON r.domain = f.domain AND r.id = f.id
+    LEFT JOIN edits x ON x.domain = f.domain AND x.target_id = f.id AND x.field = f.field;
 CREATE VIEW IF NOT EXISTS enemy_effective AS
     SELECT f.enemy_id, e.name, f.field, f.original_value,
            COALESCE(x.value, f.original_value) AS effective_value,
@@ -97,8 +112,9 @@ def _import_into(rom, digest, db_path, project) -> dict:
         old = con.execute("SELECT value FROM meta WHERE key='source_sha256'").fetchone()
         if old and old[0] != digest:
             raise ValueError("database was imported from a different ROM")
-        for t in ("enemy_abilities", "enemy_fields", "enemies", "field_defs"):
+        for t in ("enemy_abilities", "enemy_fields", "enemies"):
             con.execute(f"DELETE FROM {t}")
+        con.execute("DELETE FROM field_defs WHERE domain='enemy'")
         for f in E.FIELDS:
             con.execute("INSERT INTO field_defs VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                         (E.DOMAIN, f.name, f.offset, f.size, f.encoding, f.meaning, f.status,
@@ -117,6 +133,7 @@ def _import_into(rom, digest, db_path, project) -> dict:
             for i, a in enumerate(r["abilities"]):
                 con.execute("INSERT INTO enemy_abilities VALUES (?,?,?,?,?,?)",
                             (r["id"], i, a["id"], a["name"], r["ability_offset"] + i, "verified"))
+        _import_items(con, rom)
         meta = {"source_sha256": digest, "source_size": str(len(rom)),
                 "tool_version": __version__, "schema_version": "1",
                 "imported_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")}
@@ -130,16 +147,50 @@ def _import_into(rom, digest, db_path, project) -> dict:
     return {"enemies": 256, "fields": n_fields, "edits": n_edits, "source_sha256": digest}
 
 
+def _import_items(con, rom) -> None:
+    from .schema import items as I
+
+    con.execute("DELETE FROM domain_fields WHERE domain=?", (I.DOMAIN,))
+    con.execute("DELETE FROM domain_records WHERE domain=?", (I.DOMAIN,))
+    con.execute("DELETE FROM field_defs WHERE domain=?", (I.DOMAIN,))
+    for f in list(I.FIELDS) + list(I.EXTRA.values()):
+        con.execute("INSERT INTO field_defs VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    (I.DOMAIN, f.name, f.offset, f.size, f.encoding, f.meaning, f.status,
+                     f.evidence, int(f.name in I.EDITABLE), f.min, f.max))
+    for r in I.extract(rom):
+        con.execute("INSERT INTO domain_records VALUES (?,?,?,?,?,?,?,?)",
+                    (I.DOMAIN, r["id"], r["name"], r["kind"], r["record_offset"], r["bank"],
+                     r["address"], json.dumps({"icon": r["icon"], "slot": r["slot"],
+                                               "stat_bonus": r["stat_bonus"]})))
+        for fname, val in r["fields"].items():
+            if val is None:
+                continue
+            off, size = I.field_location(r["id"], fname)
+            bank, addr = romlib.file_to_bank(off)
+            status = (I.FIELD_BY_NAME.get(fname) or I.EXTRA[fname]).status
+            con.execute("INSERT INTO domain_fields VALUES (?,?,?,?,?,?,?,?,?)",
+                        (I.DOMAIN, r["id"], fname, val, off, bank, addr, size, status))
+
+
 def set_edit(con, e: Edit, commit=True) -> None:
     from .schema import enemies as E
+    from .schema import items as I
 
-    if e.domain != E.DOMAIN:
+    if e.domain == E.DOMAIN:
+        f = E.FIELD_BY_NAME.get(e.field)
+        if f is None or not f.editable:
+            raise ValueError(f"field {e.field} is not editable")
+        E.encode_value(f, e.value)
+        E.record_offset(e.id)
+    elif e.domain == I.DOMAIN:
+        f = I.FIELD_BY_NAME.get(e.field) or I.EXTRA.get(e.field)
+        if f is None or e.field not in I.EDITABLE:
+            raise ValueError(f"field {e.field} is not editable")
+        if not f.min <= e.value <= f.max:
+            raise ValueError(f"{e.field}={e.value} outside allowed range")
+        I.record_offset(e.id)
+    else:
         raise ValueError(f"unknown domain {e.domain}")
-    f = E.FIELD_BY_NAME.get(e.field)
-    if f is None or not f.editable:
-        raise ValueError(f"field {e.field} is not editable")
-    E.encode_value(f, e.value)
-    E.record_offset(e.id)
     con.execute("INSERT INTO edits (domain,target_id,field,value,reason,created_at) "
                 "VALUES (?,?,?,?,?,?) ON CONFLICT(domain,target_id,field) DO UPDATE SET "
                 "value=excluded.value, reason=excluded.reason, created_at=excluded.created_at",

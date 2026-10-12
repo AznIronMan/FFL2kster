@@ -24,7 +24,7 @@ class Patch:
 def compile_edits(rom: bytes, edits: list[Edit]) -> list[Patch]:
     """Translate semantic edits to byte patches using the registered schemas."""
     from .schema import resolve_edit  # local import: schemas may import build helpers
-    from .schema import enemies  # noqa: F401  (registers the enemy domain)
+    from .schema import enemies, items  # noqa: F401  (registers domains)
 
     patches: list[Patch] = []
     for e in edits:

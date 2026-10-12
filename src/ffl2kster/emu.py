@@ -100,6 +100,61 @@ class Emulator:
         self.pb.tick(1, True)
         return self.pb.screen.image.copy()
 
+    def screen_text(self) -> list[str]:
+        """Visible text: window tilemap (if enabled) else BG tilemap, decoded per row."""
+        from .text import decode_screen_row
+        m = self.pb.memory
+        lcdc = m[0xFF40]
+        rows = []
+        if lcdc & 0x20:  # window enabled
+            base = 0x9C00 if lcdc & 0x40 else 0x9800
+            wy = m[0xFF4A]
+            for r in range(max(0, (144 - wy) // 8)):
+                rows.append(decode_screen_row(bytes(m[base + 32 * r:base + 32 * r + 20])))
+        bgbase = 0x9C00 if lcdc & 0x08 else 0x9800
+        for r in range(18):
+            rows.append(decode_screen_row(bytes(m[bgbase + 32 * r:bgbase + 32 * r + 20])))
+        return rows
+
+    def battle_log(self, presses: int = 60, wait: int = 26) -> list[str]:
+        """Press A repeatedly, collecting each distinct line of battle text (window rows)."""
+        log, last = [], set()
+        for _ in range(presses):
+            self.pb.button("a", 6)
+            self.pb.tick(wait, False)
+            lines = [ln.strip("| ·").strip() for ln in self.screen_text()]
+            for ln in lines:
+                if ln and ln not in last and set(ln) - set("|· "):
+                    log.append(ln)
+            last = set(lines) | {x.strip("| ·").strip() for x in lines}
+        return log
+
+    def battle_events(self, presses: int = 120, wait: int = 26) -> list[dict]:
+        """Press A repeatedly and parse completed battle messages into events:
+        {'actor','target','with','damage'} / {'text'} (other messages)."""
+        import re
+        boxes = []
+        for _ in range(presses):
+            self.pb.button("a", 6)
+            self.pb.tick(wait, False)
+            txt = " ".join(ln.strip("| ·").strip() for ln in self.screen_text()[:10])
+            txt = re.sub(r"\s+", " ", txt).strip()
+            if not boxes or boxes[-1] != txt:
+                boxes.append(txt)
+        # keep only boxes not a prefix-state of the next one (typewriter)
+        full = [b for i, b in enumerate(boxes) if i + 1 == len(boxes) or not boxes[i + 1].startswith(b[:max(1, len(b) - 2)])]
+        events, seen = [], set()
+        pat = re.compile(r"(\S+) attacks (\S+) with (\S+?)\.? (\d+) ?damages")
+        for b in full:
+            for m in pat.finditer(b):
+                key = m.group(0)
+                if key in seen:
+                    continue
+                seen.add(key)
+                events.append({"actor": m.group(1), "target": m.group(2), "with": m.group(3),
+                               "damage": int(m.group(4))})
+        return events
+
     def step_into_battle(self, direction: str, settle: int = 240) -> BattleSnapshot:
         """From a 'one step before battle' state, take the step and let the battle load."""
         self.hook_hits.clear()
