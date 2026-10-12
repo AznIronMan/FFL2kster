@@ -435,3 +435,26 @@ Recorded per direction note A (docs/DECISIONS.md); nothing was changed, no featu
   verified path; under note C's unverified mode the selected game's layout is used best-effort.
   To be weighed when the first variant arrives (keeping addresses in data rather than code where
   that is free).
+
+## 2026-10-12 — P2 sweep findings (original behaviour)
+
+- **Field sound test crashes the game** (verified in PyBoy): script op 0x47 (story 11, reached
+  from story 8 / field 34 — the music player on map 5366, "1 GP/tune. Listen?") loads only
+  E = 0x45 before its menu message (00:0FB1); D still holds 0x9E from the VRAM copy at 00:14CA,
+  so message 0x9E45 reads a garbage window header and the frame fill 00:0A2B runs 256-byte loops
+  over WRAM and the stack; the game resets through 00:0100. The title's sound test is not
+  affected. The port reproduces the clobber and then stops; a fix belongs in the optional extras.
+- **Memo** (Start menu) draws a window of width 0 from the test states (with or without memo
+  bits set) and the game stops waiting for frames; the port does the same.
+- **Dec-loop counts of 0 mean 256** in the window code: script delay 0x11 with 0 waits 512
+  frames; window frames/blits with a size of 2 or less fill 256-byte rows.
+- **8-bit address arithmetic**: MAGI pickup (00:3F4E: 7F00 | (80 + c), C2DA + (2c & FF)), GP slot
+  of code 0x1E/0x35 (00:131A: C745 + (3(n-1) & FF)), member names 5-9 (00:101E: 32-byte records).
+- **Hidden layer metatiles**: 00:21A0 returns layer ^ metatile when the layer matches (the cell's
+  metatile with the layer bit cleared); maps with a hidden layer drew wrong tiles before the fix.
+- **Placed events that point nowhere**: kind-2/3 messages (2, 0x0E), (2, 0x28), (3, 0x0D) resolve
+  into bank-0 code; story index 249 (map 5BB3) is beyond the 192-entry story table (pointer in
+  WRAM); event 0E alternate destinations 0x36, 0x79 and 0xFF have no valid map header. The
+  objects carrying them are presumably never active; the original misbehaves if they run.
+- **Unused by game data**: text control codes 0C (appears only as window-header bytes), 2B, 3D,
+  43; field event kinds 08, F0 04, F0 06, F0 0F, F0 11 and F8-FE are raised by no script.

@@ -158,3 +158,26 @@ Tests: TypeScript 4,277 passed (7 skipped: diagnostics); Python 75 passed. Not c
 the Memo screen (the original corrupts RAM when it is opened from the test states), field item
 outcomes CFF4 = 6/7/>8, healing by text code 0x3F, the ending animation, confusion (VM script 4).
 Safari and Firefox were not tested from here (Chromium-based pane only).
+
+## Port P2 — Full field (2026-10-12)
+
+| Item | Result | Evidence (PyBoy ground truth) |
+|---|---|---|
+| All 511 warp destinations (all 212 maps) | parity | sw_m_* traces: warp in, walk four directions |
+| All event scripts (story 0-191, field messages) | parity | 482 sw_s_* traces |
+| Both sides of every script condition | parity | 148 sw_b_* traces (vars, items, MAGI, C2A1, song, yes/no) |
+| Every placed script on its own map, condition met | parity | 266 sw_c_* traces (6 maps' states not reachable from the first town by warp) |
+| Shops, inns, chests, MAGI, sound, return/alternate warps, specials | parity | 211 sw_e_* traces |
+| Story battles with a strong party | parity | 16 sw_k_* traces |
+| Ending → reset → new game → opening | parity | sw_x_ending, 26,400 frames |
+| Vehicles (board/dismount), forced moves, object moves, layer swirl | parity | within the sweeps (F0 05/08-0B, F1-F7) |
+| Op coverage | 71/78 text codes, 42/55 field events ran | tools/sweep_coverage.py; the rest unused by game data or behind original breakage (FINDINGS) |
+
+Fixes found by the sweeps: hidden-layer metatiles, member names 5-9, dec-loop zero counts (delay,
+window frame/blit), 8-bit address arithmetic (MAGI pickup, GP slot), ROM table reads past a bank,
+layout streams through the CPU view, STAT reads, far-call bookkeeping of 01:5006, swirl pacing,
+curtain raster timing. Not reached: boss transformations (battle messages 98-100, code 0x48) and
+the end of story 142 (F0 18) — the final bosses need story items; message 75 (code 0x49).
+
+Tests: TypeScript 4,278 passed (dedicated traces); sweeps 1,643 traces passed (run with
+SWEEP=sw_); Python 75 passed.

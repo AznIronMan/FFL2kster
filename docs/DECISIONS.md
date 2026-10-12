@@ -212,3 +212,33 @@ Architecture guidance for the importer and the web app; not new feature work.
    Rationale: uncommon dumps and revisions exist, and patched ROMs, fan translations and ROM
    hacks can never match a canonical hash — including this project's own FFL2kster-patched
    ROMs, which mod support depends on importing.
+
+## 2026-10-12 — P2 decisions (full field)
+
+- Ground-truth waits are taken where rst $10 returns (00:00E4, LY 0x90 after the vblank
+  handler), no longer at the first wake from its halt (00:00DE): that first wake fell on whatever
+  line the next interrupt came, which under raster handlers made the state depend on CPU time.
+  The engine yields at the same point (after the frame's lines and the vblank handler). All
+  traces were re-recorded; every earlier test kept passing, with fewer tolerances.
+- Whole-game coverage comes from sweeps of lean PyBoy traces (tools/sweep.py, trace_lib.py;
+  XOR-delta gzip, ~0.5 MB per 1,200 frames) replayed by parity/test/sweep.test.ts: every warp
+  destination, every event script (story and field tables, run from the first town), every
+  condition flipped once (branches), every placed script on its own map with its object's
+  condition met (context), other placed events (shops, chests, sound, warps, specials), story
+  battles with a strong party, and the ending through the new game's opening. 1,643 traces.
+- Sweep tolerances, beyond the field-trace ones: screen differences shorter than 4 frames are
+  reported, not failed (display writes and raster splits that land a line or a code segment's
+  CPU time differently); joypad history re-phased when it is the only difference; and where the
+  original itself breaks (detected from state: field sound test, script pointers into bank-0
+  code or WRAM, invalid alternate destinations) the trace is compared up to that point.
+- `Memory.romAt(bank, a)` reads as the CPU does with the bank mapped: from 8000 up it returns RAM
+  (tables indexed past the end of a bank). STAT reads return bit 7 set, the enables as written,
+  the coincidence flag and the mode (1 while the code runs at vblank in this model).
+- Raster writes that land after a line's registers are taken (the closing curtain's long paths)
+  are applied after the line (`Game.afterLine`), from PyBoy measurements. The diamond split's
+  lower-half edge depends on the line's mode-3 length (sprites, SCX) and is left to the
+  raster-edge tolerance.
+- The layer swirl (00:36D6) is paced by a cycle model of its LY 0x90-0x97 write window (532
+  cycles per written tile, 456 per skipped cell), fitted to PyBoy; it replaces a budget guess.
+- Op coverage is counted in the engine (TextEngine/FieldEngine `coverage`) and aggregated by
+  tools/sweep_coverage.py.
