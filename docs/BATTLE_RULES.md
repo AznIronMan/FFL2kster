@@ -147,6 +147,21 @@ tables directly.
    - +1 when rand(0..200) ≤ chance, and only while the stat < 99.
    - Note: for type 1 this address arithmetic lands the STR pair on (0, 0); see the open questions.
 
+### Weapons: effect 49 (verified against milestone 2)
+
+- **Hit:** rand(0..100) ≤ 97 − 2·max(target AGL − attacker AGL, 0) (L6AB5/L6B1F). A target
+  with the right status can counter (message 44).
+- **Damage:** max(STR·power + rand(0..STR) − 5·DEF, 0). It is halved when the target guards
+  or has the defence status bits, and a result of 0 prints "no damage" (msg 34).
+- STR and DEF are halved by status bits 0x20 / 0x40. Holding the matching MAGI (word id
+  256/257/259 at member +42) adds (C2DA/C2DC/C2E0 & 15) + 5.
+- `rules.weapon_damage` / `rules.hit_chance`.
+
+**Effect index.** `rules_tables.json → effects` maps each effect id to its battle/field handler
+and the items that use it (effect 49 = 25 ordinary weapons; 26 = attack spells; 27 = status
+spells; 0 = equipment; …). Port option: transliterate the handlers from the listing, or
+embed the calc VM and run the original bytecode (user-supplied ROM).
+
 ## Open questions
 
 - **Mutant growth.** Mutant stat parameters look shifted (type·5 rather than type·8). Verify with

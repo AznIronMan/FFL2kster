@@ -207,5 +207,35 @@ def export_tables(rom: bytes) -> dict:
         "growth": {str(r): growth_params(rom, r) for r in range(2)},
         "mutant_abilities": mutant_ability_table(rom),
         "max_gp": b(rom, MAX_GP) | b(rom, MAX_GP + 1) << 8 | b(rom, MAX_GP + 2) << 16,
+        "effects": effect_index(rom),
         # RNG table (0F:4000) deliberately not exported: raw ROM bytes; read it with rng_byte().
     }
+
+
+def effect_index(rom: bytes) -> dict:
+    """Item/ability effect id (item byte 3) → calc-VM handler address and the items using it."""
+    from . import calcvm
+    from .schema import items
+    battle = calcvm.table(rom, *calcvm.BATTLE_EFFECTS)
+    field = calcvm.table(rom, *calcvm.FIELD_EFFECTS)
+    users: dict[int, list[str]] = {}
+    for i in range(256):
+        users.setdefault(rom[0x32F80 + 8 * i + 3], []).append(f"{i}:{items.name(rom, i)}")
+    return {str(e): {"battle_handler": f"0C:{battle[e]:04X}",
+                     "field_handler": f"0C:{field[e]:04X}" if e < len(field) else None,
+                     "items": users.get(e, [])} for e in range(len(battle))}
+
+
+# ---------------------------------------------------------------- weapon attack (effect 49)
+
+def weapon_damage(strength: int, power: int, target_def: int, r: int, halved: bool = False) -> int:
+    """Effect 49 (0C:5512 → L6A32/L6E8C): max(STR·power + r − 5·DEF, 0), r = rand(0..STR);
+    halved when the target guards (status/defence flags). Agrees with the milestone-2
+    measurements (power and DEF terms exact, random term grows with STR)."""
+    d = max(strength * power + r - 5 * target_def, 0)
+    return d // 2 if halved else d
+
+
+def hit_chance(attacker_agl: int, target_agl: int) -> int:
+    """L6AB5/L6B1F: the attack lands when rand(0..100) <= 97 - max(target AGL - attacker AGL, 0)·2."""
+    return max(97 - max(target_agl - attacker_agl, 0) * 2, 0)

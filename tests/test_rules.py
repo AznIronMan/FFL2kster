@@ -50,3 +50,11 @@ def test_calcvm_listing_complete(rom_bytes):
     for i in range(50):
         assert f"effect_{i}:" in txt  # every battle effect handler decodes
     assert "(D90C).1 = #11" in txt and "(D906).2 = CF13" in txt  # item drop message
+
+
+def test_weapon_formula_and_effect_index(rom_bytes):
+    assert rules.weapon_damage(6, 10, 5, 0) == 35 and rules.weapon_damage(1, 1, 50, 1) == 0
+    assert rules.hit_chance(5, 5) == 97 and rules.hit_chance(5, 10) == 87
+    eff = rules.effect_index(rom_bytes)
+    assert len(eff) == 50 and eff["49"]["battle_handler"] == "0C:5512"
+    assert any(i.endswith(":Long") for i in eff["49"]["items"])
