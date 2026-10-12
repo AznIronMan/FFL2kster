@@ -65,3 +65,21 @@ def test_tileset_sources_match_captured_vram(rom_bytes):
         assert v[:0x800] == exp[:0x800] and v[0x800:0x800 + 64 * 30] == exp[0x800:0x800 + 64 * 30], k
         n += 1
     assert n == 211
+
+
+def test_monster_graphics_match_battle_vram(rom_bytes):
+    """gfx.monster_graphic equals VRAM 0x9000.. at battle start for all 256 monsters
+    (needs build/monsters captures from tools/monster_capture.py)."""
+    import pytest
+    from ffl2kster import gfx
+    np = pytest.importorskip("numpy")
+    d = ROOT / "build" / "monsters"
+    if not (d / "255.npz").exists():
+        pytest.skip("no monster captures")
+    sizes = set()
+    for mid in range(256):
+        w, h, data = gfx.monster_graphic(rom_bytes, mid)
+        v = bytes(np.load(d / f"{mid:03d}.npz")["vram"])
+        assert v[0x1000:0x1000 + len(data)] == data, mid
+        sizes.add((w, h))
+    assert sizes == {(4, 4), (4, 6), (6, 6), (6, 8), (8, 6), (8, 8), (14, 8)}

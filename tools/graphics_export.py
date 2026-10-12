@@ -32,12 +32,7 @@ def sprite_sheet(data):
 
 def main():
     rom = open(sys.argv[1] if len(sys.argv) > 1 else 'input/original.gb', 'rb').read()
-    os.makedirs('data/graphics/monsters', exist_ok=True)
-    for f in sorted(glob.glob('build/monsters/*.png')):
-        im = Image.open(f).convert('L').crop((0, 0, 160, 64))
-        a = np.array(im); ys, xs = np.where(a < 250)
-        if len(xs): im = im.crop((max(0, xs.min() - 1), max(0, ys.min() - 1), min(160, xs.max() + 2), min(64, ys.max() + 2)))
-        im.save('data/graphics/monsters/' + os.path.basename(f))
+    export_monsters(rom)
     idx = export_tilesets(rom)
     os.makedirs('data/graphics/overworld', exist_ok=True)
     for code in range(0x80):
@@ -46,6 +41,24 @@ def main():
         sprite_sheet(rom[o:o + 0x100]).save(f'data/graphics/overworld/{code:02x}.png')
     print('monsters', len(glob.glob('data/graphics/monsters/*.png')), 'tilesets', len(set(idx['maps'].values())),
           'overworld pages', 0x80)
+
+
+def export_monsters(rom, out="data/graphics/monsters"):
+    """ROM-derived monster battle graphics (ffl2kster.gfx.monster_graphic; verified for all
+    256 against battle VRAM). <id>.png, w x h tiles, DMG shades (colour 0 = white)."""
+    sys.path.insert(0, "src")
+    from ffl2kster import gfx
+    os.makedirs(out, exist_ok=True)
+    meta = {}
+    for mid in range(256):
+        w, h, data = gfx.monster_graphic(rom, mid)
+        img = np.zeros((h * 8, w * 8), np.uint8)
+        for t in range(w * h):
+            r, c = divmod(t, w)
+            img[r * 8:r * 8 + 8, c * 8:c * 8 + 8] = tile_px(data[16 * t:16 * t + 16])
+        Image.fromarray(SHADE[img]).save(os.path.join(out, f"{mid:03d}.png"))
+        meta[mid] = {"w": w, "h": h}
+    json.dump(meta, open(os.path.join(out, "index.json"), "w"), indent=1)
 
 
 def export_tilesets(rom, out="data/graphics/tilesets"):

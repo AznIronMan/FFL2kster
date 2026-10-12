@@ -166,6 +166,7 @@ Families of five share a code (0x05–0x28); used for overworld sprite tiles (ba
 | `C2F6` (16 bytes) | Progress variables: 32 nibbles (even v → high nibble) | verified | layout op 10 parity with random values |
 | `07:7800` | Tileset block lists (32 × bank-02 64-byte blocks per tileset) | verified | VRAM equality, 211 maps |
 | `00:21EA` | Metatile 30/31 animation | probable | static |
+| `0D:6400` / `0D:6500` / `0D:6510` | Monster graphic class+index / class dimensions / class base [bank, addr] | verified | all 256 vs battle VRAM |
 | `07:7000` | Metatile attributes, 32 per tileset (header b2) → C520 | verified | RAM equality + controlled change |
 | `00:2739` | Movement check: attr & C434 (2 on foot) blocks | verified | controlled change |
 | `00:2647` | Convert metatiles 3..3+C451−1 into trigger tiles 0x40+k (original saved at C500+k) | probable | static |

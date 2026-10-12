@@ -42,3 +42,23 @@ def decode_tile(t: bytes) -> list[list[int]]:
         lo, hi = t[2 * y], t[2 * y + 1]
         rows.append([((lo >> (7 - x)) & 1) | (((hi >> (7 - x)) & 1) << 1) for x in range(8)])
     return rows
+
+
+# ---------------------------------------------------------------- monster battle graphics
+# Verified for all 256 monsters against VRAM captured at battle start (tools/monster_capture.py):
+# 0D:6400 + id: hi nibble = size class c, lo nibble = index i within the class;
+# 0D:6500 + c: hi nibble = width, lo nibble = height (tiles); 0D:6510 + 3c: [bank, addr lo, hi]
+# = start of class c; graphic = start + i·w·h·16 bytes, tiles row-major (loader 0D:5258/5302).
+MON_CLASS = 0x36400
+MON_DIMS = 0x36500
+MON_BASE = 0x36510
+
+
+def monster_graphic(rom: bytes, mid: int) -> tuple[int, int, bytes]:
+    v = rom[MON_CLASS + mid]
+    c, i = v >> 4, v & 0x0F
+    d = rom[MON_DIMS + c]
+    w, h = d >> 4, d & 0x0F
+    bank, lo, hi = rom[MON_BASE + 3 * c:MON_BASE + 3 * c + 3]
+    src = bank * 0x4000 + (lo | hi << 8) - 0x4000 + i * w * h * 16
+    return w, h, rom[src:src + w * h * 16]

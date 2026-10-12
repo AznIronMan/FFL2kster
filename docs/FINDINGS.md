@@ -395,3 +395,12 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   metatiles 30/31, n > 0 rotates metatile 31 horizontally by n pixels (probable).
 - `src/ffl2kster/gfx.py`; data/graphics/tilesets now holds 61 ROM-derived sheets `ts_XX.png`
   (replacing the capture-hash sheets) + index.json (map → tileset).
+
+## 2026-10-12 — Monster battle graphics (P0)
+
+- Loader 0D:5258/5302 + 0F:627F: per enemy group, monster id → **0D:6400 + id** (hi nibble = size
+  class c, lo nibble = index i); **0D:6500 + c** = width/height in tiles; **0D:6510 + 3c** =
+  [bank, address] of class c; graphic = base + i·w·h·16 bytes, row-major tiles. 9 classes:
+  4×4, 4×6, 6×6, 6×8, 8×6, 8×8, 14×8 (and two 4×4/6×6 classes in other banks).
+- **Verified** for all 256 monsters against battle-start VRAM. data/graphics/monsters is now
+  ROM-derived (`gfx.monster_graphic`), replacing screenshots, plus index.json (sizes).
