@@ -336,3 +336,15 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   turn order, confusion, poison, regeneration, stat growth, mutant abilities.
 - Drop mechanism closes the M4 "drops" gap; the meat formula replaces the measured table as the
   primary rule (the table stays as test evidence).
+
+## 2026-10-12 — Events, shops, chests (M5 completion)
+
+- Triggers, objects and script op 0x19 share one event dispatcher (00:3924): kind/arg table in
+  docs/EVENTS.md. The object nibble previously called "movement" is the **event kind**; kind 1 =
+  field message (consistent with the verified message-byte change), kind 0 = story script.
+  Header triggers with b1 = 0/1 are **scripts**, not warps (correction to M5 part 1; warps are
+  b1 = 5/6/0C/0D/0E).
+- Shops: object kind 4, inventories 0F:79E0 + 8·shop (24 shops; 0xFF = inn) — probable (static).
+- Chests: kinds 9/0B (item, default uses 0C:7E80) and 0A (MAGI): 230 placements — probable.
+- `rst $20` DE mapping corrected: d = 0 → story[e] (bank 0B), d ≥ 1 → field[(d−1)·256+e] (bank 0A),
+  battle → battle[D90C].

@@ -11,7 +11,10 @@ Evidence (docs/FINDINGS.md 2026-10-12 maps):
 - Layout pointer: high byte < 0x40 -> bank 08 at 0x4000+ptr, else bank 09 at ptr; drawn by the
   command interpreter 00:2253 into the 64x64 buffer D000-DFFF (1 byte per metatile).
 - Buffer values: 0x00-0x3F metatile (tiles 4m..4m+3 TL,TR,BL,BR); 0x40+k = trigger k of the
-  header list (warp to its destination); bit 7 set = door mat / special tile (hypothesis).
+  header list; bit 7 set = door mat / special tile (hypothesis).
+- Trigger (b0, b1) and object (message, attr & 0x0F) are both events (arg, kind) dispatched by
+  00:3924: kind 0 story script, 1 field message, 4 shop, 5/6 warp, 7 music, 9/0B chest item,
+  0A MAGI, 0C/0D warp + save return, 0E alt warp (events.event, docs/EVENTS.md).
 """
 
 from __future__ import annotations
@@ -32,7 +35,14 @@ def dest_record(rom: bytes, i: int, alt: bool = False) -> dict:
             "map_x": r[2] & 0x3F, "map_y": r[3] & 0x3F}
 
 
+def _event(kind: int, arg: int) -> dict:
+    from ..events import event
+    return event(kind, arg)
+
+
 def resolve_trigger(b0: int, b1: int) -> dict:
+    """Destination-record index for warp kinds (b1 = 5/6/0C/0D; 0E = alt table). Other kinds
+    are not warps (see events.event); the index is kept for reference only."""
     if b1 == 0x0E:
         return {"alt": True, "index": b0}
     return {"alt": False, "index": b0 + 256 * ((b1 & 1) ^ 1), "flags": b1}
@@ -52,7 +62,8 @@ def header(rom: bytes, ptr: int) -> dict:
     trig = []
     for k in range(L):
         b0, b1 = r[i + 1 + 2 * k], r[i + 2 + 2 * k]
-        trig.append({"tile": 0x40 + k, "b0": b0, "b1": b1, **resolve_trigger(b0, b1)})
+        trig.append({"tile": 0x40 + k, "b0": b0, "b1": b1, **resolve_trigger(b0, b1),
+                     "event": _event(b1, b0)})
     if lp < 0x4000:
         lbank, laddr = 0x08, 0x4000 + lp
     else:
@@ -83,7 +94,8 @@ def objects(rom: bytes, hd: dict) -> dict:
                     "bit6": bool(r[0] & 0x40)}
         npcs.append({"offset": o, "raw": r.hex(), "condition": cond, "x": r[2] & 0x3F,
                      "y": r[3] & 0x3F, "y_flags": r[3] >> 6, "message": r[4],
-                     "sprite_slot": (r[5] >> 4) & 7, "x_flag": r[5] >> 7, "movement": r[5] & 0x0F})
+                     "sprite_slot": (r[5] >> 4) & 7, "x_flag": r[5] >> 7, "kind": r[5] & 0x0F,
+                     "event": _event(r[5] & 0x0F, r[4])})
         o += 6
     return {"sprites": sprites, "npcs": npcs, "end_offset": o + 1}
 
@@ -98,9 +110,12 @@ def export(rom: bytes, layouts: dict | None = None) -> dict:
     for h in all_headers(rom):
         hd = header(rom, h)
         for t in hd["triggers"]:
-            if not t["alt"] and t["index"] < DEST_COUNT:
-                d = dests[t["index"]]
-                t["to_header"], t["to_x"], t["to_y"] = d["header"], d["x"], d["y"]
+            ev = t["event"]
+            if "dest" in ev:
+                d = dest_record(rom, ev["dest"], alt=bool(ev.get("alt"))) if ev.get("alt") else \
+                    dests[ev["dest"]] if ev["dest"] < DEST_COUNT else None
+                if d:
+                    t["to_header"], t["to_x"], t["to_y"] = d["header"], d["x"], d["y"]
         hd.update(objects(rom, hd))
         if layouts and f"{h:04x}" in layouts:
             hd["layout"] = layouts[f"{h:04x}"]

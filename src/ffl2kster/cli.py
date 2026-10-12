@@ -164,6 +164,8 @@ def main(argv: list[str] | None = None) -> int:
     enemies.add_commands(sub)
     items.add_commands(sub)
     text.add_commands(sub)
+    from . import events
+    events.add_commands(sub)
     try:
         from . import db
         db.add_commands(sub)

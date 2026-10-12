@@ -152,6 +152,14 @@ Families of five share a code (0x05–0x28); used for overworld sprite tiles (ba
 | `0C:7FF0` | Max GP (3 bytes, 999999) | probable | script 8 cap |
 | `0F:4250` / `0F:4270` | Memo topic names (16) / phrases (256) | verified | 0x4B handler; Isis line |
 | `0F:4000` | RNG table (256) | verified | 00:043E |
+| `00:3924` | Field event dispatcher (kind C443, arg C442) | verified (kinds 0/1/5/6) / probable | town NPC/trigger events |
+| `00:3092` | A-button object interaction → event (attr nibble, message) | probable | static |
+| `00:1490` | Script op 0x19 event (kind < 4 → message via rst $20) | verified | |
+| `00:0C05` | Script conditional skip: 4 bytes | probable | static (all if_* ops) |
+| `01:647A` | Shop (e = shop id, 0xFF → inn 01:628A); menu 32 | probable | static |
+| `0F:79E0` | Shop inventories, 8 item ids × 24 | probable | names match first-town shop expectations |
+| `00:3EDF` / `00:3F28` / `00:3F4E` | Chest: item / item with drop prompt / MAGI | probable | static |
+| `0C:7F80` | MAGI value per MAGI id | hypothesis | 00:3F4E |
 
 ## RAM
 
