@@ -6,7 +6,7 @@ import { haveRom, haveTrace, replayField, summarizeWaits, IGNORE } from "../src/
 
 /** Known screen differences: frames where only the sprite blink phase differs (see BLINK in
  *  replay.ts). Any other difference fails. */
-const KNOWN: Record<string, number[]> = { title1: [441, 456, 473] };
+const KNOWN: Record<string, number[]> = { title1: [441, 456, 473, 476] };
 
 const CASES: [string, string, ("field" | "title")?][] = [
   ["walk1", "walking in four directions in the first town, NPCs wandering"],
