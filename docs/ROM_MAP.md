@@ -101,6 +101,12 @@ location names at 0x3F6C0+.
 ### Item prices — `0F:7860` (0x3F860), 3 bytes LE × 120 (ids 0x00–0x77) — **probable**
 Location verified by code (`01:6678`); GP semantics not yet seen on a shop screen.
 
+### Monster sprite/family code — `0D:6B70` (0x36B70), 1 byte × 256 — **verified**
+Families of five share a code (0x05–0x28); used for overworld sprite tiles (bank 03,
+0x4000 + code·0x100) and as the eater family in meat transformations.
+
+### Meat transformations — ROM location unknown; behaviour **measured** (data/meat_transformations.json)
+
 ## Routines
 
 | Address | Purpose | Status | Evidence |
@@ -108,7 +114,10 @@ Location verified by code (`01:6678`); GP semantics not yet seen on a shop scree
 | `0D:44F4` | Load enemy group: copy name `0F:6EC0+8·id` → struct+2, record `0D:6F80+10·id` → scratch `DE00`; id read from struct+0x0A | verified | PyBoy hook fires once per battle load (5+ battles); DE00 copy changes under controlled change |
 | `0D:427E`–`0D:4349` | Load a party slot from a monster record (id → `C204+32·n`, type, HP cur/max, 4 stats, ability ids) | probable | static disassembly read; party RAM matches ids 225, 240 |
 | `00:055D` / `00:0568` | Compute `0x6F80 + 10·id` (bank 0D) | probable | static; not observed in the battle-load path |
-| `00:00D2` | Read one byte from bank A at HL (far read) | probable | static; used by all table readers |
+| `00:00D2` | Read one byte from bank A at HL (far read) | verified | PyBoy hook logs (A = bank, HL = address) match known table reads |
+| `0D:4361` | Script dispatcher: index → pointer `0C:4680 + 2·i`, run by engine at `0C:4000` | probable | static; pointer reads observed during battle end / meat eating |
+| `01:5DB0` | Copy item record `0C:6F80 + 8·id` | verified | static + controlled changes |
+| `01:6678` | Copy price `0F:7860 + 3·id` | probable | static |
 
 ## RAM
 
@@ -119,6 +128,9 @@ Location verified by code (`01:6678`); GP semantics not yet seen on a shop scree
 | `D500` | Enemy group block: alive, total, name[8], id, type, HP max (lo,hi), STR, AGL, MANA, DEF, (ability, uses)… | verified | controlled changes map 1:1 to D50C–D512; 4 species observed |
 | `D541 + 8·i` | Per-enemy current HP | probable | moves with max HP (45→45/43/43, 99→99/92/92, 200→200/180/180); reaches 0 when "Jaguar fell." |
 | `DE00`–`DE09` | Scratch copy of the last loaded monster record | verified | every controlled change shows up here |
+| `D000 + 0x100·n` (n=0..4) | Party battle copies (enemy-block layout); eater id at `D00A` | verified | meat result follows D00A, not C204 |
+| `D500/D600/D700` | Enemy groups 1–3 | probable | init loop at 0D:403C steps D by 1 |
+| `CF10` | Meat source monster id at the Eat prompt | verified | changing it changes the transformation |
 | `C7A9`, `C7A5` | *Not* game-mode bytes (screen-layout flags) | falsified as mode indicators | toggle inside battle / persist after battle and menus |
 
 ### Game-mode indicators

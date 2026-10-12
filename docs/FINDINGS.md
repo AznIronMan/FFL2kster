@@ -186,3 +186,32 @@ Equipment (unequip via Equip menu, slot DEF byte C20E and stats observed):
 
 Open: b1 flags, b6–7 presentation word, price semantics on a shop screen (no shop reached in
 the first town's explored area), uses write-back timing (not updated mid-battle).
+
+## 2026-10-12 — Meat transformation (M2b)
+
+- Natural run: party Slime (id 245, a RAM-built monster slot) + Jaguar meat after the first battle
+  → "Slime changed to Toad." (id 75). Meat drops are random; the prompt is "Received X's meat /
+  Eat! / Cancel".
+- RAM: meat source id at **CF10** (setting it to Spider 45 changes the result to Skelton 165);
+  the eater id is read from the battle copy of the party at **D00A** (party battle copies at
+  D000 + 0x100·n use the enemy-block layout; C204 alone is not used).
+- **0D:6B70 + id** (256 bytes): per-monster sprite/family code (five-member families share a code
+  0x05–0x28; humans/robots 0; party types 245–247 → 0x0B/0x19/0x24; guests 0x29–0x30). Bank-0
+  code uses it to load overworld sprite tiles (bank 03, 0x4000 + code·0x100). **Verified.**
+- The eat is executed through the bank-0C script dispatcher (`0D:4361`: index → pointer at
+  `0C:4680 + 2·i`, executed by the engine at `0C:4000`); the transformation table is read
+  directly in-bank, so the far-read hook did not reveal it.
+- Instruction-level read tracing via PyBoy hooks failed: hooks make `tick()` return early, so
+  hot loops spin without emulating (documented failed attempt).
+- **Exhaustive measurement** (`tools/meat_full.py`): 183 eaters (ids 0–179, 245–247) × 180 meats
+  = 32,940 trials at the real "Eat" prompt → `data/meat_transformations.json` (processed data).
+  Facts from the table: the result family depends on (eater family, meat family) with a regular
+  shifting pattern; the result rank depends on both ranks (≈ the higher level wins); every
+  monster 0–179 is reachable; some combinations yield Slime/Baby-D/Imp (245–247).
+- Compact models falsified: "level = HP / stat sum / max stat / single stat" with the
+  highest-level-not-above rule predicts at most 74%; inferring hidden integer levels with a
+  difference-constraint solver hits a contradiction immediately (the meat rank can change the
+  result family, e.g. Fungus + MapleMan → Rhino but Fungus + LiveOrk → Thunder).
+  Open: locate the in-ROM table/levels (likely bank 0C script data or engine tables).
+- Also seen: human growth messages after battles ("AAAA's Max HP gained by 15") — random
+  growth is a behavioural system for the later behavioural-spec milestone.
