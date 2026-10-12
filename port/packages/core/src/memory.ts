@@ -39,6 +39,12 @@ export class Memory {
     if (a < 0xfe00) return this.wram[a - 0xe000]!;
     if (a < 0xfea0) return this.oam[a - 0xfe00]!;
     if (a < 0xff00) return 0xff;
+    if (a === 0xff41) {
+      // STAT: bit 7 reads 1, interrupt enables (bits 3-6) as written, LY == LYC flag, and the
+      // mode (code runs in vblank in this model: mode 1 from LY 144, hblank otherwise)
+      const ly = this.io[0x44]!;
+      return 0x80 | (this.io[0x41]! & 0x78) | (ly === this.io[0x45] ? 4 : 0) | (ly >= 144 ? 1 : 0);
+    }
     if (a < 0xff80) return this.io[a - 0xff00]!;
     return this.hram[a - 0xff80]!;
   }

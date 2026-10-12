@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { VSYNC, vsync, type Co, type Engine } from "@ffl2k/core";
+import { dumpCoverage } from "./replay.js";
 import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, TRACES, ROOT, IGNORE, tickInFrame, type Trace, type WaitDiff, type FrameDiff } from "./index.js";
 import { readFileSync } from "node:fs";
 
@@ -247,6 +248,7 @@ export function replayBattle(name: string, mods: BattleModules, opts: BattleRepl
     const got = endSnap as Uint8Array;
     for (const a of compare(markMem.subarray(0, 0x8000), got, ign)) end.push([a, markMem[a - 0x8000]!, got[a - 0x8000]!]);
   }
+  dumpCoverage(name, rig);
   return {
     trace: t, installed, missing: mods.missing, nWaits, expectedWaits: wf.length, matchedWaits: matched < 0 ? nWaits : matched,
     waits, diffs, frames, error, returned: endSnap !== null, end, tickPhase, rephased, rephasedJoy,

@@ -125,12 +125,34 @@ export class Engine {
 
   /** Call a routine by original address. */
   *far(addr: number, regs: Regs = {}): Co<number | void> {
+    return yield* this.call(addr, regs);
+  }
+
+  /** 00:04BF far call around `far`: C0E5 = the caller's A, C0E7/C0E8 = target, the target bank
+   *  mapped for the call and the caller's bank restored after it. For call sites that use
+   *  `call 04BF` (most use `rst $28` + call and keep their own bookkeeping). */
+  *farcall(addr: number, a: number, regs: Regs = {}): Co<number | void> {
+    const m = this.g.m;
+    m.wr(0xc0e5, a & 0xff);
+    m.wr(0xc0e7, addr & 0xff);
+    m.wr(0xc0e8, (addr >> 8) & 0xff);
+    const prev = m.selectBank(addr >> 16);
+    try {
+      return yield* this.call(addr, regs);
+    } finally {
+      m.selectBank(prev);
+    }
+  }
+
+  private *call(addr: number, regs: Regs): Co<number | void> {
     const x = this.extra.get(addr);
     if (x) return yield* x(this, regs);
     const m = this.g.m;
     switch (addr) {
       case 0x1500c: return yield* this.bank1.menu.run();
-      case 0x15006: return yield* this.bank1.companions();
+      case 0x15006: // 00:0F8C reaches it with a far call (A = 2)
+        if (regs.a !== undefined) return yield* this.farcall(0x15006, regs.a);
+        return yield* this.bank1.companions();
       case 0x1906: return yield* this.field.sequence(regs.hl ?? 0);
       case 0x1909: return yield* this.field.refreshNpcs();
       case 0x1915: // 00:1B5F — rebuild the field, then bank 0D

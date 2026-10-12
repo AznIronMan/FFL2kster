@@ -13,41 +13,39 @@
  *  point a line's registers are taken) — timing within a frame, which the port does not model.
  *  The machine state at every wait around them is still compared exactly, and the dedicated
  *  traces (walk/door/talk/title/battle/field menus) compare every screen exactly.
+ *  SWEEP_LIST=file limits it to the names listed in a file.
  *  Runs only with SWEEP=prefix (e.g. SWEEP=sw_ for all, SWEEP=sw_m_ or SWEEP=sw_s0_01). */
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { haveRom, replayField, summarizeWaits, IGNORE, TRACES } from "../src/index.js";
+import { haveRom, replayField, summarizeWaits, IGNORE, TRACES, type Rig } from "../src/index.js";
 
 const PREFIX = process.env.SWEEP ?? "";
-const NAMES = PREFIX && existsSync(TRACES) ? readdirSync(TRACES).filter((n) => n.startsWith(PREFIX) && n.startsWith("sw_")).sort() : [];
+const LIST = process.env.SWEEP_LIST ? new Set(readFileSync(process.env.SWEEP_LIST, "utf8").split(/\s+/).filter(Boolean)) : null;
+const NAMES = PREFIX && existsSync(TRACES)
+  ? readdirSync(TRACES).filter((n) => n.startsWith(PREFIX) && n.startsWith("sw_") && (!LIST || LIST.has(n)) && existsSync(resolve(TRACES, n, "trace.json"))).sort()
+  : [];
 
-/** Traces where the original itself goes off the rails; compared up to the given wait only.
- *  - Field sound test (op 0x47 from a script: story 11, reached from story 8 / field 34 / the
- *    kind-2 messages 5 and 206): 00:0FB1 loads only E = 0x45 for the menu message, D still holds
- *    the 0x9E left by 00:14CA's VRAM copy, so message 0x9E45 reads a garbage window header and the
- *    frame fill 00:0A2B runs 256-byte loops over WRAM, the stack included; the game resets
- *    through 00:0100. The port shows the menu (message 0x45), as the title's sound test does.
- *  - Alternate destinations 0x36, 0x79 and 0xFF of event 0E: their records (07:7F80 table) hold
- *    no valid map header (header pointers 0303 and C201, the latter in WRAM), so the original loads garbage (tileset
- *    0xC9, layout stream in RAM) and reads VRAM while the LCD is drawing.
- *  - Messages (2, 0x0E), (2, 0x28) and (3, 0x0D): the script pointer lands in bank-0 code (00:06B7,
- *    00:0602, 00:1F22),
- *    which the original interprets as a script; (2, 0x28) reaches `20 FB`, which re-dispatches
- *    through the control-code table out of range (entry CDC9, in WRAM), and (2, 0x0E) a far call
- *    that leaves bank 01 mapped; (3, 0x0D) diverges where a code byte reaches a 0F-bank print. */
-const KNOWN: Record<string, { from: number; why: string }> = {
-  sw_s0_008: { from: 223, why: "field sound test crash" },
-  sw_s0_011: { from: 2, why: "field sound test crash" },
-  sw_s1_034: { from: 223, why: "field sound test crash" },
-  sw_s2_005: { from: 2, why: "field sound test crash" },
-  sw_s2_206: { from: 2, why: "field sound test crash" },
-  sw_s2_014: { from: 277, why: "script pointer in bank-0 code" },
-  sw_s2_040: { from: 7, why: "script pointer in bank-0 code" },
-  sw_s3_013: { from: 276, why: "script pointer in bank-0 code" },
-  sw_e0e_054: { from: 21, why: "invalid alternate destination" },
-  sw_e0e_121: { from: 21, why: "invalid alternate destination" },
-  sw_e0e_255: { from: 21, why: "invalid alternate destination" },
-};
+/** Where the original itself goes off the rails. Once one of these conditions holds in the port
+ *  at a wait, the trace is compared only up to that point (the port may diverge or fail after it):
+ *  - soundtest: script op 0x47 (field sound test: story 11, reached from story 8 / field 34 and
+ *    the music player of map 5366). 00:0FB1 loads only E = 0x45 for the menu message; D still
+ *    holds the 0x9E left by 00:14CA's VRAM copy, so message 0x9E45 reads a garbage window header,
+ *    the frame fill 00:0A2B runs 256-byte loops over WRAM (the stack included) and the game
+ *    resets through 00:0100. The port draws the same garbage and then fails.
+ *  - bank0script: a script pointer below 4000 (messages (2, 0x0E), (2, 0x28), (3, 0x0D) point into
+ *    bank-0 code, which the original interprets; e.g. `20 FB` re-dispatches through the control
+ *    table out of range, entry CDC9 in WRAM).
+ *  - wramscript: a script pointer in D000-DFFF (story indexes beyond the 192-entry table).
+ *  - altdest: tileset index 3E or more after a warp (alternate destinations 0x36, 0x79, 0xFF of
+ *    event 0E hold no valid map header: header pointers 0303 and C201), so the original loads
+ *    garbage and reads VRAM while the LCD draws. */
+const CAUSES: [string, (m: Uint8Array, rig: Rig) => boolean][] = [
+  ["soundtest", (_m, rig) => (rig.engine.text.coverage[0x47] ?? 0) > 0],
+  ["bank0script", (m) => (m[0xffa0 - 0x8000] === 1 || m[0xffa0 - 0x8000] === 2) && m[0xffa3 - 0x8000]! < 0x40],
+  ["wramscript", (m) => m[0xffa0 - 0x8000] !== 0 && m[0xffa3 - 0x8000]! >= 0xd0 && m[0xffa3 - 0x8000]! < 0xe0],
+  ["altdest", (m) => m[0xc450 - 0x8000]! >= 0x3e],
+];
 
 /** Joypad history (C770-C773, FF89/FF8A): sampled by the frame tick; when a long code segment
  *  installs or removes a STAT handler that changes who runs the tick (00:2F7F runs it by hand
@@ -63,15 +61,20 @@ function spriteLag(exp: Uint8Array, got: Uint8Array): boolean {
 describe.skipIf(!haveRom() || NAMES.length === 0)("parity sweep", () => {
   it.each(NAMES.length ? NAMES : ["none"])("%s", (name) => {
     const late = new Set<number>();
+    let rig: Rig | undefined;
+    let armed: { wait: number; cause: string } | undefined;
     const { trace, diffs, waits, nWaits, error } = replayField(name, {
-      ignore: IGNORE, keepGoing: true, rephase: JOYPAD,
-      watch: (_i, f, exp, got) => { if (spriteLag(exp, got)) late.add(f + 1); },
+      ignore: IGNORE, keepGoing: true, rephase: JOYPAD, setup: (r) => { rig = r; },
+      watch: (i, f, exp, got) => {
+        if (spriteLag(exp, got)) late.add(f + 1);
+        if (!armed) for (const [cause, hit] of CAUSES) if (hit(got, rig!)) { armed = { wait: i, cause }; break; }
+      },
     });
-    const known = KNOWN[name];
-    if (known) {
-      // compared up to the point where the original goes wrong (the port may fail after it)
-      expect(summarizeWaits(waits.filter((w) => w.wait < known.from).slice(0, 6))).toBe("");
-      if (error) expect(error.wait, error.message).toBeGreaterThanOrEqual(known.from);
+    if (armed) {
+      // compared up to the point where the original goes wrong
+      console.log(`${name}: original breaks (${armed.cause}) from wait ${armed.wait}`);
+      expect(summarizeWaits(waits.filter((w) => w.wait < armed!.wait).slice(0, 6))).toBe("");
+      if (error) expect(error.wait, error.message).toBeGreaterThanOrEqual(armed.wait);
       return;
     }
     expect(error?.message).toBeUndefined();

@@ -46,8 +46,10 @@ class Recorder:
         def cb(_):
             if start:
                 return
-            for a, v in pokes:
-                pb.memory[a] = v
+            for pk in pokes:
+                a, v = pk[0], pk[1]
+                mask = pk[2] if len(pk) > 2 else 0xFF  # (address, value[, mask])
+                pb.memory[a] = (pb.memory[a] & ~mask & 0xFF) | (v & mask)
             r = pb.register_file
             start["regs"] = {"a": r.A, "f": r.F, "b": r.B, "c": r.C, "d": r.D, "e": r.E, "hl": r.HL, "sp": r.SP, "pc": r.PC}
             start["mem"] = bytes(pb.memory[0x8000:0x10000])
@@ -103,7 +105,7 @@ class Recorder:
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
         json.dump({"frames": wait_frames}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
-                   "pokes": [f"{a:04X}={v:02X}" for a, v in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
+                   "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))
         return len(frames), len(wait_frames)
 

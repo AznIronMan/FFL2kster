@@ -29,6 +29,8 @@ export interface FieldCalls {
 }
 
 export class FieldEngine {
+  /** Times each event kind ran (F0 subcommands separately); a coverage aid for the sweeps. */
+  readonly coverage: Record<string, number> = {};
   constructor(readonly g: Game, readonly rom: Uint8Array, readonly calls: FieldCalls) {}
 
   get m(): Memory {
@@ -406,6 +408,8 @@ export class FieldEngine {
   /** 00:3934 — run event (b, c). */
   *event(b: number, c: number): Co {
     const m = this.m, g = this.g;
+    const key = b >= 0xf0 ? (b === 0xf0 ? `F0 ${c.toString(16).padStart(2, "0")}` : b.toString(16)) : b.toString(16).padStart(2, "0");
+    this.coverage[key] = (this.coverage[key] ?? 0) + 1;
     switch (b) {
       case 0x04:
         yield* this.calls.event4(g, (b << 8) | c);

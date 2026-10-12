@@ -32,6 +32,9 @@ export interface TextCalls {
 }
 
 export class TextEngine {
+  /** Times each control code (00-4D, and any other byte re-dispatched through 0x20) ran; a
+   *  coverage aid for the parity sweeps. */
+  readonly coverage: Record<number, number> = {};
   constructor(readonly g: Game, readonly calls: TextCalls) {}
 
   get m(): Memory {
@@ -454,6 +457,7 @@ export class TextEngine {
   /** Control codes 00-4D (table 00:13BE). Returns END for 00/0E. */
   private *control(a: number): Step {
     const m = this.m, g = this.g;
+    this.coverage[a] = (this.coverage[a] ?? 0) + 1;
     switch (a) {
       case 0x00: case 0x0e: return yield* this.end();
       case 0x01: m.wr(0xc7a1, m.rd(0xc7a1) + 1); this.cursor = this.cursor + 1; return;
@@ -560,7 +564,7 @@ export class TextEngine {
       case 0x34: {
         yield* this.closeWindow();
         yield* this.prepareMenu();
-        yield* this.calls.far(g, 0x15006);
+        yield* this.calls.far(g, 0x15006, { a: 2 }); // A = 2 from 00:14DF
         const bank = m.hram[0x08]!;
         yield* this.calls.far(g, 0x1915);
         m.selectBank(bank);
