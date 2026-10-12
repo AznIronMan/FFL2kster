@@ -65,7 +65,7 @@ tables directly.
 
 - `A` is the stream number. The game increments the byte at `C0A0+stream`, then reads `T = 0F:4000[counter]`.
 - With `E` = min and `D` = max, the result is `min + T mod (max−min+1)`.
-- If max = 0, the raw `T` is returned. That means `rand(0..0)` is **not** 0, a quirk worth keeping for parity.
+- Special cases (verified against the routine in the SM83 oracle): min = 0xFF returns 0xFF; max = 0 returns 0; max = min returns min; a span of 0xFF returns T + min.
 - Battle code uses streams 5, 6, 7, 8 and 0x30–0x33. Encounters use stream 0x0A.
 
 ## Scripts

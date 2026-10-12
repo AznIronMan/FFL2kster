@@ -32,7 +32,7 @@ def test_reward_decoding_matches_observed_battles(rom_bytes):
 
 
 def test_rng_and_tables(rom_bytes):
-    assert rules.rand_range(rom_bytes, 1, 0, 0) == rules.rng_byte(rom_bytes, 1)  # max 0 -> raw byte
+    assert rules.rand_range(rom_bytes, 1, 0, 0) == 0
     for c in range(256):
         assert 0 <= rules.rand_range(rom_bytes, c, 0, 100) <= 100
     t = rules.export_tables(rom_bytes)
@@ -58,3 +58,19 @@ def test_weapon_formula_and_effect_index(rom_bytes):
     eff = rules.effect_index(rom_bytes)
     assert len(eff) == 50 and eff["49"]["battle_handler"] == "0C:5512"
     assert any(i.endswith(":Long") for i in eff["49"]["items"])
+
+
+def test_rng_matches_rom_routine(rom_bytes):
+    """rules.rand_range equals 00:043E executed in the SM83 oracle for many (stream, lo, hi)."""
+    import random
+    from ffl2kster.sm83 import CPU
+    rnd = random.Random(3)
+    for _ in range(300):
+        stream, lo, hi, ctr = rnd.randrange(16), rnd.choice([0, 0, 1, 5, 0xFF, rnd.randrange(256)]), \
+            rnd.choice([0, 1, 100, 255, rnd.randrange(256)]), rnd.randrange(256)
+        cpu = CPU(rom_bytes)
+        cpu.mem[0xC0A0 + stream] = ctr
+        cpu.a, cpu.d, cpu.e = stream, hi, lo
+        cpu.call(0x016B)
+        assert cpu.a == rules.rand_range(rom_bytes, (ctr + 1) & 0xFF, lo, hi), (stream, lo, hi, ctr)
+        assert cpu.mem[0xC0A0 + stream] == (ctr + 1) & 0xFF

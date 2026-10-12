@@ -248,13 +248,19 @@ class CPU:
         if op == 0xFB: self.ime = 1; return
         raise Halt(f"illegal opcode {op:02X} at {self.pc - 1:04X}")
 
-    def call(self, addr: int, max_steps: int = 3_000_000) -> int:
-        """Run the routine at ``addr`` (bank 0 or current bank) until it returns."""
+    def call(self, addr: int, max_steps: int = 3_000_000, traps: dict | None = None) -> int:
+        """Run the routine at ``addr`` (bank 0 or current bank) until it returns.
+        traps: {address: callback(cpu)} — when PC reaches a trapped address the callback runs and
+        the CPU returns to the caller (used to stub presentation routines such as rst $20)."""
         sentinel = 0xFF00  # I/O address, never executed by real code
         self.push(sentinel)
         self.pc = addr
         n = 0
         while self.pc != sentinel:
+            if traps and self.pc in traps:
+                traps[self.pc](self)
+                self.pc = self.pop()
+                continue
             self.step(); n += 1
             if n > max_steps:
                 raise Halt(f"step limit at {self.pc:04X}")

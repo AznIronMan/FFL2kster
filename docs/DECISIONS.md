@@ -91,8 +91,9 @@
   everything else decoded from the VM is **probable**. Race/type codes: 0 human, 1 mutant,
   2 monster, 3 robot — now probable from consumers (script 9 requires 2 to eat; script 10 grows
   0/1; script 7 checks 3).
-- `rules.py` mirrors the ROM's integer arithmetic and quirks (e.g. rand(0..0) returns a raw
-  table byte), so the port can choose parity or a cleaned-up variant deliberately.
+- `rules.py` mirrors the ROM's integer arithmetic and quirks (e.g. rand(lo = 0xFF) returns 0xFF),
+  so the port can choose parity or a cleaned-up variant deliberately. (Corrected 2026-10-12:
+  rand(0..0) returns 0, not a raw table byte — checked against the SM83 oracle.)
 
 ## 2026-10-12 — Port direction (user decisions)
 

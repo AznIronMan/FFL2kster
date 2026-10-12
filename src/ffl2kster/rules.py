@@ -42,11 +42,16 @@ def rng_byte(rom: bytes, counter: int) -> int:
 
 
 def rand_range(rom: bytes, counter: int, lo: int, hi: int) -> int:
-    """00:043E with E=lo, D=hi: raw byte if hi == 0 or lo == 0xFF; lo if hi == lo;
-    otherwise lo + T % (hi - lo + 1) (T + lo when the span is 0xFF)."""
+    """00:043E with E=lo, D=hi (counter = the already-incremented stream counter):
+    lo == 0xFF → 0xFF; hi == 0 → 0; hi == lo → lo; span 0xFF → T + lo;
+    otherwise lo + T % (hi - lo + 1). (Corrected 2026-10-12 against the SM83 oracle.)"""
     t = rng_byte(rom, counter)
-    if lo == 0xFF or hi == 0 or hi == lo:
-        return t if (lo == 0xFF or hi == 0) else lo
+    if lo == 0xFF:
+        return 0xFF
+    if hi == 0:
+        return 0
+    if hi == lo:
+        return lo
     span = (hi - lo) & 0xFF
     if span == 0xFF:
         return (t + lo) & 0xFF
