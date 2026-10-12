@@ -110,6 +110,15 @@ location names at 0x3F6C0+.
 ### Item prices — `0F:7860` (0x3F860), 3 bytes LE × 120 (ids 0x00–0x77) — **probable**
 Location verified by code (`01:6678`); GP semantics not yet seen on a shop screen.
 
+### Encounters — **verified** (controlled changes)
+| Table | Location | Size |
+|---|---|---|
+| slot thresholds | `0D:6560` | 7 bytes |
+| zone formation slots | `0D:6570 + 8·zone` | 135 × 8 |
+| formations [id1,id2,id3,countA,countB] | `0D:6C70 + 5·f` | 128 × 5 |
+| count patterns (min/max nibbles per group) | `0D:6EF0 + 3·p` | 32 × 3 |
+Generator `00:2AE6`/`00:2B14` → CFE0–CFEA; zone from the map header (00:1CC4 → C454).
+
 ### Monster sprite/family code — `0D:6B70` (0x36B70), 1 byte × 256 — **verified**
 Families of five share a code (0x05–0x28); used for overworld sprite tiles (bank 03,
 0x4000 + code·0x100) and as the eater family in meat transformations.

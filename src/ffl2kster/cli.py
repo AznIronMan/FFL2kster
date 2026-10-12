@@ -139,7 +139,8 @@ def main(argv: list[str] | None = None) -> int:
 
     from . import analysis  # noqa: F401  registers analysis subcommands
     analysis.add_commands(sub)
-    from .schema import enemies, items, text
+    from .schema import encounters, enemies, items, text
+    encounters.add_commands(sub)
     enemies.add_commands(sub)
     items.add_commands(sub)
     text.add_commands(sub)

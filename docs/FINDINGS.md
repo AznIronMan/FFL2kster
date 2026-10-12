@@ -242,3 +242,27 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   214 pure messages that are editable in place).
 - Open: names/semantics of most control codes (only arg lengths are evidenced), relocation
   for longer text, story-script decompilation (M5).
+
+## 2026-10-12 — Random encounters (M4)
+
+- Battle init (0D:4000) copies three (count, id) pairs from **CFE0–CFE5** into the enemy groups
+  and CFEA → D844. Writers: generator **00:2AE6 / 00:2B14**:
+  - zone = map-header byte (00:1CC4: when header byte 1 bit 6 is set, byte 2 → C454, byte 3 → C455);
+  - 8 formation bytes per zone at **0D:6570 + 8·zone** (135 zones);
+  - slot = first s with rand ≥ threshold[s], thresholds at **0D:6560** = 246, 229, 195, 127, 59,
+    25, 8 → slot probabilities 10/17/34/68/68/34/17/8 of 256;
+  - formation **0D:6C70 + 5·(b & 0x7F)** = [id1, id2, id3, countA, countB] (128 formations);
+    countB is used when the slot byte has bit 7 set;
+  - count byte bits 0–4 → pattern **0D:6EF0 + 3·p** (32 patterns; per group a min/max nibble pair),
+    bits 6–7 → CFE9.
+- The formation is generated one step before the battle triggers (CFE0 fills at step 13 of 14).
+- Zone 0 (around the first town) decodes to Asigaru ×1, Spider ×1, Jaguar ×1–4, Gang ×1–4 plus
+  rare mixed groups — exactly the battles observed.
+- Controlled changes (from the world-map state, same 14 steps): formation 20 id1 → Spider gives
+  3 Spiders; its count byte 4 → 2 gives Gang ×1 (group 3 only); count pattern 4 group 1 = 0x55
+  gives 5 Jaguars; zone 0 slot 3 → formation 24 gives Zombie ×3 / Pebble ×1 / Snake ×3; patching
+  formation 19 or zone 1 changes nothing. **Verified.**
+- Drops: after the Asigaru battle the party "Received Long." — Asigaru's ability list holds the
+  Long sword, so human enemies appear to drop items from their own lists (probable, one
+  observation); meat drops come from monsters (M2b). Drop probabilities not measured.
+- Export: `python -m ffl2kster encounters-export` → `data/encounters.json`.

@@ -126,3 +126,21 @@ def test_text_reinsertion_visible(setup):
     assert "Right on" in after(setup["rom"])
     t = after(out)
     assert "Victory" in t and "Right on" not in t
+
+
+def test_encounter_formation_edit_visible(setup):
+    from ffl2kster.project import Edit
+    out = setup["tmp"] / "enc.gb"
+    build(setup["rom"], load_project(PROJECT), out, edits=[Edit("formation", 20, "id1", 45)])
+
+    def first_battle(rom):
+        with Emulator(rom) as e:
+            e.load_state(setup["tmp"] / "states_orig" / "world.state")
+            for i in range(40):
+                e.hook_hits.clear(); e.press(["up", "down"][(i // 3) % 2])
+                if e.hook_hits:
+                    break
+            e.pb.tick(240, False)
+            return e.pb.memory[0xD50A], e.pb.memory[0xD501]
+    assert first_battle(setup["rom"]) == (120, 3)
+    assert first_battle(out) == (45, 3)
