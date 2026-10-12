@@ -16,11 +16,11 @@ The field loop handles it at **00:3924** (kind = C443, arg = C442). The handlers
 |---|---|---|
 | 0 | run story script `a` (0B:4000 table) | verified (Mr. S object → story[0]; town triggers) |
 | 1 / 2 / 3 | field message/script `(k−1)·256 + a` (0A:4000) | verified (town NPC field[8..11], text changed with the byte) |
-| 4 | shop `a` (8 ids at **0F:79E0 + 8a**); `a` = 0xFF → inn (01:628A) | probable (static chain) |
+| 4 | shop `a` (8 ids at **0F:79E0 + 8a**); `a` = 0xFF → inn (01:628A) | verified (trigger rewritten to shops 0/3/20: 01:647A runs with E = n and stocks C71D from the table) |
 | 5 / 6 | warp to destination record `a + 256·((k&1)^1)` | verified (door transitions) |
-| 7 | sound: a < 0x40 song (FFB0, remembered in C31A); 0x40–0x7F → FFB1; ≥ 0x80 sound effect a − 0x80 | probable |
+| 7 | sound: a < 0x40 song (FFB0, remembered in C31A); 0x40–0x7F → FFB1; ≥ 0x80 sound effect a − 0x80 | verified for songs (C31A 10 → 5); rest probable |
 | 8 | nothing | probable |
-| 9 | chest: item `a` with default uses `0C:7E80[a]`; 0xFF = "Empty."; "Can't carry." when full | probable |
+| 9 | chest: item `a` with default uses `0C:7E80[a]`; 0xFF = "Empty."; "Can't carry." when full | verified (item 0x2A, 30 uses, into C2B9) |
 | 0B | chest as 9, but offers "Drop item?" when full | probable |
 | 0A | MAGI `a`: C2DA+2a count+1, value 0C:7F80[a]; C2D9 total+1 | probable |
 | 0C / 0D | save return position (C45C–C45E), then warp | probable |

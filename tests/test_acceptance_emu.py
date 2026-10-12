@@ -203,3 +203,31 @@ def test_growth_hp_chance_controlled_change(setup, tmp_path):
         results[vals] = list(_rewards.hp_gain)
     assert all(g == 0 for g in results[(0, 0)])
     assert all(g > 0 for g in results[(200, 0)])
+
+
+def test_shop_event_controlled_change(setup):
+    """Event kind 4 = shop: the first town's exit script triggers (19, 0) rewritten to (n, 4)
+    open the shop routine 01:647A with E = n, which stocks C71D from 0F:79E0 + 8n."""
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    import shop_probe
+    rom = setup["rom"].read_bytes()
+    for n in (0, 20):
+        hits, _, stock = shop_probe.run(n, str(setup["tmp"] / "states_orig"), str(setup["rom"]))
+        assert hits[:1] == [n]
+        assert stock == list(rom[0x3F9E0 + 8 * n:0x3F9E8 + 8 * n])
+
+
+def test_chest_and_sound_events_controlled_change(setup):
+    """Event kind 9 gives item `arg` with default uses 0C:7E80[arg] into the first free
+    inventory slot; kind 7 with arg < 0x40 changes the map song (C31A)."""
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    import shop_probe
+    st = str(setup["tmp"] / "states_orig"); rp = str(setup["rom"])
+    rom = setup["rom"].read_bytes()
+    _, _, _, base = shop_probe.run(0, st, rp, patch=False, ram=True)
+    _, _, _, chest = shop_probe.run(0x2A, st, rp, kind=9, ram=True)
+    assert base[0x2B9:0x2BB] == b"\xff\xff" and chest[0x2B9:0x2BB] == bytes([0x2A, rom[0x33E80 + 0x2A]])
+    _, _, _, snd = shop_probe.run(0x05, st, rp, kind=7, ram=True)
+    assert base[0x31A] == 0x0A and snd[0x31A] == 0x05
