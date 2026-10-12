@@ -6,9 +6,12 @@
 
 - A song is requested by writing FFB0. Handler 0E:409B; the current song is in FFB3; FFB2 is a
   sound effect.
-- Song n (1–19): `0E:49F5 + 6(n−1)` holds 3 channel pointers (pulse 1, pulse 2, wave). They are
-  copied to the channel blocks CB00/CB18/CB30 (data pointers CB04/CB1C/CB34). Noise is not
-  used by songs.
+- Song n (1–19): `0E:49F5 + 6(n−1)` holds 3 channel pointers. They are copied to the channel
+  blocks CB00/CB18/CB30 (data pointers CB04/CB1C/CB34).
+- **Hardware mapping (corrected, P0):** song channel 0 drives **pulse 2** (NR21–24), song
+  channel 1 drives **pulse 1** (NR11–14) and song channel 2 drives **wave** (NR30–34).
+  Pulse 1 is shared with sound effects, which pre-empt it. Noise is used only by sound
+  effects.
 
 **Timing (verified)**
 
@@ -52,10 +55,42 @@ length except songs 5, 6 and 7, whose channels loop independently.
 loop point, note timing and pitch exact) and `songs.json` (tempo, ticks/s, lengths, note counts).
 Audio renders from `tools/music_capture.py` stay in `build/` and are not committed.
 
-## Open
+## Instruments (P0, verified via SFX register timing; envelope semantics from code)
 
-- Envelope tables (E0) and vibrato tables (E4) are not decoded, so MIDI instruments are generic.
-  Decode them for timbre-exact remastering.
-- Sound effects (FFB2) use a separate table.
+Each channel steps its modulation lists every **3rd frame** (FFB4 rotates 0/1/2).
+
+**Envelope (E0, pulse channels)**
+
+- Entries are `[ticks, NRx2]`; the list restarts at every note-on (0E:47AC).
+- A duration of 0xFF holds forever (0E:4821).
+- A duration of 0 is followed by a loop pointer.
+- 24 lists are used. Most are a single long step (99 ticks), so in practice they act as fixed
+  NRx2 volume/decay settings.
+
+**Vibrato (E4, all channels)**
+
+- Entries are `[ticks, signed delta]`. The delta is added to the note's 11-bit frequency;
+  0 + pointer loops.
+- 5 lists are used.
+
+**Waveforms (E8)**
+
+- Each is 16 bytes, i.e. 32 4-bit samples.
+- 5 are used.
+
+**Sound effects (FFB2 = n, 1–57; 0E:4920/4949)**
+
+- Each SFX has a pulse-1 stream at `0E:7AC5[n−1]` (steps `[frames, NR10..NR14]`) and a noise
+  stream at `0E:7B37[n−1]` (steps `[frames, NR42, NR43]`, then NR44 = 0x80).
+- Stream control bytes:
+  - 0 = end;
+  - `0xF0|k` = set loop count;
+  - `0xEF lo hi` = loop.
+- **Verified:** for SFX 1, 10 and 25 the per-frame NR12/NR42/NR43 values and their durations
+  equal the decode (`test_sfx_register_timeline`).
+
+`music-export` now also writes the instrument tables into `songs.json`, and a decoded `sfx.json`.
+
+## Open
 - Song names are known only for 5 (title, probable), 10 (town), 12 (world) and 17 (battle).
   Event-script `sound` events show where every song is used.

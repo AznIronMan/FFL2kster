@@ -274,3 +274,27 @@ def test_collision_attribute_controlled_change(setup):
             p0 = e.position(); e.press("up")
             res[val] = e.position() != p0
     assert res == {None: True, 0x03: False, 0x02: False, 0x01: True}
+
+
+def test_sfx_register_timeline(setup, tmp_path):
+    """SFX 1: decoded pulse NR12 / noise NR42-43 steps and frame counts equal the registers
+    observed each frame (sound-enabled states)."""
+    from ffl2kster import music
+    snd = make_states(setup["rom"], tmp_path / "snd", log=lambda *_: None, sound=True)
+    assert snd
+    s = music.sfx(setup["rom"].read_bytes())[0]
+    with Emulator(setup["rom"], sound=True) as e:
+        e.load_state(tmp_path / "snd" / "first_town.state")
+        e.pb.memory[0xFFB2] = 1
+        seq = []
+        for _ in range(170):
+            e.pb.tick(1, False, True)
+            seq.append((e.pb.memory[0xFF21], e.pb.memory[0xFF22]))
+    runs = []
+    for v in seq:
+        if runs and runs[-1][0] == v:
+            runs[-1][1] += 1
+        else:
+            runs.append([v, 1])
+    exp = [((x["regs"][0], x["regs"][1]), x["frames"]) for x in s["noise"] if "frames" in x]
+    assert [(tuple(r[0]), r[1]) for r in runs[:len(exp)]] == exp

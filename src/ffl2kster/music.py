@@ -194,11 +194,93 @@ def add_commands(sub) -> None:
                                           "notes": sum(e["type"] == "note" for e in c["events"])}
                                          for c in s["channels"]]})
         with open(os.path.join(a.out, "songs.json"), "w") as fh:
-            json.dump({"source_sha256": romlib.sha256(rom), "songs": summary}, fh, indent=1)
-        print(f"wrote {a.out}: {NSONGS} MIDI files + songs.json")
+            json.dump({"source_sha256": romlib.sha256(rom), "songs": summary,
+                       "instruments": instruments(rom)}, fh, indent=1)
+        with open(os.path.join(a.out, "sfx.json"), "w") as fh:
+            json.dump({"source_sha256": romlib.sha256(rom), "sfx": sfx(rom)}, fh, indent=1)
+        print(f"wrote {a.out}: {NSONGS} MIDI files + songs.json + sfx.json")
         return 0
 
     s = sub.add_parser("music-export", help="decode the 19 songs to MIDI + summary")
     s.add_argument("--rom", default="input/original.gb")
     s.add_argument("--out", default="data/music")
     s.set_defaults(fn=cmd)
+
+
+# ---------------------------------------------------------------- instruments and SFX
+# Per-channel modulation lists (each channel steps its lists every 3rd frame, FFB4 = 0/1/2):
+#   (music "channel 1/2" drive hardware pulse 2 / pulse 1 is shared with SFX: see docs/MUSIC.md)
+#   envelope (E0, pulse channels): entries [frames/3, NRx2 value]; a 0 entry is followed by a
+#     pointer to continue from (loop). The list restarts at every note-on (0E:47AC).
+#   vibrato (E4, all channels): entries [frames/3, signed delta added to the note's 11-bit
+#     frequency]; 0 + pointer = loop.
+#   waveform (E8, wave channel): 16 bytes copied to wave RAM (32 4-bit samples).
+# SFX n (1-57, FFB2): pulse-1 stream at 0E:7AC5[n-1] (steps [frames, NR10..NR14]) and noise
+#   stream at 0E:7B37[n-1] (steps [frames, NR42, NR43], NR44 = 0x80); a 0 duration ends the
+#   stream, 0xF0|k sets a loop counter, 0xEF lo hi loops back while the counter runs
+#   (0E:4920/4949). The pulse SFX stream pre-empts music channel 1 while active (CB1A).
+SFX_PULSE = 0x7AC5
+SFX_NOISE = 0x7B37
+NSFX = 57
+
+
+def _w(rom, a):
+    return b(rom, a) | b(rom, a + 1) << 8
+
+
+def mod_list(rom: bytes, ptr: int, signed: bool, limit: int = 64, hold_ff: bool = False) -> dict:
+    """Decode a modulation list. Envelope lists (hold_ff) stop at a 0xFF duration, which the
+    driver holds forever (0E:4821); a 0 duration is followed by a loop pointer."""
+    steps, seen, p = [], {}, ptr
+    while len(steps) < limit:
+        if p in seen:
+            break
+        d = b(rom, p)
+        if d == 0:
+            tgt = _w(rom, p + 1)
+            return {"ptr": ptr, "steps": steps, "loop_to": seen.get(tgt, tgt)}
+        seen[p] = len(steps)
+        v = b(rom, p + 1)
+        steps.append([d, v - 256 if signed and v > 127 else v])
+        if hold_ff and d == 0xFF:
+            return {"ptr": ptr, "steps": steps, "loop_to": None, "hold": True}
+        p += 2
+    return {"ptr": ptr, "steps": steps, "loop_to": None}
+
+
+def instruments(rom: bytes) -> dict:
+    env, vib, wav = {}, {}, {}
+    for n in range(1, NSONGS + 1):
+        for ch, start in enumerate(song_pointers(rom, n)):
+            for e in parse_channel(rom, ch, start)["events"]:
+                if e["type"] == "envelope_ptr":
+                    a = e["args"][0] | e["args"][1] << 8
+                    env.setdefault(f"{a:04X}", mod_list(rom, a, False, hold_ff=True))
+                elif e["type"] == "vibrato_ptr":
+                    a = e["args"][0] | e["args"][1] << 8
+                    vib.setdefault(f"{a:04X}", mod_list(rom, a, True))
+                elif e["type"] == "wave_ptr":
+                    a = e["args"][0] | e["args"][1] << 8
+                    raw = [b(rom, a + i) for i in range(16)]
+                    wav.setdefault(f"{a:04X}", [s for x in raw for s in (x >> 4, x & 15)])
+    return {"envelopes": env, "vibratos": vib, "waveforms": wav}
+
+
+def sfx_stream(rom: bytes, ptr: int, regs: int, limit: int = 256) -> list:
+    out, p = [], ptr
+    while len(out) < limit:
+        d = b(rom, p)
+        if d == 0:
+            out.append({"end": True}); break
+        if d == 0xEF:
+            out.append({"loop_to": _w(rom, p + 1)}); p += 3; continue
+        if d >= 0xF0:
+            out.append({"loop_count": d & 0x0F}); p += 1; continue
+        out.append({"frames": d, "regs": [b(rom, p + 1 + i) for i in range(regs)], "at": p}); p += 1 + regs
+    return out
+
+
+def sfx(rom: bytes) -> list[dict]:
+    return [{"sfx": n, "pulse": sfx_stream(rom, _w(rom, SFX_PULSE + 2 * (n - 1)), 5),
+             "noise": sfx_stream(rom, _w(rom, SFX_NOISE + 2 * (n - 1)), 2)}
+            for n in range(1, NSFX + 1)]

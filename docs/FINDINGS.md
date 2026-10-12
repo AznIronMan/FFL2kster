@@ -404,3 +404,12 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   4×4, 4×6, 6×6, 6×8, 8×6, 8×8, 14×8 (and two 4×4/6×6 classes in other banks).
 - **Verified** for all 256 monsters against battle-start VRAM. data/graphics/monsters is now
   ROM-derived (`gfx.monster_graphic`), replacing screenshots, plus index.json (sizes).
+
+## 2026-10-12 — Music instruments and sound effects (P0)
+
+- Envelope/vibrato/waveform lists and the 57 sound effects decoded (docs/MUSIC.md); SFX
+  register timelines verified frame-exactly in PyBoy. Song channel 0 → pulse 2, channel 1 →
+  pulse 1 (shared with SFX), channel 2 → wave (correction).
+- UI/window tiles: VRAM 0x8800–0x8FFF is always ROM 04:4800 (font + frames; verified in all map
+  captures). Battle/field sprite tiles come from the bank-03/04 sprite pages already exported
+  (battle VRAM 0x8000.. = pages 0x00, 0x02–0x03, 0x0B, 0x2A, 0x3F).
