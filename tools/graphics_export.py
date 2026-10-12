@@ -55,4 +55,20 @@ def main():
     print('monsters', len(glob.glob('data/graphics/monsters/*.png')), 'tilesets', len(set(idx.values())),
           'overworld pages', 0x80)
 
-main()
+
+def export_font(rom, out="data/graphics/font"):
+    """Font: text codes 0x80-0xFF use 2bpp tiles at 04:4800 + 16*(code-0x80) (file 0x10800;
+    located by matching battle-screen VRAM tiles 0x9E-0xFF to the ROM, run starts 0x109E0)."""
+    sys.path.insert(0, "src")
+    from ffl2kster import script_text as st
+    os.makedirs(out, exist_ok=True)
+    data = rom[0x10800:0x11000]
+    sheet(data).resize((128 * 3, 64 * 3), Image.NEAREST).save(os.path.join(out, "font.png"))
+    json.dump({"tile_base_file_offset": 0x10800, "first_code": 0x80, "columns": 16,
+               "glyphs": {f"{c:02X}": st.glyph(c) for c in range(0x9E, 0x100)}},
+              open(os.path.join(out, "font.json"), "w"), ensure_ascii=False, indent=1)
+
+
+if __name__ == "__main__":
+    main()
+    export_font(open(sys.argv[1] if len(sys.argv) > 1 else "input/original.gb", "rb").read())

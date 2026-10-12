@@ -365,3 +365,10 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   metatile 0x12: 03/02 block, 01/00 pass; 0x80 pushed the player back (special, hypothesis).
 - Header flags low nibble (C451; formerly "music_or_set") = number of metatile ids from 3 that
   become trigger tiles 0x40+k at load (00:2647; probable). Export: `tile_attributes` in maps.json.
+
+## 2026-10-12 — Font
+
+- Glyph tiles for text codes 0x80–0xFF: 2bpp at **04:4800** (file 0x10800), code c → tile
+  0x10800 + 16·(c−0x80); located by matching battle-screen VRAM to the ROM (verified). The
+  "overworld pages" 0x48–0x4F in data/graphics/overworld are therefore font, not sprites.
+  Export: data/graphics/font/{font.png, font.json} (tools/graphics_export.py).

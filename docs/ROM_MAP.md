@@ -160,6 +160,7 @@ Families of five share a code (0x05–0x28); used for overworld sprite tiles (ba
 | `0F:79E0` | Shop inventories, 8 item ids × 24 | verified | C71D stock equals table rows 0/3/20 |
 | `00:3EDF` / `00:3F28` / `00:3F4E` | Chest: item / item with drop prompt / MAGI | probable | static |
 | `0C:7F80` | MAGI value per MAGI id | hypothesis | 00:3F4E |
+| `04:4800` | Font glyph tiles for codes 0x80–0xFF (2bpp) | verified | VRAM tile match |
 | `07:7000` | Metatile attributes, 32 per tileset (header b2) → C520 | verified | RAM equality + controlled change |
 | `00:2739` | Movement check: attr & C434 (2 on foot) blocks | verified | controlled change |
 | `00:2647` | Convert metatiles 3..3+C451−1 into trigger tiles 0x40+k (original saved at C500+k) | probable | static |
