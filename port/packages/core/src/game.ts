@@ -61,6 +61,9 @@ export class Game {
     softReset?: (g: Game) => void; // A+B+Select+Start
     soundInit?: (g: Game) => void; // 0E:4003
   } = {};
+  /** Register writes a STAT handler makes too late in its line to show on it (its CPU time runs
+   *  past the point where the line's registers are taken); applied after the line is drawn. */
+  readonly afterLine: [number, number][] = [];
   private main: Co | null = null;
   /** Set when the main coroutine returned (or threw). */
   done = false;
@@ -113,6 +116,10 @@ export class Game {
       this.lineHook?.(ly);
       this.statCheck(ly);
       this.onLine?.(ly);
+      if (this.afterLine.length) {
+        for (const [a, v] of this.afterLine) this.m.wr(a, v);
+        this.afterLine.length = 0;
+      }
     }
     io[0x44] = 0x90;
     // vblank interrupt (IE bit 0), then rst $10 returns: the wait state

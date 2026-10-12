@@ -14,6 +14,8 @@ port/packages/parity/test/sweep.test.ts.
   ctxstates          states ctx_HHHH: the first town warped to each map holding placed scripts.
   context [FROM TO]  every placed script run on its own map with its object's progress condition
                      met. Traces sw_c_HHHH_NNN.
+  strong [FROM TO]   the context runs of scripts that fight a battle, with a party of 999 HP and
+                     stats 99, 4800 frames. Traces sw_k_HHHH_NNN.
   maps [FROM TO]     every warp destination (07:4000 + 4i, 511 records): event 5/6 queued at the
                      field loop; then a walk in four directions. Traces sw_m_NNN.
 States and traces stay in build/ (ROM-derived, gitignored). Usage: python tools/sweep.py MODE [FROM TO]"""
@@ -110,6 +112,21 @@ def cases(mode):
                 addr = 0xC2F6 + (v >> 1)
                 pokes.append((addr, lo, 0x0F) if v & 1 else (addr, lo << 4, 0xF0))
             yield f"sw_c_{e['map']}_{e['story']:03d}", tuple(pokes), SCRIPT_PLAN, f"ctx_{e['map']}"
+    elif mode == "strong":
+        # placed scripts with a battle (op 09), on their map, with a party of four at 999 HP and
+        # stats 99, so story battles are won and the script goes on past them
+        sys.path.insert(0, "src")
+        from ffl2kster import events
+        rom = open("input/original.gb", "rb").read()
+        strong = []
+        for i in range(4):
+            b = 0xC200 + 32 * i
+            strong += [(b + 7, 0xE7), (b + 8, 0x03), (b + 9, 0xE7), (b + 10, 0x03)] + [(b + 11 + k, 99) for k in range(4)]
+        for name, pokes, plan, state in cases("context"):
+            story = pokes[1][1]
+            if story >= 192 or not any(op.get("code") == 0x09 for op in events.decode_script(rom, "story", story)):
+                continue
+            yield name.replace("sw_c_", "sw_k_"), (*pokes, *strong), ",".join(["a:10,none:2"] * 400), state
     elif mode == "maps":
         for d in range(511):
             yield f"sw_m_{d:03d}", ((0xC443, 6 if d >= 256 else 5), (0xC442, d & 0xFF)), MAP_PLAN

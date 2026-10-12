@@ -91,17 +91,19 @@ export function installRasterHandlers(g: Game): void {
         const c = m.rd(0xc47c);
         m.wr(0xff42, ly < c ? m.rd(0xc47d) : (m.rd(0xc47d) + c - ly) & 0xff);
         m.wr(0xc47c, c + m.rd(0xc47b));
-        m.wr(0xff4b, 0xa7);
+        g.afterLine.push([0xff4b, 0xa7]); // written after the line's registers are taken
       }
     } else {
       const l = (0x90 - ly) & 0xff;
       if (m.rd(0xc479) >= l) m.wr(0xff4b, 0x07);
       else {
+        // the long path (2C6E-2C91): SCY and WX are written after this line's registers are
+        // taken, so they show from the next line (measured against PyBoy)
         const c = m.rd(0xc47c);
-        m.wr(0xff42, c >= l ? m.rd(0xc47d) : (m.rd(0xc47d) + 0x90 - c - ly) & 0xff);
+        g.afterLine.push([0xff42, c >= l ? m.rd(0xc47d) : (m.rd(0xc47d) + 0x90 - c - ly) & 0xff]);
         const n = c - m.rd(0xc47b);
         if (n >= 0) m.wr(0xc47c, n);
-        m.wr(0xff4b, 0xa7);
+        g.afterLine.push([0xff4b, 0xa7]);
       }
     }
     inc(m);
