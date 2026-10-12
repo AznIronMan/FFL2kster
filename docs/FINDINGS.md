@@ -384,3 +384,14 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   capture 634c holds battle data), 28 conditional maps × 20 random progress states, and 300
   fuzzed command streams (`tools/layout_verify.py`).
 - Progress variables: 32 nibbles at C2F6 + v/2 (even v = high nibble) (00:063E/0661).
+
+## 2026-10-12 — Tileset graphics sources (P0)
+
+- 00:1F55: tileset t (header byte 2) → 32 block numbers at **07:7800 + 32·t**; block k = bank-02
+  bytes 64k..64k+63 (4 tiles) → metatile i at VRAM 0x9000 + 64i. Metatiles 0x20–0x3F use the
+  fixed UI/font tiles 0x80–0xFF from **04:4800** (VRAM 0x8800). **Verified**: ROM-derived BG
+  VRAM equals all 211 valid captures except animated metatiles 30/31.
+- Animation 00:21EA (per frame, counter C439): header flags bits 4–5 = n; n = 0 swaps rows of
+  metatiles 30/31, n > 0 rotates metatile 31 horizontally by n pixels (probable).
+- `src/ffl2kster/gfx.py`; data/graphics/tilesets now holds 61 ROM-derived sheets `ts_XX.png`
+  (replacing the capture-hash sheets) + index.json (map → tileset).

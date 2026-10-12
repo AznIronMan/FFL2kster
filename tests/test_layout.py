@@ -42,3 +42,26 @@ def test_conditional_layouts_match_rom_routine(rom_bytes):
         vb = bytes(((i * 37 + k * 11) & 0xFF) for k in range(16))
         got = layout.render(rom_bytes, layout.stream_offset(hd["layout_ptr"]), _vars(vb), hd["flags"] & 0x0F)
         assert bytes(got) == _oracle(rom_bytes, hd["layout_ptr"], hd["flags"], vb), hex(h)
+
+
+def test_tileset_sources_match_captured_vram(rom_bytes):
+    """ROM-derived BG tiles (gfx.vram_bg) equal captured VRAM, except animated metatiles 30/31
+    (needs build/maps captures; skipped otherwise)."""
+    import glob
+    import pytest
+    from ffl2kster import gfx
+    np = pytest.importorskip("numpy")
+    caps = sorted(glob.glob(str(ROOT / "build" / "maps" / "*.npz")))
+    if not caps:
+        pytest.skip("no map captures")
+    d = json.loads((ROOT / "data" / "maps" / "maps.json").read_text())["headers"]
+    n = 0
+    for f in caps:
+        k = f.split("/")[-1][:4]
+        if k == "634c":
+            continue
+        v = bytes(np.load(f)["vram"])[0x800:0x1800]
+        exp = gfx.vram_bg(rom_bytes, d[k]["b2"])
+        assert v[:0x800] == exp[:0x800] and v[0x800:0x800 + 64 * 30] == exp[0x800:0x800 + 64 * 30], k
+        n += 1
+    assert n == 211

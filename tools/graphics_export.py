@@ -38,22 +38,37 @@ def main():
         a = np.array(im); ys, xs = np.where(a < 250)
         if len(xs): im = im.crop((max(0, xs.min() - 1), max(0, ys.min() - 1), min(160, xs.max() + 2), min(64, ys.max() + 2)))
         im.save('data/graphics/monsters/' + os.path.basename(f))
-    os.makedirs('data/graphics/tilesets', exist_ok=True)
-    idx = {}
-    for f in sorted(glob.glob('build/maps/*.npz')):
-        v = bytes(np.load(f)['vram'])[0x0800:0x1800]          # 0x8800-0x97FF: 256 BG tiles
-        h = hashlib.sha1(v).hexdigest()[:12]
-        if not os.path.exists(f'data/graphics/tilesets/{h}.png'):
-            sheet(v).save(f'data/graphics/tilesets/{h}.png')
-        idx[os.path.basename(f)[:4]] = h
-    json.dump(idx, open('data/graphics/tilesets/index.json', 'w'), indent=1)
+    idx = export_tilesets(rom)
     os.makedirs('data/graphics/overworld', exist_ok=True)
     for code in range(0x80):
         bank, addr = (3, 0x4000 + code * 0x100) if code < 0x40 else (4, 0x4000 + (code - 0x40) * 0x100)
         o = bank * 0x4000 + addr - 0x4000
         sprite_sheet(rom[o:o + 0x100]).save(f'data/graphics/overworld/{code:02x}.png')
-    print('monsters', len(glob.glob('data/graphics/monsters/*.png')), 'tilesets', len(set(idx.values())),
+    print('monsters', len(glob.glob('data/graphics/monsters/*.png')), 'tilesets', len(set(idx['maps'].values())),
           'overworld pages', 0x80)
+
+
+def export_tilesets(rom, out="data/graphics/tilesets"):
+    """ROM-derived tileset sheets (ffl2kster.gfx; verified against 211 VRAM captures):
+    ts_XX.png = 64 metatiles (8 per row, 16x16 each) of tileset XX; index.json maps
+    map header -> tileset."""
+    sys.path.insert(0, "src")
+    from ffl2kster import gfx
+    from ffl2kster.schema import maps as M
+    os.makedirs(out, exist_ok=True)
+    idx = {f"{h:04x}": M.header(rom, h)["b2"] for h in M.all_headers(rom)}
+    for t in sorted(set(idx.values())):
+        img = np.zeros((128, 128), np.uint8)
+        for m in range(64):
+            blk = gfx.metatile_tiles(rom, t, m)
+            r, c = divmod(m, 8)
+            for q in range(4):
+                y0, x0 = r * 16 + (q // 2) * 8, c * 16 + (q % 2) * 8
+                img[y0:y0 + 8, x0:x0 + 8] = tile_px(blk[16 * q:16 * q + 16])
+        Image.fromarray(SHADE[img]).save(os.path.join(out, f"ts_{t:02d}.png"))
+    json.dump({"maps": idx, "format": "ts_XX.png: 8x8 grid of 16x16 metatiles 0-63"},
+              open(os.path.join(out, "index.json"), "w"), indent=1)
+    return {"maps": idx}
 
 
 def export_font(rom, out="data/graphics/font"):
