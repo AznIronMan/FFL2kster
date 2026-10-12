@@ -19,10 +19,10 @@ data/README.md.
 | Items / abilities | verified (power, uses, equip DEF/stat bonus, effect routing) | `items.json`, effect index → 50 handlers |
 | Battle flow | probable (decoded calc VM), weapons verified | Turn order, AI, run, surprise, confusion, poison, regeneration; `rules.py` + VM listing |
 | Weapon hit/damage | verified (milestone-2 measurements agree with the VM) | `rules.weapon_damage`, `rules.hit_chance` |
-| Other effects (spells, status, guns, …) | probable | 50 handlers decompiled, unnamed |
+| Other effects (spells, status, guns, …) | port = original (all 50 handlers entered in parity sweeps); names probable | docs/BATTLE_RULES.md handler table |
 | Rewards: GP, drops, meat drops | verified | `rules.gp_total`, `drop_threshold`, reward byte decode |
 | Meat transformation | verified (32,940/32,940) | `rules.meat_result` + 576-entry result table |
-| Growth (HP / stats / mutant abilities) | HP chance verified; rest probable | `rules.hp_up_*`, `stat_up_chance`, mutant table |
+| Growth (HP / stats / mutant abilities) | verified: stat pair addresses (controlled change), penalties (probe); port runs the bytecode (parity sweeps) | `rules.hp_up_*`, `stat_up_chance`, mutant table |
 | RNG | verified | Stream counters + table semantics, for exact parity |
 | Encounters | verified | Zones, slot odds, formations, count patterns |
 | Text | verified (decode, reinsertion) | 906 entries, DTE dictionary, control codes, phrases/memo |
@@ -45,9 +45,11 @@ data/README.md.
 
 **Rules**
 
-4. 50 battle effect handlers are decompiled but unnamed. Effect 49 (weapons) is fully specified.
-5. Mutant stat-growth parameter addressing looks shifted (STR pair = 0,0). Verify with a mutant
-   party.
+4. 50 battle effect handlers: named from their items (probable, docs/BATTLE_RULES.md); the port
+   runs them as bytecode and matched the original in every P3 sweep. Effect 49 (weapons) is fully
+   specified.
+5. Mutant stat growth: settled (P3). The pair address is 7F94 + 10·type + 2·stat (controlled
+   change, tools/mutant_growth.py), so mutant STR uses (0, 0); the original behaves this way.
 6. The special event kinds F0–FF (auto-walk, object control) and a few script ops (`op_XX`).
 
 **Editor-only**

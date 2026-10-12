@@ -129,6 +129,12 @@ def drop_threshold(rom: bytes, mid: int, count: int) -> int:
 # ---------------------------------------------------------------- growth (script 10)
 
 def growth_params(rom: bytes, race: int) -> dict:
+    """Pairs (b0, b1) read by script 10 for a human (race 0) or mutant (race 1).
+
+    The stat pair address is CF89 * 5 + CF61 * 2 + 7F94 evaluated left to right by the calc VM,
+    i.e. 7F94 + 10 * race + 2 * stat (verified by controlled change, tools/mutant_growth.py): for a
+    mutant, STR reads the two zero bytes after the human record (7F9E), AGL the mutant ability
+    pair (7FA0), MANA the mutant HP pair (7FA2) and DEF 7FA4."""
     base = GROWTH + 16 * race
     return {"ability": (b(rom, base), b(rom, base + 1)), "hp": (b(rom, base + 2), b(rom, base + 3)),
             "stats": [(b(rom, GROWTH + 4 + (race * 5 + s) * 2), b(rom, GROWTH + 5 + (race * 5 + s) * 2))
@@ -136,19 +142,33 @@ def growth_params(rom: bytes, race: int) -> dict:
 
 
 def _chance(base: int, factor: int, battle_level: int, penalty: int) -> int:
-    return max(battle_level * factor - penalty, 0) + base
+    """CF96 = CF1C * b1 -sat penalty + b0, stored in one byte."""
+    return (max(battle_level * factor - penalty, 0) + base) & 0xFF
+
+
+def hp_penalty(max_hp: int, b1: int) -> int:
+    """Script 10 (0C:4FBE-4FCC, L5218): CFB3 = CF0C / 26 + 50 reads max HP as one byte (its low
+    byte); CF0E = max HP / CFB3 (16-bit); CF97 = CF0E * b1 stored in one byte (verified with a
+    probe of CF0E/CF97/CF96 at the rand call: max HP 999, b1 200 -> CF0E 17, CF97 72)."""
+    cfb3 = ((max_hp & 0xFF) // 26 + 50) & 0xFF
+    return (max_hp // cfb3 * b1) & 0xFF
+
+
+def stat_penalty(value: int, b1: int) -> int:
+    """0C:51C3: CFB3 = stat / 20 + 5; CF93 = stat * b1 / CFB3 (left to right), one byte."""
+    return (value * b1 // (value // 20 + 5)) & 0xFF
 
 
 def hp_up_chance(rom: bytes, race: int, max_hp: int, battle_level: int) -> int:
     """HP grows when rand(0..200) <= chance. battle_level = level of the first enemy group."""
     b0, b1 = growth_params(rom, race)["hp"]
-    return _chance(b0, b1, battle_level, max_hp // (max_hp // 26 + 50) * b1)
+    return _chance(b0, b1, battle_level, hp_penalty(max_hp, b1))
 
 
 def mutant_ability_chance(rom: bytes, race: int, max_hp: int, battle_level: int) -> int:
     """Checked first; new ability when rand(0..200) < chance (0 for humans)."""
     b0, b1 = growth_params(rom, race)["ability"]
-    return _chance(b0, b1, battle_level, max_hp // (max_hp // 26 + 50) * b1)
+    return _chance(b0, b1, battle_level, hp_penalty(max_hp, b1))
 
 
 def hp_up_amount(max_hp: int, r: int) -> int:
@@ -160,7 +180,7 @@ def stat_up_chance(rom: bytes, race: int, stat: int, value: int, battle_level: i
     """Stat `stat` (index into STATS, chosen by the first set flag of the last action's
     0C:7B40 byte) grows by 1 when rand(0..200) <= chance; never at 99."""
     b0, b1 = growth_params(rom, race)["stats"][stat]
-    return _chance(b0, b1, battle_level, value * b1 // (value // 20 + 5))
+    return _chance(b0, b1, battle_level, stat_penalty(value, b1))
 
 
 def stat_flags(rom: bytes, action: int) -> list[str]:

@@ -6,10 +6,11 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `0.4.0`
-Status: **Port P1 (vertical slice) complete.** The web port plays from the title through
+Version: `0.5.0`
+Status: **Port P3 (full battle) complete.** The web port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
-and saves and loads, verified frame by frame against the original in an emulator. Data
+and saves and loads, verified frame by frame against the original in an emulator: the whole
+field (P2, 1,643 sweep traces) and the battle system (P3, 2,152 battle traces). Data
 gathering (milestones 1–7) is complete. See `docs/PORT_PLAN.md` (the active course),
 `docs/PROGRESS.md` and `docs/END_GOAL.md` (the long-term destination, not current scope).
 
@@ -91,6 +92,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `0.5.0` — Port P3 full battle: 2,152 battle parity traces pass (every item and ability,
+  every enemy, all party types, random seeds, bosses); all 50 effect handlers entered; mutant
+  growth settled by controlled change; growth penalties modelled with one-byte stores.
 - `0.4.0` — Port P2 full field: whole-game parity sweeps (1,643 traces pass against the
   original), all reachable event kinds and text control codes covered, original-behaviour
   findings recorded.

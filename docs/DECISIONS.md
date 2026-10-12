@@ -242,3 +242,38 @@ Architecture guidance for the importer and the web app; not new feature work.
   cycles per written tile, 456 per skipped cell), fitted to PyBoy; it replaces a budget guess.
 - Op coverage is counted in the engine (TextEngine/FieldEngine `coverage`) and aggregated by
   tools/sweep_coverage.py.
+
+## 2026-10-12 — P3 decisions (full battle)
+
+- Battle coverage comes from lean PyBoy traces that start at the battle main loop's entry
+  (0D:4000, from build/states/pre_battle_id45.state) with the situation written there: party
+  records (id, type, status, HP, stats, 8 items with uses), formation CFE0-CFEA, guest switch,
+  MAGI held (C2DA), GP and the RNG stream counters. Each ends 30 frames after the far call's return
+  (mark 00:0EF4; marks.bin holds the machine there). tools/battle_sweep.py modes: every
+  battle-usable id (items, focus), every enemy id (enemies), one type per party (types), random
+  parties and formations (random, mix) and enemies with boss or rare abilities (boss); replayed by
+  parity/test/battle_sweep.test.ts through replayBattle. 2,152 traces.
+- The battle's last button wait (0D:4152) compares the buttons with the value read on entry. The
+  original reads it after however much CPU time the victory computation took (it can run past the
+  next frame's joypad tick), the port at the start of its segment, so a button change around that
+  point would make the exit frame depend on CPU time. The sweep plans switch to no buttons when the
+  growth script starts (0D:4349), at the defeat (0D:4251) and at the escape (0D:4143), and to "12
+  frames without buttons, then A" on entry to 0D:4152 (`trace_lib` plan switches). The port is not
+  changed for this: in play it only decides which press leaves the battle screen.
+- `replayBattle` option `pauses`: between two waits the original may compute for frames with the
+  picture unchanged (the calc VM ran ~20 frames before the transformation wave of effect 44) where
+  the port spends none. A differing frame may match a later trace frame of the same stretch when
+  every skipped trace frame repeats the picture shown before; the delay ends at the next wait,
+  where the machine is compared exactly. Only the original may pause, only on an unchanged picture.
+- Battle sweeps share the field sweeps' screen rule (differences shorter than 4 frames reported,
+  not failed) and joypad re-phasing (C770-C775, FF89/FF8A with the blink timer, when they are the
+  only difference at a wait). A trace that ends before the battle returns is compared up to its
+  last wait.
+- Calc-VM statement coverage is collected in the port (`CalcVm.coverage`, COVERAGE=1) and
+  aggregated by tools/vm_coverage.py (scripts, the 50 battle handlers, statements).
+- The mutant-growth question is settled by controlled change (tools/mutant_growth.py): the stat
+  pair address is 7F94 + 10·type + 2·stat. `rules.py` now models the one-byte stores of script 10
+  and the low byte of max HP in the HP penalty (probe values in tests/test_rules.py).
+- PyBoy 2.8.1 gives identical traces on the Linux VM and on macOS (checked byte for byte on a
+  sweep trace), so long recordings and replays may run on whichever host is faster
+  (build/.venv-mac, gitignored).

@@ -26,6 +26,9 @@ without buttons, then A.
   mix                like random, with MAGI held (C2DA owner/count, member blocks +2A-2C),
                      more statuses and the rarer effects (steal, explode, saws, smasher, multiply,
                      DNA) in the item mix. Traces bs_m_NNNN.
+  boss               enemies with boss or rare abilities (ids ≥ 0xF3, steal, explode, multiply,
+                     DNA, smasher) and ids 240-255, alone, against a strong random party with MAGI
+                     and random GP, four seeds, longer plans (8000 frames). Traces bs_b_EEE_S.
   random             random parties (types, items, stats, statuses), random formations, guest on
                      or off, random RNG counters and random button plans. Traces bs_r_NNNN.
 FROM TO select cases by index; --n N sets the number of random cases (default 400), --seeds N
@@ -202,6 +205,18 @@ def cases(mode):
             if rng.random() < 0.3:
                 pokes.append((0xC2F6, 0x00, 0xF0))
             yield f"bs_m_{sd:04d}", pokes + rng_pokes(rng), random_plan(rng)
+    elif mode == "boss":
+        ids = sorted({e for e in range(256) if any(a >= 0xF3 or a in (221, 222, 229, 89, 253) for a in monster_abilities(e))} | set(range(240, 256)))
+        for e in ids:
+            for sd in range(4):
+                rng = random.Random(50000 + 10 * e + sd)
+                pokes = random_party(rng, [], 0.15)
+                for n in range(4):  # strong: HP 999, stats 60-99
+                    b = 0xC200 + 32 * n
+                    pokes += [(b + 7, 0xE7), (b + 8, 3), (b + 9, 0xE7), (b + 10, 3)] + [(b + 11 + k, rng.randint(60, 99)) for k in range(4)]
+                pokes += formation([(rng.choice([1, 1, 2]), e)], rng.choice([0, 32]), rng.randint(0, 3)) + magi_pokes(rng)
+                pokes += [(0xC2A2, rng.randrange(256)), (0xC2A3, rng.randrange(256)), (0xC2A4, rng.randrange(16))]
+                yield f"bs_b_{e:03d}_{sd}", pokes + rng_pokes(rng), random_plan(rng, 8000)
     elif mode == "random":
         for s in range(_opt("--n", 400)):
             rng = random.Random(10000 + s)

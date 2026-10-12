@@ -181,3 +181,22 @@ the end of story 142 (F0 18) — the final bosses need story items; message 75 (
 
 Tests: TypeScript 4,278 passed (dedicated traces); sweeps 1,643 traces passed (run with
 SWEEP=sw_); Python 75 passed.
+
+## Port P3 — Full battle (2026-10-12)
+
+| Item | Result | Evidence (PyBoy ground truth) |
+|---|---|---|
+| Every battle-usable item and ability (199 ids) | parity | 199 bs_i_* + 597 bs_f_* traces |
+| Every enemy id (AI, enemy abilities) | parity | 256 bs_e_* traces |
+| Parties of each type: human, mutant, monster, robot (growth, meat) | parity | 32 bs_t_* traces |
+| Random parties/formations/statuses/guest/RNG/buttons | parity | 400 bs_r_* + 400 bs_m_* (with MAGI, rare effects) |
+| Boss and rare-ability enemies (240-255, transformations, steal, explode, multiply) | parity | 268 bs_b_* traces |
+| The 50 battle effect handlers, scripts 0-10 | all entered | tools/vm_coverage.py: 50/50, 11/11; 2,063 of 2,219 battle statements (93%) |
+| Mutant growth question | settled (verified) | tools/mutant_growth.py controlled change; FINDINGS |
+
+Fixes: calc-VM sign byte C1AB. Harness: CPU-time pauses, joypad re-phasing, quiet plans around the
+exit wait. Not executed: about 150 rare statements (final-boss action selection by phase, steal
+paths with an empty purse, some explode/multiply messages, growth's full-slot replacement).
+
+Tests: TypeScript 4,278 passed (dedicated traces); battle sweeps 2,152 traces passed (run with
+BSWEEP=bs_); Python 77 passed.

@@ -127,12 +127,16 @@ tables directly.
 - Runs for each party member of type 0 (human) or 1 (mutant) that is not dead or stoned.
 - The **battle level** L is the level of the first enemy group.
 - Growth parameters live at `0C:7F90 + 16·type` as (b0, b1) pairs.
-- chance(b0, b1, penalty) = max(L·b1 − penalty, 0) + b0.
+- chance(b0, b1, penalty) = max(L·b1 − penalty, 0) + b0, stored in one byte (CF96).
+- **HP penalty** (ability and HP checks, 0C:4FBE-4FCC and L5218): CFB3 = (max HP **low byte**) / 26
+  + 50; CF0E = max HP / CFB3; penalty = CF0E·b1 **mod 256**. Verified with a probe of CF0E/CF97/CF96
+  at the rand call (max HP 999, b1 200 → CF0E 17, penalty 72, chance 128; max HP 100 → CF0E 1,
+  penalty 200, chance 0); `rules.hp_penalty`, `tests/test_rules.py`.
 
 **Steps, in order:**
 
-1. **New ability.** Uses the ability pair. Happens when rand(0..200) < chance, with penalty =
-   b1·⌊HP/(HP/26+50)⌋. Humans' pair is (0, 0).
+1. **New ability.** Uses the ability pair. Happens when rand(0..200) < chance, with the HP
+   penalty above. Humans' pair is (0, 0).
    - The ability comes from `0C:7FB0`/`0C:7FD0`: the first of 32 cumulative thresholds ≥
      rand(0..min(L·24+15, 255)).
    - It replaces a slot following the rules in the listing (messages 15/16/17).
@@ -143,9 +147,16 @@ tables directly.
 3. **Otherwise, one stat.**
    - The stat is the first set flag (bit7 STR, 6 AGL, 5 MANA, 4 DEF) of `0C:7B40 + last action
      id` (D84D + 2·member).
-   - Parameters: the pair at `0C:7F94 + (type·5 + stat)·2`, penalty = stat·b1/(stat/20+5).
+   - Parameters: the pair at `0C:7F94 + (type·5 + stat)·2` (the VM evaluates `CF89 * 5 + CF61 * 2
+     + 7F94` left to right), penalty = stat·b1/(stat/20+5) in one byte.
    - +1 when rand(0..200) ≤ chance, and only while the stat < 99.
-   - Note: for type 1 this address arithmetic lands the STR pair on (0, 0); see the open questions.
+   - **Verified by controlled change** (`tools/mutant_growth.py`: each candidate pair zeroed, one
+     set to (0, 200), members using an item that names one stat): humans read 7F94/7F96/7F98/7F9A
+     for STR/AGL/MANA/DEF; mutants read **7F9E/7FA0/7FA2/7FA4** (7–9 of 10 trials grew with the
+     matching address, 0 with 7FA6/7FA8/7FAA). So a mutant's STR uses the two zero bytes after the
+     human record (grows only when rand returns 0, 2/256), AGL uses the mutant ability pair (5, 7),
+     MANA the mutant HP pair (5, 15) and DEF (5, 15). The humans' DEF pair 7F9A is (0, 0) too.
+     This is the original's behaviour; the port runs the same bytecode.
 
 ### Weapons: effect 49 (verified against milestone 2)
 
@@ -162,9 +173,67 @@ and the items that use it (effect 49 = 25 ordinary weapons; 26 = attack spells; 
 spells; 0 = equipment; …). Port option: transliterate the handlers from the listing, or
 embed the calc VM and run the original bytecode (user-supplied ROM).
 
+## Battle effect handlers (0C:53E1, index = item byte 3)
+
+The port runs every handler as the original's bytecode (calc VM). Each was entered in the P3
+battle parity sweeps (`tools/vm_coverage.py`: 50/50) with the port equal to the original at every
+frame wait. The names below come from the items that use each handler (**probable**); effect 49
+(weapons) is fully specified above.
+
+| Effect | Handler | Items (examples) | Name (probable) |
+|---|---|---|---|
+| 0 | 55ED | armour, Cure… | equipment (no battle action) |
+| 1 | 5918 | Cure, X-Cure | restore HP |
+| 2 | 5947 | Curse, EyeDrop, Soft, Heal | cure status |
+| 3 | 545A | Elixier, No Move | full restore / nothing |
+| 4 | 5463 | Door, Pegasus, Teleport | field-only travel |
+| 5 | 5488 | Tent | field-only rest |
+| 6 | 54AD | shields, Defense, Shell, Mirror | guard (defence status) |
+| 7 | 54B6 | Flame/Ice/Dragon books, Power, Speed, Magic, Aegis | stat or element boost |
+| 8 | 5509 | Revenge, Body, Counter, Burning, P-Skin… | counter / skin status |
+| 9 | 6219 | Heal, Life | revive / heal all |
+| 10 | 554C | Flame, Ice, Thunder (swords) | elemental weapon |
+| 11 | 62A4 | Heart | charm |
+| 12 | 555C | Coral, Ogre, Dragon, Sun, Muramas | species-slaying weapon |
+| 13 | 556C | Vampic, Touch, Absorb | drain HP |
+| 14 | 562A | Rapier, Sabre, CatClaw, Beak, Tail, Fin | agility weapon |
+| 15 | 5649 | Psi | mana weapon |
+| 16 | 566B | XCalibr, Gungnir | strong weapon |
+| 17 | 5695 | Glass, Masmune | sword with special damage |
+| 18 | 56B7 | ChainSaw, Saw | instant kill chance |
+| 19 | 5751 | Colt, Musket, Magnum, Rocket | gun (fixed damage) |
+| 20 | 57BE | Bow, Gold, Coin | bow / thrown |
+| 21 | 57D6 | SMG, Grenade, Bazooka, Vulcan, Tank, Fire | group gun |
+| 22 | 5826 | Laser | laser gun |
+| 23 | 585F | Missile, NukeBomb | all-enemy explosive |
+| 24 | 5884 | Whip, Blitz | whip |
+| 25 | 58D4 | Hyper | hyper cannon |
+| 26 | 5968 | Fire, Ice, Thunder, Fog, Beam… | attack spell |
+| 27 | 59BD | Sleep, Stone, Death, gazes, gases | status spell |
+| 28 | 5A11 | Prayer, ComVirus, Dispel, D-Beam, SunBurst | undead / machine damage |
+| 29 | 5A3E | Punch, Kick, Headbut, Jyudo, Karate | martial art |
+| 30 | 5AC0 | Seven, W-Pincer, 4-Heads, 2-Swords… | multi-hit |
+| 31 | 5B26 | StunGun, ParaNail, Tie Up, Poison, Petrify | status touch |
+| 32 | 5BAF | Heat, Sand, Cobweb, Drain, Stench | group status / drain |
+| 33 | 5C0D | Flare, Gas, Blizzard, Lightng, Quake… | breath / area attack |
+| 34 | 5C78 | Explode | self-destruct |
+| 35 | 5CA9 | Steal | steal GP |
+| 36 | 5D57 | DNA | DNA |
+| 37 | 5D9B | — | no item uses it (entered from an enemy ability) |
+| 38 | 5DE1 | SpeedUp, Mirror | speed up / reflect |
+| 39 | 5DEC | Dissolve | dissolve |
+| 40 | 5E22 | Wizard, Riddle, CursSong, MadSong | song / riddle |
+| 41 | 62ED | Critical | critical hit |
+| 42 | 5E93 | Multiply | multiply |
+| 43 | 5EF8 | Aegis (boss) | boss shield |
+| 44 | 5F10 | Masmune (248) | transformation (messages 98-100, scripted appearance, text code 0x48) |
+| 45 | 5F1C | Masmune (249) | boss sword |
+| 46 | 5F46 | Flare (250) | boss flare |
+| 47 | 60D0 | Smasher | boss smasher |
+| 48 | 5F98 | (252) | boss action |
+| 49 | 5512 | Hammer, Long, Axe… | weapon (see above) |
+
 ## Open questions
 
-- **Mutant growth.** Mutant stat parameters look shifted (type·5 rather than type·8). Verify with
-  a mutant party.
-- **Battle effect handlers.** The 50 effect handlers are decompiled but not yet named
-  (`effect_N` in the listing). Damage formulas from milestone 2 cover the weapon routine.
+- **Battle effect handlers.** Names above are probable (from item names); the behaviour is the
+  original bytecode.

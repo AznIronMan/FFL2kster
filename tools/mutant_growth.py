@@ -6,14 +6,16 @@ right, so the address would be 7F94 + 10·type + 2·stat, which for a mutant lan
 zero bytes after the human record (7F9E) instead of 7FA4 (= 7F94 + 16·type + 2·stat).
 
 Setup: build/states/pre_battle_id45.state at the battle entry 0D:4000; four members of one type,
-HP --hp (default 999), member k's stat k = 1 and its other stats 50, guest off; member k uses an item whose action flags (0C:7B40 + id) name stat
-k only: Long (STR), Rapier (AGL), Fire (MANA), Bronze shield (DEF); two groups of four enemy 45
-(level 1), HP 1 and AGL/DEF 0 from the start of the battle screen (0F:6080), so the battle lasts
-past the first round (every member acts) and ends soon after. The
-ROM copy has every candidate pair of the type zeroed, then one address set to (b0, b1) = (0, 200):
-for a stat of 1 that is chance 160/201, while the ability and HP checks (penalty b1·11 at HP 999)
-stay at 0. A stat that grows in most trials reads the patched address.
-Output: build/evidence/mutant_growth.json and a table. Usage: python tools/mutant_growth.py [TRIALS]"""
+max HP --hp (use 100), member k's stat k = 1 and its other stats 50, guest off; member k uses an
+item whose action flags (0C:7B40 + id) name stat k only: Long (STR), Rapier (AGL), Fire (MANA),
+Bronze shield (DEF); two groups of four enemy 45 (level 1), HP 1 and AGL/DEF 0 from the start of
+the battle screen (0F:6080), so every member acts in the first round and the battle ends soon
+after. The ROM copy (build/, deleted afterwards) has every candidate pair of the type zeroed, then
+one address set to (b0, b1) = (0, 200): for a stat of 1 that is chance 160/201, while the ability
+and HP checks stay at 0 at max HP 100 (penalty 1·200 = 200; at 999 the one-byte penalty is only 72
+and they fire, see rules.hp_penalty). A stat that grows in most trials reads the patched address.
+Output: build/evidence/mutant_growth_hpN.json and a table.
+Usage: python tools/mutant_growth.py [TRIALS] [--hp N]  (P3 result: TRIALS 10, --hp 100)"""
 import json, os, random, sys
 sys.path.insert(0, "src"); sys.path.insert(0, "tools")
 from ffl2kster.emu import Emulator

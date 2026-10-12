@@ -74,3 +74,27 @@ def test_rng_matches_rom_routine(rom_bytes):
         cpu.call(0x016B)
         assert cpu.a == rules.rand_range(rom_bytes, (ctr + 1) & 0xFF, lo, hi), (stream, lo, hi, ctr)
         assert cpu.mem[0xC0A0 + stream] == (ctr + 1) & 0xFF
+
+
+def test_growth_penalties_match_probes():
+    """Values read from the original at script 10's rand calls (tools/mutant_growth.py setup with a
+    pair patched to (0, 200), level-1 enemy): one-byte stores and the low byte of max HP."""
+    assert rules.hp_penalty(999, 200) == 72          # CF0E 17, CF97 72
+    assert rules._chance(0, 200, 1, rules.hp_penalty(999, 200)) == 128   # CF96 128
+    assert rules.hp_penalty(100, 200) == 200         # CF0E 1, CF97 200
+    assert rules._chance(0, 200, 1, rules.hp_penalty(100, 200)) == 0
+    assert rules.stat_penalty(1, 200) == 40          # CF93 40
+    assert rules._chance(0, 200, 1, rules.stat_penalty(1, 200)) == 160   # CF96 160
+
+
+def test_mutant_stat_pairs_are_offset_by_ten(rom_bytes):
+    """Verified by controlled change (tools/mutant_growth.py): a mutant's STR/AGL/MANA/DEF read
+    0C:7F9E/7FA0/7FA2/7FA4 (7F94 + 10·race + 2·stat), a human's 7F94/96/98/9A."""
+    rom = rom_bytes
+    g = rules.growth_params(rom, 1)
+    off = lambda a: 0x0C * 0x4000 + a - 0x4000
+    assert g["stats"] == [(rom[off(a)], rom[off(a) + 1]) for a in (0x7F9E, 0x7FA0, 0x7FA2, 0x7FA4)]
+    assert g["stats"][0] == (0, 0)                   # mutant STR: the zero bytes after the human record
+    assert g["stats"][1] == g["ability"] and g["stats"][2] == g["hp"]
+    h = rules.growth_params(rom, 0)
+    assert h["stats"] == [(rom[off(a)], rom[off(a) + 1]) for a in (0x7F94, 0x7F96, 0x7F98, 0x7F9A)]

@@ -458,3 +458,24 @@ Recorded per direction note A (docs/DECISIONS.md); nothing was changed, no featu
   objects carrying them are presumably never active; the original misbehaves if they run.
 - **Unused by game data**: text control codes 0C (appears only as window-header bytes), 2B, 3D,
   43; field event kinds 08, F0 04, F0 06, F0 0F, F0 11 and F8-FE are raised by no script.
+
+## 2026-10-12 — P3 battle findings (original behaviour)
+
+- **Mutant stat growth (verified, controlled change).** Script 10 addresses the stat pair as
+  7F94 + 10·type + 2·stat. Humans read 7F94/96/98/9A (STR/AGL/MANA/DEF); mutants read
+  7F9E/7FA0/7FA2/7FA4. A mutant's STR therefore uses the two zero bytes after the human record and
+  grows from battle actions only when rand returns 0 (2/256 per eligible victory); its AGL uses the
+  mutant ability pair (5, 7), its MANA the mutant HP pair (5, 15), its DEF (5, 15). The humans' DEF
+  pair is (0, 0) as well. Ten trials per address, 7-9 growths with the matching address, none with
+  7FA6/7FA8/7FAA (build/evidence/mutant_growth_hp100.json).
+- **Growth penalties (verified, probe).** The HP penalty reads max HP's low byte for the divisor
+  (CFB3 = (HP & 0xFF)/26 + 50) and keeps CF0E·b1 in one byte; chances are one byte. At max HP 999
+  and b1 200 the original computes CF0E 17, penalty 72, chance 128.
+- **Calc-VM sign byte (port fix).** The VM's multiply/divide keep the result sign in C1AB
+  (0C:4264/42CD); the port now writes it too (found by bs_r_* traces).
+- **Effect 44 (Masmune, id 248)** runs the transformation messages 98-100 (text code 0x48, the
+  scripted monster appearance with the per-line wave). The calc VM computes for ~20 frames before
+  the wave starts, with the picture unchanged.
+- **Battle exit timing.** 0D:4152 reads the buttons once on entry and leaves on the next change to
+  a non-zero value; after a long victory computation the read happens after the next joypad tick.
+- Text code 0x48 is now covered (72/78 codes over all sweeps).
