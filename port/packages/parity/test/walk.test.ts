@@ -7,6 +7,7 @@ import { haveRom, haveTrace, replayField, summarizeWaits, IGNORE } from "../src/
 const CASES: [string, string][] = [
   ["walk1", "walking in four directions in the first town, NPCs wandering"],
   ["door1", "entering a building (fade out/in, map load) and leaving again"],
+  ["talk1", "talking to an NPC: script, message window, text printing, button waits"],
 ];
 
 for (const [name, what] of CASES) {

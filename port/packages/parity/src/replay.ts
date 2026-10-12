@@ -1,5 +1,5 @@
 /** Replay a PyBoy trace through the field engine and compare every frame. */
-import { field, VSYNC } from "@ffl2k/core";
+import { VSYNC } from "@ffl2k/core";
 import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, type Trace } from "./index.js";
 
 export interface WaitDiff {
@@ -21,14 +21,10 @@ export interface FrameDiff {
 export const OFFSET = 0;
 
 export interface ReplayOptions {
-  calls?: Partial<field.FieldCalls>;
   /** Addresses excluded from memory comparison (scratch whose timing differs). */
   ignore?: (addr: number) => boolean;
 }
 
-const missing = (what: string) => function* (): Generator<void, void, void> {
-  throw new Error(`${what} not expected in this trace`);
-};
 
 /** Replay a trace through the field engine, synchronized on the original's frame waits: the
  *  i-th rst $10 of the engine is matched with the i-th one recorded in the trace (CPU-bound
@@ -41,12 +37,7 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
   const rig = new Rig(rom);
   const m = rig.g.m;
   m.loadFull(t.start);
-  const calls: field.FieldCalls = {
-    script: missing("script"), startMenu: missing("start menu"), selectMenu: missing("select menu"), event4: missing("event 4"),
-    ...opts.calls,
-  };
-  const fe = new field.FieldEngine(rig.g, rom, calls);
-  rig.g.start(fe.loop());
+  rig.g.start(rig.engine.field.loop());
   const n = t.meta.frames.length;
   const wf = t.waitFrames ?? [];
   const ign = opts.ignore ?? (() => false);

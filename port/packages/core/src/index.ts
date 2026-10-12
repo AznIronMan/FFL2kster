@@ -6,3 +6,5 @@ export * from "./game.js";
 export * from "./sys.js";
 export * from "./irq.js";
 export * as field from "./field/index.js";
+export * as text from "./text/index.js";
+export * from "./engine.js";

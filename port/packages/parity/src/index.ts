@@ -3,7 +3,7 @@
  *  from the user's ROM by tools/trace_record.py and tools/routine_oracle.py and never committed. */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { Game, installInterrupts, field } from "@ffl2k/core";
+import { Engine } from "@ffl2k/core";
 import { Ppu, regsFromIo, SCREEN_W, SCREEN_H } from "@ffl2k/render";
 
 export const ROOT = resolve(__dirname, "../../../..");
@@ -28,12 +28,10 @@ export const buttonBits = (s: string): number => s.split("+").reduce((v, k) => v
 
 /** Engine + PPU wired like the app: each visible line is drawn after its STAT handling. */
 export class Rig {
-  readonly g: Game;
+  readonly engine: Engine;
   readonly ppu: Ppu;
   constructor(readonly rom: Uint8Array) {
-    this.g = new Game(segments(rom));
-    installInterrupts(this.g);
-    field.installRasterHandlers(this.g);
+    this.engine = new Engine(segments(rom), rom);
     const m = this.g.m;
     this.ppu = new Ppu(m.vram, m.oam);
     this.g.onLine = (y) => {
@@ -41,6 +39,9 @@ export class Rig {
       this.ppu.regs = regsFromIo(m.io);
       this.ppu.line(y);
     };
+  }
+  get g() {
+    return this.engine.g;
   }
 }
 
