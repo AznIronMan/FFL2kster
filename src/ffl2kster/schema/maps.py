@@ -65,6 +65,29 @@ def header(rom: bytes, ptr: int) -> dict:
             "tail_offset": o + i + 1 + 2 * L}
 
 
+def objects(rom: bytes, hd: dict) -> dict:
+    """Sprite list + NPC records following the trigger list (parsers 00:363F and 00:3397)."""
+    o = hd["tail_offset"]
+    sprites = []
+    while len(sprites) < 6 and rom[o] != 0xFF:
+        sprites.append(rom[o]); o += 1
+    if len(sprites) < 6:
+        o += 1                      # FF terminator (absent when 6 sprites are listed)
+    npcs = []
+    while rom[o] != 0xFF and len(npcs) < 64:
+        r = rom[o:o + 6]
+        if r[0] == 0x80:
+            cond = {"type": "flag", "flag": r[1]}
+        else:
+            cond = {"type": "progress", "var": r[0] & 0x1F, "min": r[1] >> 4, "max": r[1] & 0x0F,
+                    "bit6": bool(r[0] & 0x40)}
+        npcs.append({"offset": o, "raw": r.hex(), "condition": cond, "x": r[2] & 0x3F,
+                     "y": r[3] & 0x3F, "y_flags": r[3] >> 6, "message": r[4],
+                     "sprite_slot": (r[5] >> 4) & 7, "x_flag": r[5] >> 7, "movement": r[5] & 0x0F})
+        o += 6
+    return {"sprites": sprites, "npcs": npcs, "end_offset": o + 1}
+
+
 def all_headers(rom: bytes) -> list[int]:
     return sorted({dest_record(rom, i)["header"] for i in range(DEST_COUNT)})
 
@@ -78,6 +101,7 @@ def export(rom: bytes, layouts: dict | None = None) -> dict:
             if not t["alt"] and t["index"] < DEST_COUNT:
                 d = dests[t["index"]]
                 t["to_header"], t["to_x"], t["to_y"] = d["header"], d["x"], d["y"]
+        hd.update(objects(rom, hd))
         if layouts and f"{h:04x}" in layouts:
             hd["layout"] = layouts[f"{h:04x}"]
         hdrs[f"{h:04x}"] = hd

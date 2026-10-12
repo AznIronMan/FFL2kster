@@ -290,3 +290,22 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
 - Open: 6-byte records after the trigger list (not the live NPC objects — X values not found in
   WRAM), meaning of bit 7 tiles (5 in the town, at doorsteps), 29 maps with values ≥0x40 beyond
   their trigger count, NPC/chest/event placement, collision table.
+
+## 2026-10-12 — Map objects / NPCs (M5, part 2)
+
+- After the trigger list (end pointer C459): **sprite-graphics list** (parser 00:363F) of up to 6
+  ids, FF-terminated unless 6 are listed; id → bank 03 (bit 7 clear, +0x40 page) or bank 04, loaded
+  to VRAM 0x8100 + 0x100·k. Then **6-byte object records** (parser 00:3397), FF-terminated:
+  `[cond0, cond1, X, Y|flags, message, attr]`
+  - cond0 = 0x80 → appears if event flag cond1 passes (00:018C);
+  - otherwise progress variable cond0 & 0x1F (00:0192) must lie in [cond1>>4, cond1&0x0F];
+  - X → object +0 (attr bit 7 → bit 6), Y&0x3F → +2, message → +9, attr&0x0F → +0x0A (movement),
+    (attr>>4)&7 → sprite slot. Live object table: **C600 + 16·k**.
+- Controlled changes on the first town (reload by leaving a house): message byte 08→0B changes
+  object +9 only; X 21→25 changes object +0 only; cond1 0F→22 removes that NPC (later objects shift
+  up). **Verified** for these fields. Town NPC 5 = Mr. S at the exit (40,23), progress var 0 = 2 only —
+  the event seen during state generation.
+- 1,261 object records across 212 maps. Records `80 ff.. .. ff f9` style (flag condition, message
+  0xFF, slot 7) are probably invisible objects such as treasure chests or step events (hypothesis).
+- Messages index the field text/script table (0A:4000); e.g. town NPC messages 8–11 are
+  "Good luck…", "There is a cave up north.", "Going to look for your father?…", "Somethin's going on…".
