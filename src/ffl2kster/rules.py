@@ -1,0 +1,211 @@
+"""Game rules decoded from the bank-0C calc VM (see calcvm.py, docs/BATTLE_RULES.md).
+
+Reference implementations for the port. Each function cites the VM script / ROM table it
+mirrors. Status per rule is recorded in docs/BATTLE_RULES.md (verified / probable).
+All VM arithmetic is evaluated strictly left to right; division is integer (floor for the
+non-negative values used here); "-sat" is subtraction clamped at 0.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+BANK0C = 0x30000 - 0x4000      # file offset of 0C:xxxx is BANK0C + xxxx
+RNG_TABLE = 0x3C000            # 0F:4000, 256 bytes; counters per stream at C0A0 + stream
+FAMILY = 0x7800                # 0C:7800 + id: hi nibble family, lo nibble meat class
+MEAT_RESULT = 0x7900           # 0C:7900 [12][3][16] result monster ids
+STAT_FLAGS = 0x7B40            # 0C:7B40 + action id: bit7 STR, 6 AGL, 5 MANA, 4 DEF
+REWARD = 0x7C50                # 0C:7C50 + id: bit7 meat, bit6 +80%, bit5 +20%, bits0-4 GP index
+LEVEL_AI = 0x7D50              # 0C:7D50 + id: hi nibble AI type, lo nibble level
+GP_TABLE = 0x7E50              # 0C:7E50 + 2*index (word)
+DEFAULT_USES = 0x7E80          # 0C:7E80 + item id
+AI_THRESHOLDS = 0x6F00         # 0C:6F00 + 8*ai_type + slot (cumulative, compared with rand 0-255)
+GROWTH = 0x7F90                # 0C:7F90 + 16*race: [ability b0 b1][HP b0 b1]; stats see below
+MUTANT_THRESH = 0x7FB0         # 33 cumulative thresholds
+MUTANT_ABILITY = 0x7FD0        # 33 ability ids
+MAX_GP = 0x7FF0                # 3 bytes = 999999
+STATS = ("STR", "AGL", "MANA", "DEF")   # character bytes C20B..C20E, messages 19..22
+
+
+def b(rom: bytes, addr: int) -> int:
+    return rom[BANK0C + addr]
+
+
+def w(rom: bytes, addr: int) -> int:
+    return b(rom, addr) | b(rom, addr + 1) << 8
+
+
+# ---------------------------------------------------------------- RNG (00:043E)
+
+def rng_byte(rom: bytes, counter: int) -> int:
+    """Value for an already-incremented stream counter (the game does counter += 1 first)."""
+    return rom[RNG_TABLE + (counter & 0xFF)]
+
+
+def rand_range(rom: bytes, counter: int, lo: int, hi: int) -> int:
+    """00:043E with E=lo, D=hi: raw byte if hi == 0 or lo == 0xFF; lo if hi == lo;
+    otherwise lo + T % (hi - lo + 1) (T + lo when the span is 0xFF)."""
+    t = rng_byte(rom, counter)
+    if lo == 0xFF or hi == 0 or hi == lo:
+        return t if (lo == 0xFF or hi == 0) else lo
+    span = (hi - lo) & 0xFF
+    if span == 0xFF:
+        return (t + lo) & 0xFF
+    return (lo + t % (span + 1)) & 0xFF
+
+
+# ---------------------------------------------------------------- monsters
+
+def level(rom: bytes, mid: int) -> int:
+    return b(rom, LEVEL_AI + mid) & 0x0F
+
+
+def ai_type(rom: bytes, mid: int) -> int:
+    return b(rom, LEVEL_AI + mid) >> 4
+
+
+def family(rom: bytes, mid: int) -> tuple[int, int]:
+    v = b(rom, FAMILY + mid)
+    return v >> 4, v & 0x0F
+
+
+def meat_result(rom: bytes, eater: int, meat: int) -> int:
+    """Script 9 (0C:4E5A). Returns the new monster id (== eater means "Nothing happened")."""
+    f1, c1 = family(rom, eater)
+    f2, c2 = family(rom, meat)
+    if f2 > 5:
+        f2 += 1
+    k = f1 + f2
+    if k < 6:
+        k += 12
+    if k > 17:
+        k -= 12
+    k -= 6
+    cls = min(max(c1 + c2 - 1, 0), 2)
+    lv = max(level(rom, eater), level(rom, meat))
+    return b(rom, MEAT_RESULT + (k * 3 + cls) * 16 + lv)
+
+
+# ---------------------------------------------------------------- rewards (script 8)
+
+@dataclass
+class Reward:
+    meat: bool          # bit 7: drops meat instead of an item
+    chance_base: int    # 80*bit6 + 20*bit5 (percent-ish; + number defeated)
+    gp_index: int
+    gp_base: int
+
+
+def reward(rom: bytes, mid: int) -> Reward:
+    v = b(rom, REWARD + mid)
+    gi = v & 0x1F
+    return Reward(bool(v & 0x80), ((v >> 6) & 1) * 80 + ((v >> 5) & 1) * 20, gi, w(rom, GP_TABLE + 2 * gi))
+
+
+def gp_for_group(rom: bytes, mid: int, count: int) -> int:
+    """GP from one defeated group: ((gp/10)*n + gp)*n (left-to-right VM expression)."""
+    g = reward(rom, mid).gp_base
+    return (g // 10 * count + g) * count
+
+
+def gp_total(rom: bytes, groups: list[tuple[int, int]], current: int = 0) -> int:
+    """New party GP after a battle (sum over groups 5..7, capped at 0C:7FF0 = 999999)."""
+    cap = b(rom, MAX_GP) | b(rom, MAX_GP + 1) << 8 | b(rom, MAX_GP + 2) << 16
+    return min(current + sum(gp_for_group(rom, m, n) for m, n in groups), cap)
+
+
+def drop_threshold(rom: bytes, mid: int, count: int) -> int:
+    """A group drops when rand(0..100) <= threshold. Groups are tried in order (5, 6, 7); the
+    first success ends the check, so at most one drop (item or meat) per battle. An item drop
+    picks enemy ability slot rand(0..last slot); ids > 127 (non-items) give nothing; the item
+    goes to the first free inventory slot (C2B9, 16 x [id, uses]) with default uses."""
+    return reward(rom, mid).chance_base + count
+
+
+# ---------------------------------------------------------------- growth (script 10)
+
+def growth_params(rom: bytes, race: int) -> dict:
+    base = GROWTH + 16 * race
+    return {"ability": (b(rom, base), b(rom, base + 1)), "hp": (b(rom, base + 2), b(rom, base + 3)),
+            "stats": [(b(rom, GROWTH + 4 + (race * 5 + s) * 2), b(rom, GROWTH + 5 + (race * 5 + s) * 2))
+                      for s in range(4)]}
+
+
+def _chance(base: int, factor: int, battle_level: int, penalty: int) -> int:
+    return max(battle_level * factor - penalty, 0) + base
+
+
+def hp_up_chance(rom: bytes, race: int, max_hp: int, battle_level: int) -> int:
+    """HP grows when rand(0..200) <= chance. battle_level = level of the first enemy group."""
+    b0, b1 = growth_params(rom, race)["hp"]
+    return _chance(b0, b1, battle_level, max_hp // (max_hp // 26 + 50) * b1)
+
+
+def mutant_ability_chance(rom: bytes, race: int, max_hp: int, battle_level: int) -> int:
+    """Checked first; new ability when rand(0..200) < chance (0 for humans)."""
+    b0, b1 = growth_params(rom, race)["ability"]
+    return _chance(b0, b1, battle_level, max_hp // (max_hp // 26 + 50) * b1)
+
+
+def hp_up_amount(max_hp: int, r: int) -> int:
+    """r = rand(0..10). No growth at max HP >= 999."""
+    return max_hp // 50 + r + 5
+
+
+def stat_up_chance(rom: bytes, race: int, stat: int, value: int, battle_level: int) -> int:
+    """Stat `stat` (index into STATS, chosen by the first set flag of the last action's
+    0C:7B40 byte) grows by 1 when rand(0..200) <= chance; never at 99."""
+    b0, b1 = growth_params(rom, race)["stats"][stat]
+    return _chance(b0, b1, battle_level, value * b1 // (value // 20 + 5))
+
+
+def stat_flags(rom: bytes, action: int) -> list[str]:
+    v = b(rom, STAT_FLAGS + action)
+    return [s for i, s in enumerate(STATS) if v & (0x80 >> i)]
+
+
+def mutant_ability_table(rom: bytes) -> list[tuple[int, int]]:
+    """(threshold, ability id): pick first entry with rand(0..min(level*24+15, 255)) <= threshold."""
+    return [(b(rom, MUTANT_THRESH + i), b(rom, MUTANT_ABILITY + i)) for i in range(32)]
+
+
+# ---------------------------------------------------------------- battle flow
+
+def initiative_range(agl: int, party: bool) -> tuple[int, int]:
+    """Script 3: each combatant rolls rand(v..2v) with v = AGL (party: AGL/4 + AGL);
+    actors act in descending order."""
+    v = agl // 4 + agl if party else agl
+    return v, 2 * v
+
+
+def escape_succeeds(party_agl_or_100: list[int], enemy_agl: list[int], r: int,
+                    no_escape: bool = False, struck_first: bool = False) -> bool:
+    """Script 1: fail if the formation forbids running (D844 bit 5); succeed after a first
+    strike; else party score (alive: AGL, empty/dead party slot: 100) must exceed enemy AGL
+    sum + rand(0..50)."""
+    if no_escape:
+        return False
+    if struck_first:
+        return True
+    return sum(party_agl_or_100) > sum(enemy_agl) + r
+
+
+def export_tables(rom: bytes) -> dict:
+    mons = []
+    for m in range(256):
+        f, c = family(rom, m)
+        rw = reward(rom, m)
+        mons.append({"id": m, "family": f, "meat_class": c, "level": level(rom, m),
+                     "ai_type": ai_type(rom, m), "drops_meat": rw.meat,
+                     "drop_chance_base": rw.chance_base, "gp_index": rw.gp_index, "gp_base": rw.gp_base})
+    return {
+        "monsters": mons,
+        "gp_table": [w(rom, GP_TABLE + 2 * i) for i in range(32)],
+        "ai_thresholds": [[b(rom, AI_THRESHOLDS + 8 * t + s) for s in range(8)] for t in range(16)],
+        "meat_result": [[[b(rom, MEAT_RESULT + (k * 3 + c) * 16 + lv) for lv in range(16)]
+                         for c in range(3)] for k in range(12)],
+        "stat_growth_by_action": {str(a): stat_flags(rom, a) for a in range(0x110) if stat_flags(rom, a)},
+        "growth": {str(r): growth_params(rom, r) for r in range(2)},
+        "mutant_abilities": mutant_ability_table(rom),
+        "max_gp": b(rom, MAX_GP) | b(rom, MAX_GP + 1) << 8 | b(rom, MAX_GP + 2) << 16,
+        # RNG table (0F:4000) deliberately not exported: raw ROM bytes; read it with rng_byte().
+    }

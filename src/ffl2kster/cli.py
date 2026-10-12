@@ -137,6 +137,25 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--out", default="build/states")
     s.set_defaults(fn=cmd_states)
 
+    def cmd_rules(a):
+        from . import calcvm, rules
+        from . import rom as rl
+        rom = rl.load_rom(a.rom)
+        out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
+        t = rules.export_tables(rom)
+        t["source_sha256"] = rl.sha256(rom)
+        (out / "rules_tables.json").write_text(json.dumps(t, indent=1) + "\n")
+        (out / "calcvm_listing.txt").write_text(
+            "# Bank-0C calc VM scripts, decompiled by ffl2kster.calcvm (see docs/BATTLE_RULES.md)\n"
+            + calcvm.listing(rom) + "\n")
+        print(f"wrote {out}/rules_tables.json and calcvm_listing.txt")
+        return 0
+
+    s = sub.add_parser("rules-export", help="export decoded battle/growth/meat rule tables + VM listing")
+    s.add_argument("--rom", default="input/original.gb")
+    s.add_argument("--out", default="data/battle")
+    s.set_defaults(fn=cmd_rules)
+
     from . import analysis  # noqa: F401  registers analysis subcommands
     analysis.add_commands(sub)
     from .schema import encounters, enemies, items, maps, text

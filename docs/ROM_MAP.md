@@ -136,6 +136,22 @@ Families of five share a code (0x05–0x28); used for overworld sprite tiles (ba
 | `0D:4361` | Script dispatcher: index → pointer `0C:4680 + 2·i`, run by engine at `0C:4000` | probable | static; pointer reads observed during battle end / meat eating |
 | `01:5DB0` | Copy item record `0C:6F80 + 8·id` | verified | static + controlled changes |
 | `01:6678` | Copy price `0F:7860 + 3·id` | probable | static |
+| `0C:4000` | Calc VM interpreter (statements 0C:402D, expressions 0C:4129, operand 0C:4476) | verified | full handler read; listing decodes with no unknown ops |
+| `0C:4680` | 11 calc-VM script pointers (battle flow order) | verified | callers 0D:40E2…434B pass index 0–10 |
+| `0C:53E1` / `0C:5445` | Item-effect VM handlers, battle (50) / field (10), index = item byte 3 | probable | script 5 `gosub [CF23·2 + table]` |
+| `00:043E` | RNG: stream A, counter C0A0+A, table 0F:4000, range E..D | verified | disassembly; encounter stream 0x0A matches M4 |
+| `0C:7800` | Monster family (hi) / meat class (lo) | verified | meat formula reproduces all measurements |
+| `0C:7900` | Meat result table [12][3][16] | verified | same |
+| `0C:7B40` | Stat-growth flags per action id (272) | probable | script 10 |
+| `0C:7C50` | Reward byte: meat bit7, drop +80/+20 bits6/5, GP index bits0–4 | verified | controlled changes 0x01/0x22/0xA1 |
+| `0C:7D50` | AI type (hi) / level (lo) per monster | verified (level, via meat); probable (AI) | |
+| `0C:6F00` | Enemy AI cumulative slot thresholds, 8 per AI type | probable | script 2 |
+| `0C:7E50` | GP table (words) | verified | 30 → 33 GP, 60 → 66 GP |
+| `0C:7F90` | Growth chance pairs per type (ability, HP, stats) | verified (HP) / probable | controlled change |
+| `0C:7FB0` / `0C:7FD0` | Mutant ability thresholds / ids (32) | probable | script 10 |
+| `0C:7FF0` | Max GP (3 bytes, 999999) | probable | script 8 cap |
+| `0F:4250` / `0F:4270` | Memo topic names (16) / phrases (256) | verified | 0x4B handler; Isis line |
+| `0F:4000` | RNG table (256) | verified | 00:043E |
 
 ## RAM
 
@@ -149,6 +165,14 @@ Families of five share a code (0x05–0x28); used for overworld sprite tiles (ba
 | `D000 + 0x100·n` (n=0..4) | Party battle copies (enemy-block layout); eater id at `D00A` | verified | meat result follows D00A, not C204 |
 | `D500/D600/D700` | Enemy groups 1–3 | probable | init loop at 0D:403C steps D by 1 |
 | `CF10` | Meat source monster id at the Eat prompt | verified | changing it changes the transformation |
+| `CF00`–`CFFF` | Calc VM variables (script-local; CF10 meat, CFE0 formation) | verified | VM operand modes 0–4 address page CF |
+| `C0A0 + n` | RNG stream counters | verified | 00:043E |
+| `C2A2` (3 bytes) | Party GP | verified | +33 after Asigaru battle |
+| `C2B9` | Inventory, 16 × (id, uses) | verified | dropped item appears in first free slot |
+| `C31D` (32 bytes) | Memo phrase bits (text 0x4B/0x40/0x18) | probable | handler code |
+| `D800`/`D801` | Initiative (1 party first, 2 enemy first) / run attempt | probable | scripts 0/1 |
+| `D803` | Turn order list (value, actor) pairs | probable | script 3 |
+| `D900`–`D90B`, `D90C` | Battle message argument slots / message index for `rst $20` | verified | drop message D906 + D90C=11 |
 | `C7A9`, `C7A5` | *Not* game-mode bytes (screen-layout flags) | falsified as mode indicators | toggle inside battle / persist after battle and menus |
 
 ### Game-mode indicators

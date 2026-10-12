@@ -309,3 +309,30 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   0xFF, slot 7) are probably invisible objects such as treasure chests or step events (hypothesis).
 - Messages index the field text/script table (0A:4000); e.g. town NPC messages 8–11 are
   "Good luck…", "There is a cave up north.", "Going to look for your father?…", "Somethin's going on…".
+
+## 2026-10-12 — Text phrase tables and control-code fixes (M3 follow-up)
+
+- **0x4B n** (handler 00:0C21 → 0B66/0679/050B, then 00:11A1): sets bit n of the 256-bit
+  "memo" field at **C31D** and prints phrase n from **0F:4270** (index = arg; the handler computes
+  0x4270 + 32·hi + 2·lo). **0x40 n** clears bit n (00:0B5B); **0x18 n** sets it silently (00:0B50).
+  **0x41 n** lists the learned phrases of topic n (16 topic names at **0F:4250**: MAGI, Ancients,
+  Central Shrine, …); the menu text "Memo" sits beside the debug strings, so this looks like an
+  unused/debug feature. Verified example: Isis "I am⟨4B 10⟩." → phrase 0x10 " one of the ancient gods".
+- Argument counts corrected **from handler code**: 0x12/0x13 take 1 (read via 00:0B46), 0x18/0x40/
+  0x4B take 1, 0x3E takes 0 and 0x3F takes 2 (both far-call bank 01 after reading in bank 0).
+  `tools/text_validate.py`: 880/900 entries decode exactly to their region end on an end code;
+  all 20 misfits are menu-table layout entries. Export adds `display` (phrases inlined); 906 entries.
+
+## 2026-10-12 — Calc VM: battle flow, rewards, growth, meat (M4/M2b completion)
+
+- Interpreter **0C:4000**, 11 scripts at **0C:4680**, called in order from the battle flow
+  (0D:40E2…434B); effect handlers via **0C:53E1** (battle, 50) / **0C:5445** (field, 10). Full
+  semantics and rules: docs/BATTLE_RULES.md. Disassembler `ffl2kster.calcvm`; listing and decoded
+  tables exported by `ffl2kster rules-export` → data/battle/.
+- **RNG 00:043E**: stream counter C0A0+n, table 0F:4000, result min + T mod (max−min+1).
+- **Verified:** meat formula (32,940/32,940 measured results reproduced), GP/drop byte 0C:7C50
+  (4 controlled changes), HP growth chance pair 0C:7F92 (2 controlled changes), GP 33 = (3+30)·1.
+- **Probable (decoded, not yet exercised):** surprise/first strike, run, enemy AI selection,
+  turn order, confusion, poison, regeneration, stat growth, mutant abilities.
+- Drop mechanism closes the M4 "drops" gap; the meat formula replaces the measured table as the
+  primary rule (the table stays as test evidence).

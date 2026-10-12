@@ -76,7 +76,20 @@
 
 - The supplied ROM is the only supported revision (hash-gated). Other revisions/regions
   are out of scope until explicitly added.
-- The `type` meaning (human/mutant/monster/robot) is **probable**, not verified: no code
+- The `type` meaning (human/mutant/monster/robot) is **probable**, not verified (superseded 2026-10-12: consumers found in the calc VM, see below): no code
   path that consumes it was traced in battle.
 - The sandbox VM could not delete files, so empty `.gitkeep` files remain in `src/ffl2kster/`
   and `tests/`, plus a zero-byte `project/ffl2kster.sqlite-journal` (ignored). Both are harmless.
+
+## 2026-10-12 — Calc VM and rules
+
+- The bank-0C bytecode is named the **calc VM**; scripts are decompiled into a readable listing
+  (left-to-right expressions, labels) rather than raw bytes. The listing and decoded tables are
+  committed as processed data (data/battle/); the raw RNG table is *not* exported (read it with
+  `rules.rng_byte`).
+- Rules are labelled verified only when a controlled change or an exhaustive measurement agrees;
+  everything else decoded from the VM is **probable**. Race/type codes: 0 human, 1 mutant,
+  2 monster, 3 robot — now probable from consumers (script 9 requires 2 to eat; script 10 grows
+  0/1; script 7 checks 3).
+- `rules.py` mirrors the ROM's integer arithmetic and quirks (e.g. rand(0..0) returns a raw
+  table byte), so the port can choose parity or a cleaned-up variant deliberately.

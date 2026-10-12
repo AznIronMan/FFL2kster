@@ -144,3 +144,62 @@ def test_encounter_formation_edit_visible(setup):
             return e.pb.memory[0xD50A], e.pb.memory[0xD501]
     assert first_battle(setup["rom"]) == (120, 3)
     assert first_battle(out) == (45, 3)
+
+
+def _rewards(rom, state, direction="down", presses=150):
+    """Fight with repeated A presses; return (GP gained, inventory ids, meat prompt seen)."""
+    with Emulator(rom) as emu:
+        emu.load_state(state)
+        gp0 = int.from_bytes(bytes(emu.pb.memory[0xC2A2:0xC2A5]), "little")
+        hp0 = [emu.pb.memory[0xC209 + 32 * k] | emu.pb.memory[0xC20A + 32 * k] << 8 for k in range(4)]
+        inv0 = bytes(emu.pb.memory[0xC2B9:0xC2D9])
+        emu.step_into_battle(direction)
+        meat = False
+        for _ in range(presses):
+            emu.pb.button("a", 6)
+            emu.pb.tick(20, False)
+            if emu.pb.memory[0xCF10] and not meat and "meat" in " ".join(emu.screen_text()[:10]):
+                meat = True
+        gp1 = int.from_bytes(bytes(emu.pb.memory[0xC2A2:0xC2A5]), "little")
+        inv1 = bytes(emu.pb.memory[0xC2B9:0xC2D9])
+        hp1 = [emu.pb.memory[0xC209 + 32 * k] | emu.pb.memory[0xC20A + 32 * k] << 8 for k in range(4)]
+    new = [inv1[i] for i in range(0, 32, 2) if inv1[i] != inv0[i]]
+    _rewards.hp_gain = [b - a for a, b in zip(hp0, hp1)]
+    return gp1 - gp0, new, meat
+
+
+def test_battle_rewards_controlled_changes(setup, tmp_path):
+    """Script 8 (calc VM): reward byte 0C:7C50+id. Asigaru (180) = 0x21 → 33 GP + item drop
+    (Long, id 1) from the deterministic RNG; 0x01 → no drop; 0x22 → 66 GP."""
+    from ffl2kster import rules
+    state = setup["tmp"] / "states_orig" / "pre_battle_id180.state"
+    d = setup["so"]["more"][180]
+    base = setup["rom"].read_bytes()
+    gp, new, _ = _rewards(setup["rom"], state, d)
+    assert gp == 33 and new == [1]
+    for val, exp_gp, exp_new in ((0x01, 33, []), (0x22, 66, [1])):
+        t = bytearray(base); t[rules.BANK0C + rules.REWARD + 180] = val
+        p = tmp_path / f"r{val:02x}.gb"; p.write_bytes(t)
+        gp, new, _ = _rewards(p, state, d)
+        assert (gp, new) == (exp_gp, exp_new), val
+
+
+def test_growth_hp_chance_controlled_change(setup, tmp_path):
+    """Script 10: HP growth when rand(0..200) <= b0 + max(level*b1 - penalty, 0) with (b0, b1)
+    at 0C:7F92 + 16*race. Baseline: a party member gains Max HP after the Asigaru battle;
+    (b0, b1) = (0, 0) → no gain; (200, 0) → every member gains."""
+    from ffl2kster import rules
+    state = setup["tmp"] / "states_orig" / "pre_battle_id180.state"
+    d = setup["so"]["more"][180]
+    base = setup["rom"].read_bytes()
+    _rewards(setup["rom"], state, d)
+    assert any(g > 0 for g in _rewards.hp_gain)
+    results = {}
+    for vals in ((0, 0), (200, 0)):
+        t = bytearray(base)
+        t[rules.BANK0C + rules.GROWTH + 2:rules.BANK0C + rules.GROWTH + 4] = bytes(vals)
+        p = tmp_path / f"g{vals[0]}.gb"; p.write_bytes(t)
+        _rewards(p, state, d)
+        results[vals] = list(_rewards.hp_gain)
+    assert all(g == 0 for g in results[(0, 0)])
+    assert all(g > 0 for g in results[(200, 0)])
