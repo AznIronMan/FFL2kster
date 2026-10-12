@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/importer" },
+    { "path": "packages/core" },
+    { "path": "packages/render" },
+    { "path": "packages/audio" },
+    { "path": "packages/ui" },
+    { "path": "apps/web" }
+  ]
+}

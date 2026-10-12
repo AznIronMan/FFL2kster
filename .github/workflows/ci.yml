@@ -1,0 +1,39 @@
+name: CI
+
+# No ROM is available in CI: ROM-dependent tests skip themselves; everything else must pass.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  port:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: port
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: port/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build -w @ffl2k/web
+      - run: npm run check:no-content
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest numpy pillow
+      - run: python -m pytest -q -m "not emu"
+      - name: Guard - no ROM or save files tracked
+        run: |
+          if git ls-files | grep -Ei '\.(gb|gbc|sgb|sav|srm|state)$'; then echo "ROM/save file tracked"; exit 1; fi

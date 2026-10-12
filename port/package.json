@@ -1,0 +1,23 @@
+{
+  "name": "ffl2k-port",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Web port engine for FFL2kster. Ships no game content: assets are imported from the user's own ROM.",
+  "type": "module",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "npm run dev -w @ffl2k/web",
+    "build": "tsc -b && npm run build -w @ffl2k/web",
+    "check:no-content": "node scripts/check-no-content.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  },
+  "engines": { "node": ">=20" }
+}

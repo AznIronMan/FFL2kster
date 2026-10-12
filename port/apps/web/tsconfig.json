@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist/tsc", "tsBuildInfoFile": "dist/.tsbuildinfo", "types": ["vite/client"] },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/importer" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/render" },
+    { "path": "../../packages/audio" },
+    { "path": "../../packages/ui" }
+  ]
+}
