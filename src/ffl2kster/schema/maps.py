@@ -134,6 +134,8 @@ def export(rom: bytes, layouts: dict | None = None) -> dict:
                 if d:
                     t["to_header"], t["to_x"], t["to_y"] = d["header"], d["x"], d["y"]
         hd.update(objects(rom, hd))
+        from .. import layout as lay
+        hd["layout_ops"] = lay.parse(rom, lay.stream_offset(hd["layout_ptr"]))
         if layouts and f"{h:04x}" in layouts:
             hd["layout"] = layouts[f"{h:04x}"]
         hdrs[f"{h:04x}"] = hd

@@ -372,3 +372,15 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   0x10800 + 16·(c−0x80); located by matching battle-screen VRAM to the ROM (verified). The
   "overworld pages" 0x48–0x4F in data/graphics/overworld are therefore font, not sprites.
   Export: data/graphics/font/{font.png, font.json} (tools/graphics_export.py).
+
+## 2026-10-12 — Map layout command format (P0)
+
+- Drawer 00:2253 decoded (11 ops: tile, cursor, rectangle, filled checker rectangle, circle,
+  line, line-continue, checker fill, flood fill, conditional end on a progress variable); the
+  spec is in `src/ffl2kster/layout.py`. 28 maps have progress-dependent tails, so the port
+  must render layouts at runtime from the current progress variables.
+- **Verified bit-exactly** against the ROM routine executed by a new SM83 interpreter
+  (`ffl2kster.sm83`): all 211 valid captures (bit 7 = runtime object occupancy excluded;
+  capture 634c holds battle data), 28 conditional maps × 20 random progress states, and 300
+  fuzzed command streams (`tools/layout_verify.py`).
+- Progress variables: 32 nibbles at C2F6 + v/2 (even v = high nibble) (00:063E/0661).
