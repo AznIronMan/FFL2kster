@@ -1,5 +1,5 @@
 /** Replay a PyBoy trace through the field engine and compare every frame. */
-import { field } from "@ffl2k/core";
+import { field, VSYNC } from "@ffl2k/core";
 import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, type Trace } from "./index.js";
 
 export interface WaitDiff {
@@ -30,6 +30,11 @@ const missing = (what: string) => function* (): Generator<void, void, void> {
   throw new Error(`${what} not expected in this trace`);
 };
 
+/** Replay a trace through the field engine, synchronized on the original's frame waits: the
+ *  i-th rst $10 of the engine is matched with the i-th one recorded in the trace (CPU-bound
+ *  stretches such as layout drawing take frames on the hardware but no time in the port). The
+ *  buttons, screen and machine state of each wait come from the trace frame in which it happened;
+ *  other waits (LY polling) advance one trace frame. */
 export function replayField(name: string, opts: ReplayOptions = {}): { trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number } {
   const t = loadTrace(name);
   const rom = loadRom();
@@ -43,18 +48,17 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
   const fe = new field.FieldEngine(rig.g, rom, calls);
   rig.g.start(fe.loop());
   const n = t.meta.frames.length;
+  const wf = t.waitFrames ?? [];
   const ign = opts.ignore ?? (() => false);
   const diffs: FrameDiff[] = [];
-  const cmp = (a: Uint8Array, b: Uint8Array, base: number) => {
-    const out: number[] = [];
-    for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && !ign(base + i)) out.push(base + i);
-    return out;
-  };
-  let snap = { wram: m.wram, vram: m.vram, oam: m.oam, hram: m.hram };
   const waits: WaitDiff[] = [];
-  let nWaits = 0;
+  let nWaits = 0, f = -1;
+  rig.g.onWait = (kind) => {
+    f = kind === VSYNC && nWaits < wf.length ? wf[nWaits]! : f + 1;
+    rig.g.buttons = buttonBits(t.meta.frames[Math.min(Math.max(f, 0), n - 1)]!.btn);
+  };
   rig.g.onYield = (kind) => {
-    if (kind !== 1) return;
+    if (kind !== VSYNC) return;
     const i = nWaits++;
     if (!t.waits || (i + 1) * 0x8000 > t.waits.length) return;
     const exp = t.waits.subarray(i * 0x8000, (i + 1) * 0x8000);
@@ -67,24 +71,13 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
       if (addr >= 0xfea0 && addr < 0xff00) continue;
       if (got[a] !== exp[a] && !ign(addr)) diff.push(addr);
     }
-    if (diff.length) waits.push({ wait: i, frame: t.waitFrames?.[i] ?? -1, diff });
+    if (diff.length) waits.push({ wait: i, frame: wf[i] ?? -1, diff });
   };
-  rig.g.onFrameDone = () => {
-    snap = { wram: m.wram.slice(), vram: m.vram.slice(), oam: m.oam.slice(), hram: m.hram.slice() };
-  };
-  for (let k = -OFFSET; k < n; k++) {
-    rig.g.buttons = buttonBits(t.meta.frames[Math.max(0, Math.min(k + OFFSET, n - 1))]!.btn);
+  while (f < n - 1 && !(nWaits >= wf.length && wf.length)) {
     rig.g.runFrame();
-    if (k < 0) continue;
-    const d: FrameDiff = {
-      frame: k,
-      pixels: screenDiff(rig.ppu.frame, t.screens.subarray(k * FRAME_BYTES, (k + 1) * FRAME_BYTES)),
-      wram: cmp(snap.wram, t.wram.subarray(k * 0x2000, (k + 1) * 0x2000), 0xc000),
-      vram: cmp(snap.vram, t.vram.subarray(k * 0x2000, (k + 1) * 0x2000), 0x8000),
-      oam: cmp(snap.oam, t.oam.subarray(k * 0xa0, (k + 1) * 0xa0), 0xfe00),
-      hram: cmp(snap.hram, t.hram.subarray(k * 0x80, (k + 1) * 0x80), 0xff80),
-    };
-    if (d.pixels || d.wram.length || d.vram.length || d.oam.length || d.hram.length) diffs.push(d);
+    if (f < 0 || f >= n) continue;
+    const pixels = screenDiff(rig.ppu.frame, t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES));
+    if (pixels) diffs.push({ frame: f, pixels, wram: [], vram: [], oam: [], hram: [] });
   }
   return { trace: t, diffs, waits, nWaits };
 }
@@ -97,3 +90,18 @@ export function summarize(diffs: FrameDiff[]): string {
   const hx = (a: number[]) => a.slice(0, 12).map((x) => x.toString(16)).join(",") + (a.length > 12 ? `,+${a.length - 12}` : "");
   return diffs.slice(0, 10).map((d) => `f${d.frame}: px ${d.pixels} wram[${hx(d.wram)}] vram[${hx(d.vram)}] oam[${hx(d.oam)}] hram[${hx(d.hram)}]`).join("\n");
 }
+
+// ---------------------------------------------------------------- comparison filters
+
+/** Sound driver state and the sound requests it consumes (FFB1/FFB2); the driver is not ported yet. */
+const SOUND = (a: number) => (a >= 0xcb00 && a < 0xcc00) || (a >= 0xffb1 && a < 0xffc0) || (a >= 0xff10 && a < 0xff40);
+/** The SM83 call stack (SP starts at CF00) holds return addresses the port does not have. */
+const STACK = (a: number) => a >= 0xce00 && a < 0xcf00;
+/** Hardware timing registers: DIV, IF, STAT mode, LY, and LYC (set per line by the raster
+ *  handlers, so its value at a wait depends on line timing). */
+const TIMING = (a: number) => a === 0xff04 || a === 0xff0f || a === 0xff41 || a === 0xff44 || a === 0xff45;
+/** Layout drawer temporaries (00:2279-2612), always written before being read. */
+const LAYOUT_SCRATCH = (a: number) => a >= 0xc477 && a <= 0xc47d;
+/** Everything excluded from wait-point state comparison. */
+export const IGNORE = (a: number) => SOUND(a) || STACK(a) || TIMING(a) || LAYOUT_SCRATCH(a);
+

@@ -8,7 +8,7 @@ Then each frame of the button PLAN is ticked and recorded.
 Output build/traces/<name>/: start.bin, trace.json (per frame: buttons, FF89/FF8A, LCD
 registers, key WRAM bytes), screens.bin (160x144 shade bytes per frame), wram.bin (C000-DFFF
 per frame), vram.bin (8000-9FFF per frame), oam.bin (FE00-FE9F per frame), hram.bin (FF80-FFFF),
-and waits.bin: the machine (8000-FFFF) at every frame wait (the `halt` of rst $10 at 00:00DD,
+and waits.bin: the machine (8000-FFFF) at every frame wait (first wake from the `halt` of rst $10, 00:00DE,
 after the OAM page flip), the engine's `yield` points, with waits.json listing the frame of each.
 Usage: python tools/trace_record.py NAME STATE "btn:frames,..." [total] [--hook BB:AAAA]
   btn in up/down/left/right/a/b/start/select/none (several joined by '+'); each item holds the
@@ -76,7 +76,7 @@ def main():
                 waits.extend(bytes(pb.memory[0x8000:0x10000]))
                 wait_frames.append(len(frames))
         pb.hook_register(0, 0x00D9, arm, None)
-        pb.hook_register(0, 0x00DD, at_halt, None)
+        pb.hook_register(0, 0x00DE, at_halt, None)  # first instruction after the halt wakes
         held = set()
         for b in steps:
             want = set() if b == "none" else set(b.split("+"))

@@ -332,10 +332,26 @@ export function* redrawObject(g: Game, s: number): Co {
 /** 00:1674 + copy + 00:1691: VRAM copy with a frame wait before and after (2 frames). */
 export function* vramCopy(g: Game, bank: number, src: number, dst: number, n: number): Co {
   const m = g.m;
+  yield* vramBegin(g);
+  for (let i = 0; i < n; i++) m.wr(dst + i, m.romAt(bank, src + i));
+  yield* vramEnd(g);
+}
+
+/** 00:1674 — wait a frame, then route STAT to 00:16A8 (VRAM access pacing), saving the vector. */
+export function* vramBegin(g: Game): Co {
+  const m = g.m;
   yield* vsync(g);
   for (let i = 0; i < 3; i++) m.wr(0xc7d3 + i, m.rd(0xc706 + i));
-  for (let i = 0; i < n; i++) m.wr(dst + i, m.romAt(bank, src + i));
+  m.wr(0xc706, 0xc3);
+  m.wr(0xc707, 0xa8);
+  m.wr(0xc708, 0x16);
+}
+
+/** 00:1691 — wait a frame, then restore the STAT vector. */
+export function* vramEnd(g: Game): Co {
+  const m = g.m;
   yield* vsync(g);
+  for (let i = 0; i < 3; i++) m.wr(0xc706 + i, m.rd(0xc7d3 + i));
 }
 
 /** 00:1B99 — member a's field at base l: slot from the formation C2A0, a = 4 → guest (+0x80). */

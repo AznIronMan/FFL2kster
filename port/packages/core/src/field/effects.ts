@@ -11,6 +11,7 @@ import { frameTick } from "../irq.js";
 import { rand } from "../rng.js";
 import { fieldFrame, restoreStat, fadeIn, scrollApply } from "./view.js";
 import { clearOam } from "./load.js";
+import { vramBegin, vramEnd } from "./sprites.js";
 
 // ---------------------------------------------------------------- helpers
 
@@ -72,10 +73,9 @@ function rasterDone(m: Memory): void {
 /** 00:1674 / 00:1691 around a VRAM fill: a frame wait before and after. */
 function* fillWindowMap(g: Game): Co {
   const m = g.m;
-  yield* vsync(g);
-  for (let i = 0; i < 3; i++) m.wr(0xc7d3 + i, m.rd(0xc706 + i));
+  yield* vramBegin(g);
   for (let a = 0x9c00; a < 0xa000; a++) m.wr(a, 0xff);
-  yield* vsync(g);
+  yield* vramEnd(g);
 }
 
 // ---------------------------------------------------------------- raster handlers

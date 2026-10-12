@@ -33,6 +33,8 @@ export class Game {
   onLine: ((ly: number) => void) | null = null;
   /** Called when the visible lines are done (LY 144), before the vblank handler and the code. */
   onFrameDone: (() => void) | null = null;
+  /** Called right after the game code reaches a frame wait, before the frame's lines. */
+  onWait: ((kind: number | void) => void) | null = null;
   /** Called for each frame wait of the game code (with the yielded marker), after the line-0
    *  tick — the state the original has when halted in rst $10. */
   onYield: ((kind: number | void) => void) | null = null;
@@ -71,6 +73,7 @@ export class Game {
         else {
           waited = true;
           kind = r.value;
+          this.onWait?.(kind);
         }
       } catch (e) {
         this.done = true;
