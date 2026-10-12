@@ -99,5 +99,13 @@ describe("importer without a ROM", () => {
     const c = await checkRom(new Uint8Array(0x40000));
     expect(c.ok).toBe(false);
     expect(c.reason).toMatch(/unsupported/);
+    expect(c.canOverride).toBe(true);
+    expect(c.warnings.join(" ")).toMatch(/internal name/);
+  });
+
+  it("refuses a file too small for the game's layout, even unverified", async () => {
+    const c = await checkRom(new Uint8Array(0x20000));
+    expect(c.ok).toBe(false);
+    expect(c.canOverride).toBe(false);
   });
 });

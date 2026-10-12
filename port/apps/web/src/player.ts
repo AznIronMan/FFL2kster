@@ -1,6 +1,7 @@
 /** The game player: runs the engine at the Game Boy's 59.73 Hz, draws the PPU frame on a canvas,
- *  plays the sound driver through the APU model (audio.ts; starts on the first key/click, 'M'
- *  mutes) and maps keyboard/gamepad input. Battery RAM (saves) is persisted in IndexedDB. */
+ *  plays the sound driver through the APU model (audio.ts; starts on the first key/click/touch,
+ *  'M' mutes) and maps keyboard, gamepad and touch input. Battery RAM (saves) is persisted in
+ *  IndexedDB. While the page or app is hidden the game pauses (mobile lifecycle). */
 import { Engine, NotPorted, SoftReset, BTN } from "@ffl2k/core";
 import { Ppu, regsFromIo, SCREEN_W, SCREEN_H } from "@ffl2k/render";
 import type { DataPackage } from "@ffl2k/importer";
@@ -21,6 +22,8 @@ const KEYS: Record<string, number> = {
 export interface PlayerUi {
   canvas: HTMLCanvasElement;
   onStatus(msg: string): void;
+  /** Extra button sources read once per frame (e.g. the touch pad), ORed with keys and pads. */
+  inputs?: (() => number)[];
 }
 
 export class Player {
@@ -29,10 +32,13 @@ export class Player {
   private running = false;
   private last = 0;
   private acc = 0;
-  private held = 0;
-  /** Keys released by the user but held until MIN_PRESS frames have passed. */
-  private releasing = 0;
+  /** Keys down now, and keys pressed since the last frame (a tap shorter than a frame counts). */
+  private keys = 0;
+  private taps = 0;
+  /** Buttons seen last frame (all sources) and the frame each one was pressed. */
+  private prev = 0;
   private readonly pressedAt = new Map<number, number>();
+  private paused = false;
   private img: ImageData;
   private ctx: CanvasRenderingContext2D;
   private sramDirty = false;
@@ -47,6 +53,7 @@ export class Player {
     const gesture = () => void this.audio.start();
     window.addEventListener("keydown", gesture, { once: true });
     window.addEventListener("pointerdown", gesture, { once: true });
+    window.addEventListener("touchend", gesture, { once: true });
     window.addEventListener("keydown", (e) => {
       if (e.code !== "KeyM" || e.repeat) return;
       const muted = this.audio.toggleMute();
@@ -54,7 +61,8 @@ export class Player {
     });
     window.addEventListener("keydown", (e) => this.key(e, true));
     window.addEventListener("keyup", (e) => this.key(e, false));
-    document.addEventListener("visibilitychange", () => { if (document.hidden) void this.persist(); });
+    document.addEventListener("visibilitychange", () => this.setPaused(document.hidden));
+    window.addEventListener("pagehide", () => void this.persist());
   }
 
   /** The ROM image the engine reads data from, rebuilt from the package's bank segments. */
@@ -91,50 +99,49 @@ export class Player {
     if (b === undefined) return;
     e.preventDefault();
     if (down) {
-      if (!(this.held & b)) this.pressedAt.set(b, this.engine?.g.frame ?? 0);
-      this.held |= b;
-      this.releasing &= ~b;
-    } else this.releasing |= b;
+      this.keys |= b;
+      this.taps |= b;
+    } else this.keys &= ~b;
   }
 
-  /** Apply key releases once each press has been seen for MIN_PRESS frames: a tap shorter than
-   *  a frame (or than the game's joypad edge detection) is not lost. */
-  private applyReleases(): void {
-    const f = this.engine?.g.frame ?? 0;
-    for (let b = 1; b < 0x100; b <<= 1) {
-      if (this.releasing & b && f - (this.pressedAt.get(b) ?? 0) >= MIN_PRESS) {
-        this.held &= ~b;
-        this.releasing &= ~b;
-      }
+  /** Pause while hidden (the game does not run in the background); persist saves first. */
+  setPaused(p: boolean): void {
+    if (p === this.paused) return;
+    this.paused = p;
+    if (p) {
+      void this.persist();
+      void this.audio.suspend();
+    } else {
+      void this.audio.resume();
+      this.last = performance.now();
+      this.acc = 0;
+      if (this.running) requestAnimationFrame((t) => this.tick(t));
     }
   }
 
-  private pad(): number {
-    const p = navigator.getGamepads?.()[0];
-    if (!p) return 0;
-    let v = 0;
-    const btn = (i: number) => p.buttons[i]?.pressed;
-    if (btn(0)) v |= BTN.A;
-    if (btn(1)) v |= BTN.B;
-    if (btn(8)) v |= BTN.SELECT;
-    if (btn(9)) v |= BTN.START;
-    if (btn(12) || (p.axes[1] ?? 0) < -0.5) v |= BTN.UP;
-    if (btn(13) || (p.axes[1] ?? 0) > 0.5) v |= BTN.DOWN;
-    if (btn(14) || (p.axes[0] ?? 0) < -0.5) v |= BTN.LEFT;
-    if (btn(15) || (p.axes[0] ?? 0) > 0.5) v |= BTN.RIGHT;
+  /** This frame's buttons from every source. A new press is held for at least MIN_PRESS frames,
+   *  so a tap shorter than a frame (or than the game's joypad edge detection) is not lost. */
+  private sample(): number {
+    const f = this.engine.g.frame;
+    let raw = this.keys | this.taps | gamepads();
+    this.taps = 0;
+    for (const src of this.ui.inputs ?? []) raw |= src();
+    for (let b = 1; b < 0x100; b <<= 1) if (raw & b && !(this.prev & b)) this.pressedAt.set(b, f);
+    this.prev = raw;
+    let v = raw;
+    for (const [b, at] of this.pressedAt) if (f - at < MIN_PRESS) v |= b;
     return v;
   }
 
   private tick(now: number): void {
-    if (!this.running) return;
+    if (!this.running || this.paused) return;
     this.acc += Math.min(now - this.last, 250);
     this.last = now;
     let n = 0;
     while (this.acc >= FRAME_MS && n < 4) {
       this.acc -= FRAME_MS;
       n++;
-      this.applyReleases();
-      this.engine.g.buttons = this.held | this.pad();
+      this.engine.g.buttons = this.sample();
       try {
         this.engine.g.runFrame();
         this.audio.endFrame(this.engine.g.frame);
@@ -185,4 +192,26 @@ export class Player {
     this.sramDirty = false;
     await saveSram(this.engine.g.m.sram.slice());
   }
+}
+
+/** Every connected gamepad (any can play). The "standard" mapping (Chrome, Edge, Safari, Firefox,
+ *  the Android and iOS web views): south face button A, east B, back/view Select, start/menu
+ *  Start, D-pad 12-15, left stick with a dead zone. Pads without that mapping use the same
+ *  indexes, which most report anyway. */
+export function gamepads(): number {
+  let v = 0;
+  for (const p of navigator.getGamepads?.() ?? []) {
+    if (!p || !p.connected) continue;
+    const btn = (i: number) => p.buttons[i]?.pressed;
+    const x = p.axes[0] ?? 0, y = p.axes[1] ?? 0;
+    if (btn(0)) v |= BTN.A;
+    if (btn(1)) v |= BTN.B;
+    if (btn(8)) v |= BTN.SELECT;
+    if (btn(9)) v |= BTN.START;
+    if (btn(12) || y < -0.5) v |= BTN.UP;
+    if (btn(13) || y > 0.5) v |= BTN.DOWN;
+    if (btn(14) || x < -0.5) v |= BTN.LEFT;
+    if (btn(15) || x > 0.5) v |= BTN.RIGHT;
+  }
+  return v;
 }

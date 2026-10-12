@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tower of Legends</string>
+    <string name="title_activity_main">Tower of Legends</string>
+    <string name="package_name">llc.cnb.fftol</string>
+    <string name="custom_url_scheme">llc.cnb.fftol</string>
+</resources>

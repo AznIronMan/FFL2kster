@@ -19,3 +19,34 @@ canvas.pixel { image-rendering: pixelated; background: #fff; border: 1px solid v
 .muted { color: var(--muted); }
 .player { display: flex; justify-content: center; margin-bottom: 12px; }
 canvas.screen { width: min(100%, 640px); aspect-ratio: 160 / 144; height: auto; border: 0; }
+h2 { font-size: 16px; margin: 0 0 8px; }
+.warn { border-left: 3px solid #b3261e; padding-left: 12px; color: var(--fg); }
+.warn ul { margin: 4px 0; }
+
+/* Player: the screen fills the width it can; on touch devices the pad sits below it (portrait)
+   or around it (landscape). Safe areas keep controls clear of notches and home indicators. */
+body.playing main { max-width: none; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+body.playing .player { margin-bottom: 8px; }
+body.playing canvas.screen { width: min(100%, 640px, calc((100dvh - 120px) * 160 / 144)); }
+body.playing.touch canvas.screen { width: min(100%, 640px, calc((100dvh - 300px) * 160 / 144)); }
+.bar { justify-content: center; }
+.touchpad { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; max-width: 520px; margin: 0 auto 8px;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.touchpad[hidden] { display: none; }
+.dpad { position: relative; width: 150px; height: 150px; justify-self: start; }
+.dpad .tbtn { position: absolute; width: 50px; height: 50px; border-radius: 8px; }
+.dpad .up { left: 50px; top: 0; } .dpad .down { left: 50px; bottom: 0; }
+.dpad .left { left: 0; top: 50px; } .dpad .right { right: 0; top: 50px; }
+.dpad::after { content: ""; position: absolute; left: 50px; top: 50px; width: 50px; height: 50px; background: var(--line); }
+.ab { display: flex; gap: 14px; justify-self: end; transform: rotate(-20deg); }
+.ab .tbtn { width: 64px; height: 64px; border-radius: 50%; font-weight: 600; }
+.startsel { display: flex; flex-direction: column; gap: 10px; align-self: end; }
+.startsel .tbtn { width: 72px; height: 26px; border-radius: 13px; font-size: 11px; }
+.tbtn { display: flex; align-items: center; justify-content: center; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
+.tbtn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+@media (orientation: landscape) and (pointer: coarse) {
+  body.playing.touch main { display: grid; grid-template-columns: 1fr; }
+  body.playing.touch canvas.screen { width: min(100%, calc((100dvh - 70px) * 160 / 144)); }
+  body.playing.touch .touchpad { position: fixed; inset: auto 0 max(12px, env(safe-area-inset-bottom)) 0; max-width: none; padding: 0 max(16px, env(safe-area-inset-left)); pointer-events: none; }
+  body.playing.touch .touchpad > * { pointer-events: auto; }
+}

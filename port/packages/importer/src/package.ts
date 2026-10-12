@@ -17,6 +17,9 @@ export const SEGMENT_BANKS = Array.from({ length: 16 }, (_, i) => i);
 export interface DataPackage {
   format: number;
   sourceSha256: string;
+  /** false: imported in the unverified mode (hash mismatch, best effort; no parity claim).
+   *  Absent in packages built before this field existed, which all passed the hash check. */
+  verified?: boolean;
   createdAt: string;
   monsters: ReturnType<typeof monsters>;
   items: ReturnType<typeof items>;
@@ -37,9 +40,14 @@ export interface DataPackage {
 
 export type Progress = (step: string, done: number, total: number) => void;
 
-export async function importRom(bytes: Uint8Array, progress: Progress = () => {}): Promise<DataPackage> {
+export interface ImportOptions {
+  /** Import a hash mismatch anyway (unverified mode, direction note C). */
+  unverified?: boolean;
+}
+
+export async function importRom(bytes: Uint8Array, progress: Progress = () => {}, opts: ImportOptions = {}): Promise<DataPackage> {
   const check = await checkRom(bytes);
-  if (!check.ok) throw new Error(`ROM rejected: ${check.reason}`);
+  if (!check.ok && !(opts.unverified && check.canOverride)) throw new Error(`ROM rejected: ${check.reason}`);
   const rom = new Rom(bytes);
   const steps = 10;
   let n = 0;
@@ -73,7 +81,7 @@ export async function importRom(bytes: Uint8Array, progress: Progress = () => {}
   step("listings");
   const listings = { scripts: exportScripts(rom), calcVm: calcVmListing(rom) };
   return {
-    format: PACKAGE_FORMAT, sourceSha256: check.sha256, createdAt: new Date().toISOString(),
+    format: PACKAGE_FORMAT, sourceSha256: check.sha256, verified: check.ok, createdAt: new Date().toISOString(),
     monsters: mons, items: its, encounters: enc, text, events, rules, maps, music, gfx, segments, listings,
   };
 }

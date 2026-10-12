@@ -9,10 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ffl2k/importer": "*",
-    "@ffl2k/core": "*",
-    "@ffl2k/render": "*",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.4",
+    "@capacitor/share": "^8.0.3",
     "@ffl2k/audio": "*",
+    "@ffl2k/core": "*",
+    "@ffl2k/importer": "*",
+    "@ffl2k/render": "*",
     "@ffl2k/ui": "*"
   }
 }

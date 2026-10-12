@@ -1,0 +1,21 @@
+{
+  "name": "@ffl2k/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor 8 shells (iOS, Android) around the web build. Ships no game content.",
+  "scripts": {
+    "sync": "cap sync",
+    "android:apk": "cap sync android && cd android && ./gradlew assembleDebug",
+    "ios:sim": "cap sync ios && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.4",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/share": "8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

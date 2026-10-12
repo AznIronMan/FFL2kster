@@ -30,4 +30,12 @@ describe.skipIf(!existsSync(ROM_PATH))("importRom", () => {
     b[0x36f82] ^= 1;
     await expect(importRom(b)).rejects.toThrow(/unsupported ROM revision/);
   });
+
+  it("imports a modified ROM in the unverified mode when asked", async () => {
+    const b = new Uint8Array(readFileSync(ROM_PATH));
+    b[0x36f82] ^= 1;
+    const pkg = await importRom(b, () => {}, { unverified: true });
+    expect(pkg.verified).toBe(false);
+    expect(pkg.monsters.length).toBe(256);
+  });
 });

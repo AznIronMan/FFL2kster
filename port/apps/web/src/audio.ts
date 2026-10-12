@@ -97,6 +97,16 @@ export class AudioOut {
     }
   }
 
+  /** Pause the audio device while the app is hidden (mobile lifecycle); resume on return. */
+  async suspend(): Promise<void> {
+    await this.ctx?.suspend().catch(() => {});
+    this.node?.port.postMessage("clear");
+  }
+
+  async resume(): Promise<void> {
+    await this.ctx?.resume().catch(() => {});
+  }
+
   toggleMute(): boolean {
     this.muted = !this.muted;
     if (this.muted) this.node?.port.postMessage("clear");

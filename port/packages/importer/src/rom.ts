@@ -45,17 +45,35 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 export interface RomCheck {
+  /** The supported revision (hash match): the verified path. */
   ok: boolean;
   sha256: string;
   title: string;
   reason?: string;
+  /** A hash mismatch the player may import anyway in the labelled unverified mode
+   *  (docs/DECISIONS.md, direction note C). False when the file cannot hold the game's layout. */
+  canOverride: boolean;
+  /** Sanity checks that failed (size, internal name, cartridge RAM); shown, not blocking. */
+  warnings: string[];
 }
 
-/** Hash gate: only the supported revision is accepted (patched FFL2kster builds come later). */
+/** Internal name and cartridge RAM size code of the supported game (header 0134 / 0149). */
+export const EXPECTED_TITLE = "SAGA2";
+
+/** Hash gate with an override: the supported revision is verified; any other file of at least 16
+ *  whole banks may be imported as unverified (best-effort extraction with this game's layout). */
 export async function checkRom(bytes: Uint8Array): Promise<RomCheck> {
   const sha256 = await sha256Hex(bytes);
   const title = String.fromCharCode(...bytes.subarray(0x134, 0x144)).replace(/\0+$/, "");
-  if (bytes.length !== 0x40000) return { ok: false, sha256, title, reason: "unexpected size (expected 256 KiB)" };
-  if (sha256 !== SUPPORTED_SHA256) return { ok: false, sha256, title, reason: "unsupported ROM revision (SHA-256 mismatch)" };
-  return { ok: true, sha256, title };
+  const warnings: string[] = [];
+  if (bytes.length < 0x40000 || bytes.length % 0x4000) {
+    return { ok: false, sha256, title, reason: "unexpected size (expected 256 KiB)", canOverride: false, warnings };
+  }
+  if (bytes.length !== 0x40000) warnings.push(`size ${bytes.length / 1024} KiB (the supported game is 256 KiB)`);
+  if (title !== EXPECTED_TITLE) warnings.push(`internal name "${title}" (expected "${EXPECTED_TITLE}")`);
+  if (bytes[0x149] !== 0x02) warnings.push("cartridge RAM size differs from the supported game (8 KiB)");
+  if (sha256 !== SUPPORTED_SHA256) {
+    return { ok: false, sha256, title, reason: "unsupported ROM revision (SHA-256 mismatch)", canOverride: true, warnings };
+  }
+  return { ok: true, sha256, title, canOverride: false, warnings };
 }
