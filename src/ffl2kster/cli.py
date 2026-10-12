@@ -153,3 +153,7 @@ def main(argv: list[str] | None = None) -> int:
 
     a = ap.parse_args(argv)
     return a.fn(a)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

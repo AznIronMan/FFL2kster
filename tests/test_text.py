@@ -17,7 +17,26 @@ def test_dictionary_and_known_strings(rom_bytes):
 def test_table_sizes(rom_bytes):
     rows = st.export(rom_bytes)
     from collections import Counter
-    assert Counter(r["table"] for r in rows) == {"field": 256, "story": 192, "battle": 109, "menu": 77}
+    assert Counter(r["table"] for r in rows) == {"field": 256, "story": 192, "battle": 109, "menu": 77,
+                                                  "topic": 16, "phrase": 256}
+
+
+def test_phrase_control_and_alignment(rom_bytes):
+    """0x4B <n> prints phrase n (00:11A1 indexes 0F:4270) and sets memo bit n (C31D bitfield).
+    Isis's line "I am⟨4B 10⟩." must resolve to phrase 0x10 = " one of the ancient gods"."""
+    o, e, toks = st.entry(rom_bytes, "field", 230)
+    assert "Isis:I am⟨4B 10⟩." in st.render(toks)
+    o, e, ph = st.entry(rom_bytes, "phrase", 0x10)
+    assert st.render(ph) == " one of\n the ancient gods⟨end⟩"
+    o, e, tp = st.entry(rom_bytes, "topic", 0)
+    assert st.render(tp) == "MAGI⟨end⟩"
+    import sys, pathlib
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "tools"))
+    import text_validate
+    total, bad = text_validate.check(rom_bytes)
+    # every non-menu entry decodes exactly to its region end on an end code
+    assert [b[:2] for b in bad if b[0] != "menu"] == []
+    assert total - len(bad) >= 880
 
 
 def test_semantic_round_trip_all_entries(rom_bytes):

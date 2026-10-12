@@ -18,7 +18,7 @@ ARGS = {i: 0 for i in range(0x4E)}
 ARGS.update({0x07: 1, 0x08: 1, 0x09: 1, 0x11: 1, 0x14: 2, 0x15: 2, 0x17: 1, 0x19: 2, 0x1A: 1,
              0x1B: 1, 0x1C: 1, 0x1D: 1, 0x1F: 1, 0x20: 1, 0x21: 2, 0x22: 1, 0x23: 1, 0x26: 1,
              0x2B: 1, 0x2D: 1, 0x30: 1, 0x32: 1, 0x33: 2, 0x35: 1, 0x36: 1, 0x39: 1, 0x3A: 1,
-             0x3E: 1, 0x3F: 3, 0x41: 1, 0x44: 1, 0x45: 1, 0x48: 2, 0x49: 1})
+             0x3E: 0, 0x3F: 2, 0x41: 1, 0x44: 1, 0x45: 1, 0x48: 2, 0x49: 1, 0x12: 1, 0x13: 1, 0x18: 1, 0x40: 1, 0x4B: 1})
 NAMES = {0x00: "end", 0x06: "nl", 0x05: "line", 0x01: "right", 0x02: "left", 0x03: "up",
          0x04: "down"}
 PUNCT = {0xEE: "'", 0xEF: ",", 0xF0: ".", 0xF1: "…", 0xF2: "-", 0xF3: "!", 0xF4: "?",
@@ -97,6 +97,8 @@ TABLES = [  # (name, pointer table file offset, entries, bank)
     ("story", 0x2C000, 192, 0x0B),
     ("battle", 0x2EB80, 109, 0x0B),
     ("menu", 0x2F400, 77, 0x0B),
+    ("topic", 0x3C250, 16, 0x0F),    # memo topic names (00:117A)
+    ("phrase", 0x3C270, 256, 0x0F),  # control 0x4B <n>: print phrase n + set memo bit n (00:0C21)
 ]
 
 
@@ -193,6 +195,15 @@ def entry(rom: bytes, table: str, index: int):
     raise KeyError(f"no text entry {table}[{index}]")
 
 
+def resolve_phrases(rom: bytes, text: str) -> str:
+    """Inline ⟨4B nn⟩ phrase references with the phrase text (display form, not re-encodable)."""
+    import re
+    def sub(m):
+        _, _, toks = entry(rom, "phrase", int(m.group(1), 16))
+        return render(toks).replace("⟨end⟩", "")
+    return re.sub(r"⟨4B ([0-9A-F]{2})⟩", sub, text)
+
+
 def export(rom: bytes) -> list[dict]:
     rows = []
     for name, i, o, end in table_entries(rom):
@@ -201,5 +212,6 @@ def export(rom: bytes) -> list[dict]:
         codes = sorted({t[0] for t in toks if not isinstance(t, str)})
         rows.append({"table": name, "index": i, "offset": o, "bank": bank,
                      "address": 0x4000 + o % 0x4000, "length": e - o, "text": render(toks),
+                     "display": resolve_phrases(rom, render(toks)),
                      "control_codes": codes, "pure_message": set(codes) <= SAFE_CODES})
     return rows

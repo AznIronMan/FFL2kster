@@ -49,7 +49,8 @@ for k in range(a, min(b, len(hdrs) - 1) + 1):
                             wram=np.array(m[0xC000:0xD000], dtype=np.uint8))
         e.screenshot().save(f'build/maps/{h:04x}.png')
         index[f'{h:04x}'] = {"record": ri, "record_bytes": raw.hex(), "loaded": loaded,
-                             "position": e.position(), "header_fields": bytes(m[0xC44E:0xC45B]).hex()}
+                             "position": e.position(), "header_fields": bytes(m[0xC44E:0xC45B]).hex(),
+                             "music": m[0xFFB0], "music_playing": m[0xFFB3]}
     os.remove(tmp)
 json.dump(index, open('build/maps/index.json', 'w'), indent=1)
 print('captured', len(index), 'of', len(hdrs), 'loaded ok:', sum(v['loaded'] for v in index.values()))

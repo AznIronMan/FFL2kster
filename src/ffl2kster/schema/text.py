@@ -43,12 +43,12 @@ def add_commands(sub) -> None:
         rows = st.export(romlib.load_rom(a.rom))
         with open(a.out, "w", encoding="utf-8") as fh:
             json.dump({"source_sha256": romlib.sha256(romlib.load_rom(a.rom)),
-                       "format": "rendered: \\n = 0x06, ⟨end⟩ = 0x00, ⟨XX YY⟩ = control code + args",
+                       "format": "rendered: \\n = 0x06, ⟨end⟩ = 0x00, ⟨XX YY⟩ = control code + args; display inlines ⟨4B n⟩ phrases",
                        "messages": rows}, fh, ensure_ascii=False, indent=1)
         if a.txt:
             with open(a.txt, "w", encoding="utf-8") as fh:
                 for r in rows:
-                    fh.write(f"### {r['table']}[{r['index']}] {r['bank']:02X}:{r['address']:04X}\n{r['text']}\n\n")
+                    fh.write(f"### {r['table']}[{r['index']}] {r['bank']:02X}:{r['address']:04X}\n{r['display']}\n\n")
         print(f"wrote {a.out} ({len(rows)} entries)")
         return 0
 

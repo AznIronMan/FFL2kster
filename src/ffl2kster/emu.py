@@ -54,12 +54,12 @@ class BattleSnapshot:
 class Emulator:
     """Context manager running a private copy of a ROM (PyBoy may write .ram files)."""
 
-    def __init__(self, rom_path: str | Path):
+    def __init__(self, rom_path: str | Path, sound: bool = False):
         self._tmp = tempfile.mkdtemp(prefix="ffl2k-emu-")
         self.rom_copy = Path(self._tmp) / "rom.gb"
         shutil.copyfile(rom_path, self.rom_copy)
         self.rom_path = str(rom_path)
-        self.pb = _pyboy()(str(self.rom_copy), window="null", sound_emulated=False)
+        self.pb = _pyboy()(str(self.rom_copy), window="null", sound_emulated=sound)
         self.pb.set_emulation_speed(0)
         self.hook_hits: list[int] = []
         self.pb.hook_register(*ENEMY_LOAD_HOOK, lambda _: self.hook_hits.append(self.pb.frame_count), None)

@@ -77,10 +77,10 @@ def _goto(emu, route, target):
         raise RuntimeError(f"could not reach {target}, at {emu.position()}")
 
 
-def make_states(rom_path, outdir="build/states", log=print) -> dict:
+def make_states(rom_path, outdir="build/states", log=print, sound: bool = False) -> dict:
     out = Path(outdir)
     out.mkdir(parents=True, exist_ok=True)
-    with Emulator(rom_path) as emu:
+    with Emulator(rom_path, sound=sound) as emu:
         pb = emu.pb
         pb.tick(240, False)
         _run(pb, ["wait:10"])
