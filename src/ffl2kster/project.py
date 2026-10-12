@@ -12,7 +12,7 @@ class Edit:
     domain: str
     id: int
     field: str
-    value: int
+    value: int | str
     reason: str = ""
 
     @classmethod
@@ -20,7 +20,8 @@ class Edit:
         missing = {"domain", "id", "field", "value"} - d.keys()
         if missing:
             raise ValueError(f"edit missing keys: {sorted(missing)}: {d}")
-        return cls(d["domain"], int(d["id"]), d["field"], int(d["value"]), d.get("reason", ""))
+        value = d["value"] if d["domain"] == "text" else int(d["value"])
+        return cls(d["domain"], int(d["id"]), d["field"], value, d.get("reason", ""))
 
 
 @dataclass

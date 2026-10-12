@@ -215,3 +215,30 @@ the first town's explored area), uses write-back timing (not updated mid-battle)
   Open: locate the in-ROM table/levels (likely bank 0C script data or engine tables).
 - Also seen: human growth messages after battles ("AAAA's Max HP gained by 15") — random
   growth is a behavioural system for the later behavioural-spec milestone.
+
+## 2026-10-12 — Text engine, dialogue extraction and reinsertion (M3)
+
+- Text engine `00:070C`: byte ≥ 0x9E prints a glyph; 0x4E–0x9D expands a **dictionary pair at
+  `0F:6560 + 2·(b−0x4E)`** (80 pairs, first "e ", then " t", "th", "he", ...); 0x00–0x4D are
+  control codes dispatched through the **78-entry jump table `00:13BE`**. `rst $30` (→ 00:0701)
+  fetches the next script byte, so argument counts come from counting `rst $30` on each
+  handler's path (`tools/sm83dis.py`, `build/evidence/textcode_handlers.txt`).
+- Dialogue and event commands share one stream (e.g. ⟨19 d e⟩ script ops, ⟨15 ..⟩, ⟨14 ..⟩).
+  Code 0x20 re-dispatches its first argument as a sub-code (handler 00:0FCC jumps into the
+  dispatcher) — used for variables: ⟨20 1F 00⟩ = member name, ⟨20 30 00⟩ = number,
+  ⟨20 1C 20⟩ = item name.
+- Pointer tables: **0A:4000 ×256** (field/town messages), **0B:4000 ×192** (story scripts),
+  **0B:6B80 ×109** (battle messages), **0B:7400 ×77** (menu/UI templates, incl. a leftover
+  debug menu "Battle No." / "Anim No.").
+- Validation: with the refined argument table, 621/630 entries parse exactly to the next
+  entry's start (the misses are menu entries that share string tails and one ⟨19⟩ at a
+  boundary). Argument counts fixed by evidence: 0x3E = 1 (was 3), 0x3F = 3 (was 4).
+- Re-encoding (greedy dictionary pairing): 603/634 entries byte-identical, **634/634 decode
+  identically**, never longer than the original (the original compressor was not always greedy).
+- Reinsertion verified in the emulator: battle[90] "Right on!" → "Victory!" built as a `text`
+  edit (in place, padded with 0x00); after the deterministic Jaguar battle the original shows
+  "Right on" and the patched ROM "Victory" (`test_text_reinsertion_visible`).
+- Export: `python -m ffl2kster text-export` → `data/text/messages.json` / `.txt` (634 entries,
+  214 pure messages that are editable in place).
+- Open: names/semantics of most control codes (only arg lengths are evidenced), relocation
+  for longer text, story-script decompilation (M5).

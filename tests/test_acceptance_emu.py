@@ -105,3 +105,24 @@ def test_observable_battle_outcome(setup):
            "manual": "none"}
     (ART / "acceptance-report.json").write_text(json.dumps(out, indent=2) + "\n")
     shutil.copyfile(setup["patched"], ART / "FFL2kster-under-test.gb")
+
+
+def test_text_reinsertion_visible(setup):
+    import re
+    out = setup["tmp"] / "text.gb"
+    build(setup["rom"], load_project(PROJECT), out,
+          edits=[__import__("ffl2kster.project", fromlist=["Edit"]).Edit("text", 90, "battle", "\nVictory!\n⟨end⟩")])
+    st = setup["tmp"] / "states_orig" / "pre_battle.state"
+
+    def after(rom):
+        with Emulator(rom) as e:
+            e.load_state(st); e.press(setup["so"]["direction"]); e.pb.tick(240, False)
+            for _ in range(200):
+                e.pb.button("a", 6); e.pb.tick(26, False)
+                t = re.sub(r"\s+", " ", " ".join(x.strip("|· ") for x in e.screen_text()[:10]))
+                if "GP" in t:
+                    e.screenshot().save(ART / f"{setup['stamp']}_text_{rom.name}.png")
+                    return t
+    assert "Right on" in after(setup["rom"])
+    t = after(out)
+    assert "Victory" in t and "Right on" not in t

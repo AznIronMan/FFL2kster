@@ -30,7 +30,16 @@ checked). Evidence details and dates are in `docs/FINDINGS.md`.
 | 0xF2 | `-` | probable ("Baby-D", "Sho-gun") |
 | 0x9E–0xAF, 0x3C, 0x3D | item/ability icon glyphs | probable |
 
-Dialogue text is out of scope for milestone 1; only fixed-width names were decoded.
+Dialogue (verified, M3): dictionary pairs at `0F:6560` for bytes 0x4E–0x9D; control codes
+0x00–0x4D via jump table `00:13BE` (argument lengths in `src/ffl2kster/script_text.py`).
+Punctuation: 0xEE `'`, 0xEF `,`, 0xF0 `.`, 0xF1 `…`, 0xF3 `!`, 0xF4 `?`, 0xF5 `:`, 0xF6 `/`.
+
+| Pointer table | Entries | Content | Status |
+|---|---|---|---|
+| `0A:4000` | 256 | field/town messages | verified (parse + round trip) |
+| `0B:4000` | 192 | story event scripts with dialogue | verified (parse + round trip) |
+| `0B:6B80` | 109 | battle messages | verified (emulator reinsertion) |
+| `0B:7400` | 77 | menu/UI templates (incl. debug menu) | probable |
 
 ## Tables
 
