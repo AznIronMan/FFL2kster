@@ -6,6 +6,7 @@
     { "path": "packages/render" },
     { "path": "packages/audio" },
     { "path": "packages/ui" },
+    { "path": "packages/parity" },
     { "path": "apps/web" }
   ]
 }

@@ -1,21 +1,36 @@
 """Record a frame-by-frame ground-truth trace from PyBoy for engine parity tests.
-Output build/traces/<name>/: start.bin (memory 0x8000-0xFFFF at frame 0), trace.json
-(per frame: joypad FF89/FF8A, LCD regs, key WRAM bytes) and screens.bin (160x144 shade bytes
-per frame). Usage: python tools/trace_record.py NAME STATE "btn:frames,btn:frames,..." [total]
-  btn in up/down/left/right/a/b/start/select/none; each item holds the button for N frames."""
+
+The recording starts at a canonical code point so the engine can resume from the same place:
+after loading STATE, the emulator runs until the CPU reaches HOOK (default 00:1A43, the top of
+the field main loop) and the machine (8000-FFFF + registers) is saved there as start.bin.
+Then each frame of the button PLAN is ticked and recorded.
+
+Output build/traces/<name>/: start.bin, trace.json (per frame: buttons, FF89/FF8A, LCD
+registers, key WRAM bytes), screens.bin (160x144 shade bytes per frame), wram.bin (C000-DFFF
+per frame), vram.bin (8000-9FFF per frame), oam.bin (FE00-FE9F per frame), hram.bin (FF80-FFFF),
+and waits.bin: the machine (8000-FFFF) at every frame wait (the `halt` of rst $10 at 00:00DD,
+after the OAM page flip), the engine's `yield` points, with waits.json listing the frame of each.
+Usage: python tools/trace_record.py NAME STATE "btn:frames,..." [total] [--hook BB:AAAA]
+  btn in up/down/left/right/a/b/start/select/none (several joined by '+'); each item holds the
+  buttons for N frames."""
 import json, os, sys
 import numpy as np
 sys.path.insert(0, "src")
 from ffl2kster.emu import Emulator
 
 SH = {255: 0, 153: 1, 85: 2, 0: 3}
-KEYS = [0xC42C, 0xC42D, 0xC42E, 0xC42F, 0xC434, 0xC435, 0xC436, 0xC437, 0xC438, 0xC43C, 0xC43E,
+KEYS = [0xC42C, 0xC42D, 0xC42E, 0xC42F, 0xC434, 0xC435, 0xC436, 0xC437, 0xC438, 0xC43C, 0xC43D, 0xC43E,
         0xC442, 0xC443, 0xFFC1, 0xFFC2, 0xC4FF, 0xC7DF]
 
 
 def main():
-    name, state, plan = sys.argv[1], sys.argv[2], sys.argv[3]
-    total = int(sys.argv[4]) if len(sys.argv) > 4 else None
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    hook = "00:1A43"
+    if "--hook" in sys.argv:
+        hook = sys.argv[sys.argv.index("--hook") + 1]
+        args.remove(hook)
+    name, state, plan = args[0], args[1], args[2]
+    total = int(args[3]) if len(args) > 3 else None
     steps = []
     for item in plan.split(","):
         b, n = item.split(":")
@@ -24,32 +39,72 @@ def main():
         steps += ["none"] * max(0, total - len(steps))
     out = f"build/traces/{name}"
     os.makedirs(out, exist_ok=True)
-    frames, screens = [], bytearray()
+    frames, screens, wram, vram, oam, hram = [], bytearray(), bytearray(), bytearray(), bytearray(), bytearray()
     with Emulator("input/original.gb") as e:
         pb = e.pb
-        e.load_state(f"build/states/{state}.state")
-        open(f"{out}/start.bin", "wb").write(bytes(pb.memory[0x8000:0x10000]))
-        held = None
+        st = state if "/" in state else f"build/states/{state}.state"
+        e.load_state(st)
+        hb, ha = (int(x, 16) for x in hook.split(":"))
+        start = {}
+
+        def cb(_):
+            if start:
+                return
+            r = pb.register_file
+            start["regs"] = {"a": r.A, "f": r.F, "b": r.B, "c": r.C, "d": r.D, "e": r.E, "hl": r.HL, "sp": r.SP, "pc": r.PC}
+            start["mem"] = bytes(pb.memory[0x8000:0x10000])
+            start["frame"] = pb.frame_count
+            start["ly"] = pb.memory[0xFF44]
+        pb.hook_register(hb, ha, cb, None)
+        for _ in range(600):
+            pb.tick(1, False)
+            if start:
+                break
+        pb.hook_deregister(hb, ha)
+        if not start:
+            raise SystemExit(f"hook {hook} not reached")
+        open(f"{out}/start.bin", "wb").write(start["mem"])
+        waits, wait_frames = bytearray(), []
+        armed = [False]
+
+        def arm(_):
+            armed[0] = True
+
+        def at_halt(_):
+            if armed[0]:
+                armed[0] = False
+                waits.extend(bytes(pb.memory[0x8000:0x10000]))
+                wait_frames.append(len(frames))
+        pb.hook_register(0, 0x00D9, arm, None)
+        pb.hook_register(0, 0x00DD, at_halt, None)
+        held = set()
         for b in steps:
-            if b != held:
-                if held not in (None, "none"):
-                    pb.button_release(held)
-                if b != "none":
-                    pb.button_press(b)
-                held = b
+            want = set() if b == "none" else set(b.split("+"))
+            for k in held - want:
+                pb.button_release(k)
+            for k in want - held:
+                pb.button_press(k)
+            held = want
             pb.tick(1, True)
             m = pb.memory
-            shot = np.array(e.screenshot().convert("RGB"))[:, :, 0].reshape(-1)
+            shot = np.array(pb.screen.image.convert("RGB"))[:, :, 0].reshape(-1)
             screens += bytes(SH.get(int(x), 0) for x in shot)
+            wram += bytes(m[0xC000:0xE000])
+            vram += bytes(m[0x8000:0xA000])
+            oam += bytes(m[0xFE00:0xFEA0])
+            hram += bytes(m[0xFF80:0x10000])
             frames.append({"btn": b, "ff89": m[0xFF89], "ff8a": m[0xFF8A],
                            "lcd": [m[0xFF40], m[0xFF42], m[0xFF43], m[0xFF4A], m[0xFF4B], m[0xFF47], m[0xFF48], m[0xFF49]],
-                           "oam": bytes(m[0xFE00:0xFEA0]).hex(),
                            "keys": {f"{k:04X}": m[k] for k in KEYS}})
-        if held not in (None, "none"):
-            pb.button_release(held)
-    json.dump({"state": state, "plan": plan, "frames": frames}, open(f"{out}/trace.json", "w"))
-    open(f"{out}/screens.bin", "wb").write(bytes(screens))
-    print(name, len(frames), "frames")
+        for k in held:
+            pb.button_release(k)
+    open(f"{out}/waits.bin", "wb").write(bytes(waits))
+    json.dump({"frames": wait_frames}, open(f"{out}/waits.json", "w"))
+    json.dump({"state": state, "plan": plan, "hook": hook, "start": {k: v for k, v in start.items() if k != "mem"},
+               "frames": frames}, open(f"{out}/trace.json", "w"))
+    for fn, data in (("screens", screens), ("wram", wram), ("vram", vram), ("oam", oam), ("hram", hram)):
+        open(f"{out}/{fn}.bin", "wb").write(bytes(data))
+    print(name, len(frames), "frames; start", start["regs"], "LY", start["ly"])
 
 
 if __name__ == "__main__":

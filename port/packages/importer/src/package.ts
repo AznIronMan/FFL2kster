@@ -10,9 +10,9 @@ import { songSummary, instruments, sfx, parseSong, NSONGS } from "./music.js";
 import { vramBg, monsterGraphic, spritePage } from "./gfx.js";
 
 export const PACKAGE_FORMAT = 1;
-/** Banks kept as bytecode/data segments for the runtime interpreters (layouts 08/09, scripts
- *  0A/0B, calc VM 0C, music 0E, dictionary/phrases/RNG 0F) plus bank 0 tables. */
-export const SEGMENT_BANKS = [0x00, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f];
+/** ROM banks kept as read-only data segments for the engine (tables, graphics, layouts 08/09, scripts
+ *  0A/0B, calc VM 0C, music 0E, dictionary/phrases/RNG 0F). Stored only on the user's device. */
+export const SEGMENT_BANKS = Array.from({ length: 16 }, (_, i) => i);
 
 export interface DataPackage {
   format: number;

@@ -1,0 +1,10 @@
+{
+  "name": "@ffl2k/parity",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Parity harness: replays PyBoy traces and routine-oracle fixtures (generated locally from the user's ROM, never committed) through the engine.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": { "@ffl2k/core": "*", "@ffl2k/render": "*", "@ffl2k/importer": "*" }
+}

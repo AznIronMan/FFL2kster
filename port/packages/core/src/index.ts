@@ -2,3 +2,7 @@
 export * from "./memory.js";
 export * from "./rng.js";
 export * from "./calcvm.js";
+export * from "./game.js";
+export * from "./sys.js";
+export * from "./irq.js";
+export * as field from "./field/index.js";

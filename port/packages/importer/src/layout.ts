@@ -99,11 +99,25 @@ export interface RenderOptions {
   saved?: Uint8Array;
   cursor?: [number, number];
   lastEnd?: [number, number];
+  /** Starting buffer contents (the game draws over the previous D000 map); default zeros. */
+  initial?: Uint8Array;
+}
+
+export interface LayoutResult {
+  grid: Uint8Array;
+  /** Final cursor (C473/C474) and previous line end (C475/C476). */
+  cursor: [number, number];
+  lastEnd: [number, number];
 }
 
 export function renderLayout(rom: Uint8Array, offset: number, opts: RenderOptions = {}): Uint8Array {
+  return drawLayout(rom, offset, opts).grid;
+}
+
+export function drawLayout(rom: Uint8Array, offset: number, opts: RenderOptions = {}): LayoutResult {
   const vars = opts.vars ?? new Array<number>(32).fill(0);
   const g = new Grid();
+  if (opts.initial) g.m.set(opts.initial.subarray(0, 4096));
   let cur: [number, number] = [...(opts.cursor ?? [0, 0])];
   let last: [number, number] = [...(opts.lastEnd ?? [0, 0])];
   let p = offset;
@@ -156,7 +170,7 @@ export function renderLayout(rom: Uint8Array, offset: number, opts: RenderOption
     }
   }
   if (opts.triggerCount) triggers(g, opts.triggerCount, opts.saved);
-  return g.m;
+  return { grid: g.m, cursor: cur, lastEnd: last };
 }
 
 function order(cur: [number, number], x: number, y: number): [number, number, number, number] {
