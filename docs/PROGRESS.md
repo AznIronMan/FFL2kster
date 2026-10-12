@@ -8,11 +8,11 @@ inspected. Log entries are newest-last.
 
 - [x] D1. ROM identity verified from the actual file: hashes, header, cartridge type
 - [x] D2. No-op build produces a byte-identical `.gb` with a zero-change diff report
-- [ ] D3. Enemy record format evidenced across at least two different enemy records
-- [ ] D4. Patch CLI builds a patched ROM whose diff report shows only intended bytes changed
-- [ ] D5. Proven enemy table migrated into `project/ffl2kster.sqlite` with source bank/offset and verification status per field
-- [ ] D6. Automated PyBoy test: original vs patched, same save state, intended value differs, both ROMs boot to the test point
-- [ ] D7. `docs/ROM_MAP.md`, `FINDINGS.md`, `DECISIONS.md`, `PROGRESS.md` current
+- [x] D3. Enemy record format evidenced across at least two different enemy records
+- [x] D4. Patch CLI builds a patched ROM whose diff report shows only intended bytes changed
+- [x] D5. Proven enemy table migrated into `project/ffl2kster.sqlite` with source bank/offset and verification status per field
+- [x] D6. Automated PyBoy test: original vs patched, same save state, intended value differs, both ROMs boot to the test point
+- [x] D7. `docs/ROM_MAP.md`, `FINDINGS.md`, `DECISIONS.md`, `PROGRESS.md` current
 
 ## GOAL.md step checklist
 
@@ -22,28 +22,30 @@ inspected. Log entries are newest-last.
    - [x] `project.json` with ROM hash and no edits
    - [x] Build command: byte-identical copy + zero-change diff report
 2. Set up analysis
-   - [ ] mgbdis exploratory disassembly in `build/analysis/`
-   - [ ] `docs/ROM_MAP.md` seeded (external claims marked)
-   - [ ] Utilities: offset<->bank, dump/compare, record/pointer search, diff reports
+   - [x] mgbdis exploratory disassembly in `build/analysis/`
+   - [x] `docs/ROM_MAP.md` seeded (external claims marked)
+   - [x] Utilities: offset<->bank, dump/compare, record/pointer search, diff reports
 3. Dynamic test points
-   - [ ] Boot unmodified ROM in PyBoy; dated screenshots (title, new game)
-   - [ ] Save states: title, party creation, first town, first battle
-   - [ ] Verified RAM/state indicators for field / menu / battle
+   - [x] Boot unmodified ROM in PyBoy; dated screenshots (title, new game)
+   - [x] Save states: title, party creation, first town, first battle
+   - [~] Verified RAM/state indicators: battle (code hook 0D:44F4 + D500 block) and field
+     (C42C/C42D respond to D-pad) verified; **menu: no RAM indicator found** (3 approaches
+     falsified, see FINDINGS) — not required by the Definition of Done
 4. Enemy record format
-   - [ ] Table start, record count, record length, field order/encoding
-   - [ ] Linkages (name, graphics, abilities, drop/meat) as evidence permits
-   - [ ] Boundaries tested on ≥2 records
-   - [ ] Proof field chosen
+   - [x] Table start, record count, record length, field order/encoding
+   - [x] Linkages (name, graphics, abilities, drop/meat) as evidence permits
+   - [x] Boundaries tested on ≥2 records
+   - [x] Proof field chosen
 5. Patch compiler
-   - [ ] Hash gate, never writes input, schema-only edits
-   - [ ] Size + checksum validation; diff report with offset/bank/old/new/reason
-   - [ ] JSON fixture proof build
-   - [ ] SQLite import + build from DB, with provenance + verification per field
+   - [x] Hash gate, never writes input, schema-only edits
+   - [x] Size + checksum validation; diff report with offset/bank/old/new/reason
+   - [x] JSON fixture proof build
+   - [x] SQLite import + build from DB, with provenance + verification per field
 6. Acceptance test
-   - [ ] Same battle save state, original vs patched
-   - [ ] Intended value differs (memory and/or screen); before/after screenshots
-   - [ ] Patched ROM boots and reaches test point
-   - [ ] Artifacts in `build/test-artifacts/`; automated vs manual documented
+   - [x] Same battle save state, original vs patched
+   - [x] Intended value differs (memory and/or screen); before/after screenshots
+   - [x] Patched ROM boots and reaches test point
+   - [x] Artifacts in `build/test-artifacts/`; automated vs manual documented
 
 ## Log
 
@@ -61,3 +63,43 @@ inspected. Log entries are newest-last.
   `changes: []`.
 - `pytest`: 9 passed (identity, header, checksums, bank math, no-op identical,
   input untouched, refuses overwrite, refuses wrong ROM, rejects unknown domain).
+
+### 2026-10-11 — Step 2: analysis
+- mgbdis disassembly rebuilt byte-identical with RGBDS 1.0.4 (`make` → same SHA-256).
+- CLI helpers `offset`, `dump`, `find`, `relsearch`, `ptrscan`, `diff`; tools for text
+  decoding, family-stride scanning, map exploration and controlled changes.
+
+### 2026-10-11 — Step 3: dynamic test points
+- Screenshots inspected for title, intro, party creation, story, town, world map, battle.
+- `make-states` regenerates title / party_creation / first_town / world / pre_battle /
+  battle (+ pre_battle_id180, pre_battle_id45) from cold boot in ~2 s; every state checked
+  by screenshot.
+
+### 2026-10-11 — Step 4: enemy record format
+- Two framings falsified before code at 0D:427E fixed the layout (FINDINGS).
+- Table 0D:6F80, 256 × 10 bytes; names 0F:6EC0; RAM cross-checks for 6 ids.
+- Controlled changes on Jaguar (120) and Spider (45): each field changes exactly the
+  predicted WRAM bytes; neighbour-record controls on both sides change nothing.
+- Proof field: Jaguar `hp`.
+
+### 2026-10-11 — Steps 5–6: patch compiler, SQLite, acceptance
+- Proof build diff: 0x37432 (2D→C8) + global checksum bytes, all reasoned; DB build is
+  byte-identical to the JSON build.
+- First run: `test_stat_edit` failed because it assumed both checksum bytes always change.
+  Corrected the expectation to "non-checksum changes == target byte; checksum changes
+  reasoned". This is the real invariant; the build code was unchanged.
+- Acceptance: both ROMs cold-boot to the same battle; same pre-battle state gives HP
+  45 vs 200, WRAM differences ⊆ HP bytes; after 30 identical presses the original shows
+  "Jaguar fell." and the patched ROM's Jaguar survives with 84 HP.
+
+### 2026-10-11 — Final clean run (Definition of Done)
+Fresh copy of the tracked tree + `input/original.gb` only, new venv, `pip install -e '.[dev]'`:
+- `info`: SHA-256 ef66c90a…486e, 262144 bytes, SAGA2, MBC1+RAM+BATTERY, 256 KiB/8 KiB,
+  header/global/logo OK, matches project.
+- No-op build: identical, 0 changed bytes.
+- Proof build: 3 changed bytes (0x37432 data + 0x14E/0x14F checksum), all reasoned.
+- `db-import` into a fresh DB: 256 enemies, 2304 field rows, 1 edit; DB build == JSON build.
+- `make-states`: battle after 14 steps; ids 180 and 45 found.
+- `tools/controlled_change.py`: identical results to the exploration run (15 cases, 4 controls clean).
+- `pytest -v`: **30 passed** (incl. 4 emulator acceptance tests) in 7.9 s.
+- Without the ROM: 28 skipped, 2 passed, 0 failed.

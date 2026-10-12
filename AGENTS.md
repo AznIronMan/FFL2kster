@@ -12,7 +12,7 @@ working on FFL2kster.
 - Company: Clark & Burke LLC
 - Website: https://www.cnb.llc
 - Developer email: streetkings@cnb.llc
-- Current version: `0.0.3`
+- Current version: `0.1.0`
 
 ## Required Workflow
 
@@ -106,6 +106,14 @@ working on FFL2kster.
 - If a tool is unavailable, install it if permitted or document the exact
   blocker. Do not silently substitute a weaker method and claim the same result.
 - Do not vendor dependencies unless unavoidable; use `third_party/` if so.
+
+## Working Notes
+
+- Run `python -m pytest` before every commit; emulator tests regenerate save states.
+- Use `python -m ffl2kster make-states` to recreate save states; never commit them.
+- New table fields start as `hypothesis`; promote only with controlled-change evidence
+  recorded in `docs/FINDINGS.md`, and keep `schema/*.py` status fields in sync.
+- After changing `project.json` edits, run `db-import` so the committed SQLite stays current.
 
 ## Scope Control
 
