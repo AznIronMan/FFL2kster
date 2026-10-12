@@ -31,10 +31,9 @@ input/reference/*
 *.7z
 *.rar
 
-# Extracted game data / databases
-project/*.sqlite
-project/*.sqlite3
-project/*.db
+# Raw ROM extracts (regenerate with the committed extraction tools)
+*.raw
+build/extract/
 
 # Generated build output (keep folder placeholders only)
 build/*
@@ -42,7 +41,7 @@ build/*
 build/test-artifacts/*
 !build/test-artifacts/.gitkeep
 
-# Reverse-engineering scratch
+# Reverse-engineering scratch (raw dumps live here)
 project/scratch/*
 !project/scratch/.gitkeep
 

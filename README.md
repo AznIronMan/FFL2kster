@@ -3,7 +3,7 @@
 Private, local editor and patch compiler for *Final Fantasy Legend II* (USA) /
 *SaGa 2* on the original Game Boy. The output is a real, self-contained `.gb`.
 
-Version: `0.0.2`
+Version: `0.0.3`
 Status: **Scaffolded.** No code yet; milestone 1 (enemy-data vertical slice) is
 planned. See `GOAL.md`.
 
@@ -45,10 +45,13 @@ Build and test instructions will be added once the CLI exists.
 
 ## Privacy
 
-ROMs, saves, save states, extracted game data, and generated ROMs are never
-committed or distributed.
+ROMs, saves, save states, raw ROM extracts, and generated ROMs are never
+committed or distributed. Raw extracts are regenerated from your own ROM using
+the extraction tools in this repo. Processed data (decoded tables, converted or
+remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `0.0.3` — Clarified raw vs processed game-data policy.
 - `0.0.2` — Public GitHub sync; ROM-commit guard hook; bring-your-own-ROM docs.
 - `0.0.1` — Project scaffold, governance rules, docs stubs, ROM identity recorded.

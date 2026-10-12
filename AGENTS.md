@@ -12,7 +12,7 @@ working on FFL2kster.
 - Company: Clark & Burke LLC
 - Website: https://www.cnb.llc
 - Developer email: streetkings@cnb.llc
-- Current version: `0.0.2`
+- Current version: `0.0.3`
 
 ## Required Workflow
 
@@ -46,12 +46,24 @@ working on FFL2kster.
 - `.gitignore` blocks these globally and `.githooks/pre-commit` rejects any
   staged ROM by extension or by Game Boy header signature. Keep the hook enabled
   (`git config core.hooksPath .githooks`) and never bypass it with `--no-verify`.
-- Do not commit raw ROM byte dumps, extracted graphics/text/music, or tables
-  copied from the ROM. Commit code, schemas, offsets, and documentation only;
-  extracted data stays in ignored `project/scratch/`, `project/*.sqlite`, and
-  `build/`.
 - `.private/` holds the original archive and brief; do not copy its contents
   into tracked files.
+
+## Raw vs Processed Game Data
+
+- **Raw data is never committed.** Raw means bytes copied verbatim from the ROM:
+  byte-range dumps, undecoded table/tile/text/music blobs, bank splits, or any
+  file that reproduces ROM contents byte-for-byte. Raw extracts are generated
+  locally into ignored `project/scratch/` or `build/`.
+- **The method to produce raw data is committed.** If any part of the project
+  needs a raw extract, commit the extraction code (under `src/ffl2kster/` or
+  `tools/`) plus the documented command, offsets, and expected hashes so anyone
+  can regenerate it from their own ROM. Never commit the output itself.
+- **Processed data may be committed.** Data that has been decoded, structured,
+  converted, or remastered — e.g. parsed tables (JSON/CSV/SQLite with named
+  fields), decoded text, converted or redrawn graphics, re-arranged music, and
+  schemas/specs — is allowed in the repository.
+- When unsure whether something is raw or processed, treat it as raw and ask.
 
 ## ROM Handling Rules
 
