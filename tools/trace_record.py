@@ -8,7 +8,7 @@ Then each frame of the button PLAN is ticked and recorded.
 Output build/traces/<name>/: start.bin, trace.json (per frame: buttons, FF89/FF8A, LCD
 registers, key WRAM bytes), screens.bin (160x144 shade bytes per frame), wram.bin (C000-DFFF
 per frame), vram.bin (8000-9FFF per frame), oam.bin (FE00-FE9F per frame), hram.bin (FF80-FFFF),
-and waits.bin: the machine (8000-FFFF) at every frame wait (first wake from the `halt` of rst $10, 00:00DE,
+and waits.bin: the machine (8000-FFFF) at every frame wait (where rst $10 ends its halt loop at vblank, 00:00E4,
 after the OAM page flip), the engine's `yield` points, with waits.json listing the frame of each.
 With --mark BB:AAAA[,BB:AAAA...] the machine is also saved each time the CPU reaches one of those
 addresses after the start (e.g. the return address of a hooked routine): marks.bin + marks.json
@@ -89,7 +89,7 @@ def main():
                 wait_frames.append(len(frames_ref))
         pb.hook_register(hb, ha, cb, None)
         pb.hook_register(0, 0x00D9, arm, None)
-        pb.hook_register(0, 0x00DE, at_halt, None)  # first instruction after the halt wakes
+        pb.hook_register(0, 0x00E4, at_halt, None)  # rst $10 returns: LY reached 0x90 (vblank)
         for _ in range(3000):
             # rendered: PyBoy keeps the window line counter only in rendered frames, so the first
             # recorded frame would show the window shifted after unrendered ones

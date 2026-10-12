@@ -724,7 +724,7 @@ export class TextEngine {
     const a = this.next();
     let b = 4;
     if (a < 5) hl = memberAddr(m, a, hl);
-    else if (a < 0x0a) hl = (hl + (((a - 5) * 16) & 0xff)) & 0xffff;
+    else if (a < 0x0a) hl = (hl + (((a - 5) * 32) & 0xff)) & 0xffff; // 00:101E: x32 (00:004C)
     else if (a < 0x0d) {
       const i = m.rd(0xd906 + 2 * (a - 0x0a));
       hl = memberAddr(m, i, 0xd002);

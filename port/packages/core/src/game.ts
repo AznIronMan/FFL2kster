@@ -2,10 +2,12 @@
  *
  *  Ported game code is written as generator functions (`Co`). `yield` is a frame wait — the
  *  original's `rst $10` (00:00D9, halt until vblank) and its busy-waits on LY. A frame runs:
- *   1. vblank (LY 144): the vblank handler (00:16DF), then the game code resumes until its next
- *      frame wait (on the hardware it runs from vblank into the first lines of the next frame);
+ *   1. the game code resumes until its next frame wait (on the hardware it runs from vblank into
+ *      the first lines of the frame);
  *   2. lines 0-143: the STAT (LY == LYC) handler, then the line is drawn (`onLine`);
- *   3. lines 145-153: STAT handler checks.
+ *   3. LY 144: the vblank handler (00:16DF); a `rst $10` wait ends here (`onYield`, the state
+ *      the original has when rst $10 returns, 00:00E4);
+ *   4. lines 145-153: STAT handler checks.
  *  The default STAT handler runs the per-frame tick (joypad sampling, sound) at line 0, after the
  *  code segment: on the hardware the field loop reads the joypad early in vblank, before line 0,
  *  so code always sees the previous frame's sample. The STAT handler is whichever routine the
@@ -47,8 +49,8 @@ export class Game {
   /** Called before busy frame k; returning false runs that frame with no interrupts (the
    *  original's CPU-bound stretch had the LCD off or interrupts masked, so no frame tick). */
   onBusyFrame: ((k: number) => boolean | void) | null = null;
-  /** Called for each frame wait of the game code (with the yielded marker), after the line-0
-   *  tick — the state the original has when halted in rst $10. */
+  /** Called for each frame wait of the game code (with the yielded marker) at the end of the
+   *  frame's lines — the state the original has when rst $10 returns at vblank (00:00E4). */
   onYield: ((kind: number | void) => void) | null = null;
   /** Hooks for subsystems driven from the interrupt handlers. */
   hooks: {
@@ -74,10 +76,6 @@ export class Game {
 
   /** Run one video frame (plus any busy frames requested at the wait). */
   runFrame(): void {
-    const io = this.m.io;
-    io[0x44] = 0x90;
-    // vblank interrupt (IE bit 0)
-    if (this.ime && this.m.hram[0x7f]! & 0x01) this.vblank();
     let waited = false, kind: number | void = undefined;
     if (this.main && !this.done) {
       try {
@@ -98,8 +96,6 @@ export class Game {
       const irq = this.onBusyFrame?.(k) !== false, ime = this.ime;
       if (!irq) this.ime = false;
       this.lines(false);
-      io[0x44] = 0x90;
-      if (this.ime && this.m.hram[0x7f]! & 0x01) this.vblank();
       this.ime = ime;
       this.frame++;
     }
@@ -110,18 +106,18 @@ export class Game {
   /** Lines 0-143 (STAT, draw), then 145-153. */
   private lines(waited: boolean, kind?: number | void): void {
     const io = this.m.io;
-    // Code polling LY with interrupts off (a line hook) reached the wait inside this frame: the
-    // original wakes at the frame's end, after the hook's writes (e.g. its own frame tick).
-    const late = waited && this.lineHook !== null && !this.ime;
+    // The original's rst $10 (00:00D9) halts until LY reaches 0x90: the wait ends at this frame's
+    // vblank, after all of its lines (frame tick at line 0, raster handlers, line hooks).
     for (let ly = 0; ly < 144; ly++) {
       io[0x44] = ly;
       this.lineHook?.(ly);
       this.statCheck(ly);
-      if (ly === 0 && waited && !late) this.onYield?.(kind);
       this.onLine?.(ly);
     }
     io[0x44] = 0x90;
-    if (late) this.onYield?.(kind);
+    // vblank interrupt (IE bit 0), then rst $10 returns: the wait state
+    if (this.ime && this.m.hram[0x7f]! & 0x01) this.vblank();
+    if (waited) this.onYield?.(kind);
     this.onFrameDone?.();
     for (let ly = 0x91; ly < 154; ly++) {
       io[0x44] = ly;

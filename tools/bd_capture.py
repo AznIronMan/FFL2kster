@@ -164,7 +164,7 @@ def trace(args):
                     apply_sets(pb, pre_sets)
             pb.hook_register(*(int(x, 16) for x in pre_at.split(":")), at_pre, None)
         pb.hook_register(0, 0x00D9, arm, None)
-        pb.hook_register(0, 0x00DE, at_halt, None)
+        pb.hook_register(0, 0x00E4, at_halt, None)
         btn = Buttons(pb)
         i = 0
         while not start:

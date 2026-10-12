@@ -3,6 +3,7 @@
  *  from the user's ROM by tools/trace_record.py and tools/routine_oracle.py and never committed. */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { gunzipSync } from "node:zlib";
 import { Engine } from "@ffl2k/core";
 import { Ppu, regsFromIo, SCREEN_W, SCREEN_H } from "@ffl2k/render";
 
@@ -57,19 +58,45 @@ export interface Trace {
   /** Machine (8000-FFFF) at each rst $10 wait, and the trace frame of each. */
   waits?: Uint8Array;
   waitFrames?: number[];
+  /** Lean traces: the screen of the frame before the start (hook). */
+  prevScreen?: Uint8Array;
 }
 
 export const TRACES = resolve(ROOT, "build/traces");
 
 export function haveTrace(name: string): boolean {
-  return existsSync(resolve(TRACES, name, "trace.json")) && existsSync(resolve(TRACES, name, "wram.bin"));
+  return existsSync(resolve(TRACES, name, "trace.json")) && existsSync(resolve(TRACES, name, "start.bin"));
+}
+
+/** Undo the XOR-delta encoding of tools/trace_lib.py (records of `size` bytes, each XORed with
+ *  the previous one; the first with `first`, or zeros). */
+function undelta(gz: Uint8Array, size: number, first?: Uint8Array): Uint8Array {
+  const out = new Uint8Array(gunzipSync(gz));
+  let prev = first ?? new Uint8Array(size);
+  for (let o = 0; o + size <= out.length; o += size) {
+    for (let i = 0; i < size; i++) out[o + i]! ^= prev[i]!;
+    prev = out.subarray(o, o + size);
+  }
+  return out;
 }
 
 export function loadTrace(name: string): Trace {
   const d = resolve(TRACES, name);
   const rd = (f: string) => new Uint8Array(readFileSync(resolve(d, f)));
+  const meta = JSON.parse(readFileSync(resolve(d, "trace.json"), "utf8"));
+  if (meta.lean) {
+    // lean sweep trace (tools/trace_lib.py): no per-frame WRAM/VRAM/OAM
+    const start = rd("start.bin");
+    return {
+      name, meta, start, screens: undelta(rd("screens.dx.gz"), FRAME_BYTES), wram: new Uint8Array(0),
+      vram: new Uint8Array(0), oam: new Uint8Array(0), hram: rd("hram.bin"),
+      waits: undelta(rd("waits.dx.gz"), 0x8000, start),
+      waitFrames: JSON.parse(readFileSync(resolve(d, "waits.json"), "utf8")).frames,
+      ...(existsSync(resolve(d, "prev.bin")) ? { prevScreen: rd("prev.bin") } : {}),
+    };
+  }
   return {
-    name, meta: JSON.parse(readFileSync(resolve(d, "trace.json"), "utf8")), start: rd("start.bin"),
+    name, meta, start: rd("start.bin"),
     screens: rd("screens.bin"), wram: rd("wram.bin"), vram: rd("vram.bin"), oam: rd("oam.bin"), hram: rd("hram.bin"),
     ...(existsSync(resolve(d, "waits.bin")) ? { waits: rd("waits.bin"), waitFrames: JSON.parse(readFileSync(resolve(d, "waits.json"), "utf8")).frames } : {}),
   };

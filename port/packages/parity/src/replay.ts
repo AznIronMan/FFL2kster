@@ -13,6 +13,10 @@ export interface WaitDiff {
 export interface FrameDiff {
   frame: number;
   pixels: number;
+  /** The engine's screen of that frame (replay.ts keeps it for differing frames). */
+  got?: Uint8Array;
+  /** Drawn while a raster STAT handler was installed. */
+  raster?: boolean;
   wram: number[];
   vram: number[];
   oam: number[];
@@ -34,6 +38,9 @@ export interface ReplayOptions {
   /** Called with the rig after the start snapshot is loaded, before the engine starts (e.g. to
    *  install routines into `rig.engine.extra` or load battery RAM). */
   setup?: (rig: Rig) => void;
+  /** Accept frames drawn under a raster STAT handler whose only differences are lines shown one
+   *  line early or late (see rasterEdge); default true. Counted in `rasterEdges`. */
+  rasterSlack?: boolean;
   /** Tick-phase state besides the blink timer that may be re-phased (copied from the trace) when
    *  it is the only difference at a wait (counted in `rephased`). */
   rephase?: (addr: number) => boolean;
@@ -45,7 +52,51 @@ export interface ReplayOptions {
  *  stretches such as layout drawing take frames on the hardware but no time in the port). The
  *  buttons, screen and machine state of each wait come from the trace frame in which it happened;
  *  other waits (LY polling) advance one trace frame. */
-export function replayField(name: string, opts: ReplayOptions = {}): { trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number; rephased: number } {
+/** A raster handler's register writes land a few cycles before or after the point where the
+ *  line's registers are taken (CPU time within a line, which the port does not model: it depends
+ *  on the interrupt latency in the polling loop and the mode-3 length). The visible result is a
+ *  split edge one line early or late, and with the window's own line counter every window line
+ *  below it shifted by one. Accept a frame when, on each differing line, every differing pixel
+ *  equals the trace's pixel one line above (or every one equals the pixel one line below). */
+export function rasterEdge(got: Uint8Array, exp: Uint8Array): boolean {
+  const W = 160;
+  let lastDown = false;
+  for (let y = 0; y < 144; y++) {
+    let up = y > 0, down = y < 143, any = false;
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x, g = got[i]!;
+      if (g === exp[i]) continue;
+      any = true;
+      if (up && g !== exp[i - W]) up = false;
+      if (down && g !== exp[i + W]) down = false;
+      // the last line shifted down would show line 144, which the trace does not have
+      if (!up && !down && !(y === 143 && lastDown)) return false;
+    }
+    if (any) lastDown = down;
+  }
+  return true;
+}
+
+/** A code segment that runs from vblank into the visible lines writes display state (palette,
+ *  scroll, tiles, LCDC) part-way down the frame; the port runs code at vblank. Accept the frame
+ *  when, for some line Y, the engine's lines from Y down equal the trace's, and the trace's lines
+ *  above Y equal the engine's previous (matching) frame there: the original still showed the old
+ *  picture on the lines drawn before its write. */
+export function lateWrite(got: Uint8Array, exp: Uint8Array, prev: Uint8Array): boolean {
+  const W = 160;
+  let y0 = 144; // first line from which got == exp to the bottom
+  for (let y = 143; y >= 0; y--) {
+    let same = true;
+    for (let x = 0; x < W && same; x++) same = got[y * W + x] === exp[y * W + x];
+    if (!same) break;
+    y0 = y;
+  }
+  if (y0 === 0 || y0 === 144) return false;
+  for (let i = 0; i < y0 * W; i++) if (exp[i] !== prev[i]) return false;
+  return true;
+}
+
+export function replayField(name: string, opts: ReplayOptions = {}): { trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number; rephased: number; rasterEdges: number; lateWrites: number } {
   const t = loadTrace(name);
   const rom = loadRom();
   const rig = new Rig(rom);
@@ -53,6 +104,18 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
   m.loadFull(t.start);
   opts.setup?.(rig);
   rig.g.start(opts.start === "title" ? rig.engine.fromTitle() : rig.engine.field.loop());
+  // frames drawn while a raster STAT handler (not the frame tick 16D9 / VRAM-access 16A8) is installed
+  let rasterFrame = false, rasterEdges = 0, lateWrites = 0;
+  /** The engine's previous compared screen, when it matched the trace (the state the original
+   *  still shows on lines drawn before a late write). */
+  let lastGot: Uint8Array | null = t.prevScreen ?? null;
+  const prevLine = rig.g.onLine;
+  rig.g.onLine = (y) => {
+    if (y === 0) rasterFrame = false;
+    const v = m.wram[0x707]! | (m.wram[0x708]! << 8);
+    if (v !== 0x16d9 && v !== 0x16a8) rasterFrame = true;
+    prevLine?.(y);
+  };
   const n = t.meta.frames.length;
   const wf = t.waitFrames ?? [];
   const ign = opts.ignore ?? (() => false);
@@ -67,7 +130,7 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
     const prev = f;
     f = kind === VSYNC && nWaits < wf.length ? wf[nWaits]! : f + 1;
     // frames the original spent busy (no wait) before this one: run them as busy frames
-    if (opts.busyFrames !== false && f - prev > 1 && prev >= 0) {
+    if (opts.busyFrames !== false && f - prev > 1) {
       const nb = f - prev - 1, cur = f;
       rig.g.busyFrames = nb;
       // buttons of each busy frame, then (after the last one's lines) those of the wait's frame
@@ -138,10 +201,24 @@ export function replayField(name: string, opts: ReplayOptions = {}): { trace: Tr
     if (f < 0 || f >= n) continue;
     // several waits can fall in one trace frame (the start tick): compare its screen once, at the last
     if (nWaits < wf.length && wf[nWaits] === f) continue;
-    const pixels = screenDiff(rig.ppu.frame, t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES));
-    if (pixels) diffs.push({ frame: f, pixels, wram: [], vram: [], oam: [], hram: [] });
+    const exp = t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES);
+    const pixels = screenDiff(rig.ppu.frame, exp);
+    if (!pixels) {
+      lastGot = rig.ppu.frame.slice();
+      continue;
+    }
+    if (rasterFrame && opts.rasterSlack !== false && rasterEdge(rig.ppu.frame, exp)) {
+      rasterEdges++;
+      continue;
+    }
+    if (lastGot && opts.rasterSlack !== false && lateWrite(rig.ppu.frame, exp, lastGot)) {
+      lateWrites++;
+      lastGot = rig.ppu.frame.slice();
+      continue;
+    }
+    diffs.push({ frame: f, pixels, wram: [], vram: [], oam: [], hram: [], got: rig.ppu.frame.slice(), raster: rasterFrame });
   }
-  return { trace: t, diffs, waits, nWaits, tickPhase, busy, rephased };
+  return { trace: t, diffs, waits, nWaits, tickPhase, busy, rephased, rasterEdges, lateWrites };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {
@@ -166,8 +243,9 @@ const BLINK = new Set([0xc7c6, 0xc7c7, 0xd6c1, 0xd6c2]);
  *  traces its state depends on whether the frame tick fell before or after the code that posts a
  *  sound request (CPU time within a frame, not modelled), a one-frame shift. */
 const SOUND = (a: number) => (a >= 0xcb00 && a < 0xcc00) || (a >= 0xffb1 && a < 0xffc0) || (a >= 0xff10 && a < 0xff40);
-/** The SM83 call stack (SP starts at CF00) holds return addresses the port does not have. */
-const STACK = (a: number) => a >= 0xce00 && a < 0xcf00;
+/** The SM83 call stack (SP starts at CF00) holds return addresses the port does not have; the
+ *  16-bit division 00:033F saves SP in C0E1/C0E2 (also stack data). */
+const STACK = (a: number) => (a >= 0xce00 && a < 0xcf00) || a === 0xc0e1 || a === 0xc0e2;
 /** Hardware timing registers: DIV, IF, STAT mode, LY, and LYC (set per line by the raster
  *  handlers, so its value at a wait depends on line timing). */
 const TIMING = (a: number) => a === 0xff04 || a === 0xff0f || a === 0xff41 || a === 0xff44 || a === 0xff45;

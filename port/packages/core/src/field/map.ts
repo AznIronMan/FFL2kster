@@ -35,7 +35,8 @@ export function resolveMeta(m: Memory, v: number): number {
 export const attrOf = (m: Memory, meta: number): number => m.rd(0xc520 + (meta & 0x1f));
 
 /** 00:21A0 — metatile to draw for a map byte: the cell's metatile when its layer matches C43C,
- *  else metatile 1 (inside the hidden layer) or 2 (outside). */
+ *  (with the layer bit removed: layer ^ v) when its layer matches C43C, else metatile 1 (inside
+ *  the hidden layer) or 2 (outside). */
 export function displayMeta(m: Memory, v: number): number {
   for (;;) {
     v &= 0x7f;
@@ -43,7 +44,8 @@ export function displayMeta(m: Memory, v: number): number {
     v = m.rd(0xc500 + (v & 0x1f));
   }
   const layer = m.rd(0xc43c);
-  if (((layer ^ v) & 0xff) < 0x20) return v;
+  // 21AB: ret c returns A = layer ^ v (the metatile with the layer bit cleared when it matches)
+  if (((layer ^ v) & 0xff) < 0x20) return (layer ^ v) & 0xff;
   const a = ((((layer >> 4) | (layer << 4)) & 0xff) - 1) & 0xff;
   return a === 1 ? 1 : 2;
 }
