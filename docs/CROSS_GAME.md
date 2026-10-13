@@ -51,3 +51,18 @@ both ROMs; differences are listed first because they are the valuable part.
 - Both games keep monsters, party monster forms and human types in one stats table indexed by a
   monster id, with an ability id list per record and a count in byte 0.
 - Both build battles from a per-area record of monster ids plus a formation.
+
+## Port (TOL engine core reuse)
+
+- The native-port pattern transferred unchanged: one function per original routine over the
+  original memory map, generators yielding at the frame wait, busy frames from the trace's wait
+  gaps, wait-by-wait replay against PyBoy. `@ffl2k/render` (line PPU) is reused as is; Legend I
+  adds an MBC2 memory (bank select by address bit 8, 512-nibble RAM) and its own interrupt layout
+  (vblank 00:06D3, STAT handlers via the jp at C39D, rst $10 halts until LY ≥ 0x90).
+- Both games' menu and text code read leftover caller registers (Legend I: 00:08D4 text position
+  from b/c, 00:2B2E page window from de/b/c), so the port tracks those registers where they leak
+  into RAM.
+- Legend I has an RNG keyed by the caller's return address (00:07D3: 128 counters at C300 into
+  the table at CB00) instead of Legend II's single stream; each rand site is named in the port.
+- Same CPU-time effects in both (late joypad reads, mid-display writes), handled by counted
+  replay rules rather than a CPU model.

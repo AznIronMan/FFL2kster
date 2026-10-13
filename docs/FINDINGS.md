@@ -484,3 +484,10 @@ Recorded per direction note A (docs/DECISIONS.md); nothing was changed, no featu
   (200, 0)). The status screens clamp the shown value to 999 (00:1204). Field items behave the same
   way by the listing (probable): +40 max HP refused only at ≥ 999, +3 stat refused only at ≥ 99.
   Map of all caps: docs/CAPS.md.
+
+## 2026-10-12 — Legend I: the field ability CARE does nothing (original behaviour)
+00:39AA (field handler of CARE, item id 0x84, table 00:3769 index 4) is meant to set the user's HP
+to its max HP, but never loads h: it is still 0x39 from the dispatch (`jp hl` to 39AA). It reads
+two bytes of ROM page 0x39 and writes them to 0x39xx, which on the MBC2 (address bit 8 set) are two
+ROM bank selects. A use is spent and the party is unchanged (trace care1: 10/60 HP stays 10/60).
+The port keeps it (faithful); a QoL fix would belong to a later, optional patch layer.

@@ -6,7 +6,7 @@ const name = process.env.TRACE ?? "";
 describe.skipIf(!name || !haveRom() || !haveTrace(name))("FFL1 debug replay", () => {
   it(name, () => {
     const r = replay(name, { keepGoing: true });
-    console.log(`waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} diffs ${r.diffs.length} waitdiffs ${r.waits.length} error ${r.error ? r.error.message + " @" + r.error.wait : "-"}`);
+    console.log(`waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} tears ${r.tears} rephased ${r.rephased} diffs ${r.diffs.length} waitdiffs ${r.waits.length} error ${r.error ? r.error.message + " @" + r.error.wait : "-"}`);
     console.log(summarizeWaits(r.waits));
     console.log(summarize(r.diffs));
   });

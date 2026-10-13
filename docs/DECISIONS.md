@@ -435,3 +435,12 @@ Decisions and assumptions for the Legend I work:
 - Versions: the repository version (pyproject.toml, README, app shells) moves with every change;
   `ffl1kster.__version__` follows it. `ffl2kster.__version__` stays at 1.0.0 because the Legend II
   toolkit itself is unchanged (and the CI guard keeps `src/ffl2kster` identical to v1.0.0).
+- Legend I parity (port): the replay compares every frame wait's machine state and every screen.
+  CPU time is not modelled (as for Legend II), so three counted rules cover its visible effects:
+  joypad re-phase (the original's long field iterations read the joypad after the next frame's
+  tick; the planner keeps plans edge-safe and the replay takes the joypad from the trace when it is
+  the only difference), lateWrite (a frame whose top lines still show the previous picture) and
+  splitTear (a frame after a busy stretch that the original finished during the display: old
+  pixels above line L, the port's picture from L on, with the DMG window latch: a window that
+  started at line 0 stays on for the frame when WY is moved below the current line). FF96–FF98
+  (text row/column scratch) is excluded: set from the caller's registers before every text.

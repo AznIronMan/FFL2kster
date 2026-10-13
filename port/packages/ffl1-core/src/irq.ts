@@ -39,6 +39,16 @@ export function installInterrupts(g: Game): void {
     g.m.io[0x45] = 0;
     g.m.io[0x0f] = 0;
   });
+  // 00:3E8D — the wave (00:3DF5): per line SCX from C600 + FFCB, then LYC + 1, STAT = C0
+  g.statHandlers.set(0x3e8d, (g, ly) => {
+    const m = g.m;
+    if (ly < 0x90) {
+      m.io[0x43] = m.rd(0xc600 + m.hram[0x4b]!);
+      m.hram[0x4b] = (m.hram[0x4b]! + 1) & 0xff;
+    }
+    m.io[0x45] = (m.io[0x45]! + 1) & 0xff;
+    m.io[0x41] = 0xc0;
+  });
   // 00:069F — VRAM access: the frame tick at line 0, LYC = LY + 1 (every line), wait for hblank
   g.statHandlers.set(0x069f, (g, ly) => {
     if (ly === 0) frameTick(g);

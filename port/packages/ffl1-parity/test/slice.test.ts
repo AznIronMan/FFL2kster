@@ -9,13 +9,22 @@ const TRACES: [string, string][] = [
   ["title1", "boot to the title screen, idle"],
   ["probe1", "title, prologue (A held), class select, name entry"],
   ["newgame1", "new game: prologue, class, name, the first town; objects walk"],
+  ["walk1", "the first town: walking, scrolling"],
+  ["walk2", "the first town: a longer walk with objects (joypad re-phased)"],
+  ["talk1", "talk to a townsperson: dialogue, a nested event"],
+  ["menu1", "the main menu: abilities, items, equipment, close"],
+  ["order1", "the party order screen"],
+  ["inn1", "the inn: stay (BCD price), the rest, back to the field"],
+  ["shop1", "a shop: buy and sell"],
+  ["guild1", "the guild: recruit a member (class, name), back to the field"],
+  ["care1", "field use of the ability CARE (00:39AA: h never loaded, MBC2 bank selects; HP unchanged)"],
 ];
 
 describe.skipIf(!haveRom())("FFL1 scenario parity", () => {
   for (const [name, what] of TRACES) {
     it.skipIf(!haveTrace(name))(`${name}: ${what}`, () => {
       const r = replay(name, { keepGoing: true });
-      const info = `waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites}`;
+      const info = `waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} tears ${r.tears}`;
       if (r.error || r.waits.length || r.diffs.length) console.log(`${name}: ${info} error ${r.error?.message ?? "-"}\n${summarizeWaits(r.waits)}\n${summarize(r.diffs)}`);
       expect(r.error).toBeUndefined();
       expect(r.nWaits).toBe(r.trace.waitFrames.length);

@@ -46,7 +46,7 @@ class Recorder:
         self.e.__exit__(None, None, None)
 
     def record(self, name, state, steps, hook=(0, 0x1A43), pokes=(), plan="", max_pre=3000, meta=None,
-               marks=(), stop_after=None, switch=None):
+               marks=(), stop_after=None, switch=None, save=None):
         """Load STATE, run to HOOK (apply POKES there, snapshot), then one button set per frame."""
         pb = self.pb
         out = f"ffl1/build/traces/{name}"
@@ -158,6 +158,8 @@ class Recorder:
                 pb.hook_deregister(mb, ma)
             for (sb, sa), _st in switch:
                 pb.hook_deregister(sb, sa)
+        if save:  # the emulator state at the end, for chained scenarios
+            self.e.save_state(save if "/" in save else f"ffl1/build/states/{save}.state")
         if marks:
             open(f"{out}/marks.bin", "wb").write(bytes(mark_mem))
             json.dump({"marks": mark_meta}, open(f"{out}/marks.json", "w"))

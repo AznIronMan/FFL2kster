@@ -5,6 +5,11 @@ import { installInterrupts } from "./irq.js";
 import { TextEngine } from "./text.js";
 import { Title } from "./title.js";
 import { FieldEngine } from "./field/loop.js";
+import { Dialogue } from "./field/dialogue.js";
+import { Events } from "./field/events.js";
+import { MainMenu } from "./field/menumain.js";
+import { FieldItems, equip } from "./field/items.js";
+import { Facilities } from "./field/facilities.js";
 
 export class NotPorted extends Error {
   constructor(what: string) {
@@ -17,6 +22,11 @@ export class Engine {
   readonly text: TextEngine;
   readonly title: Title;
   readonly field: FieldEngine;
+  readonly dialogue: Dialogue;
+  readonly events: Events;
+  readonly menu: MainMenu;
+  readonly items: FieldItems;
+  readonly facilities: Facilities;
 
   constructor(segments: Segments, readonly rom: Uint8Array) {
     this.g = new Game(segments);
@@ -25,15 +35,25 @@ export class Engine {
     this.title = new Title(this.g, this.text);
     const self = this;
     this.field = new FieldEngine(this.g, {
-      event: (_g, cmd) => self.event(cmd),
-      startMenu: () => { throw new NotPorted("00:269D main menu"); },
-      selectMenu: () => { throw new NotPorted("00:3BAD party order"); },
+      events: () => self.events.run(),
+      startMenu: () => self.menu.open(),
+      selectMenu: () => self.menu.order(),
     });
-  }
-
-  /** 00:16E0 event commands (C3A9 & 0F). */
-  *event(cmd: number): Co {
-    throw new NotPorted(`00:16E0 event command ${cmd.toString(16)}`);
+    this.dialogue = new Dialogue(this.g, { runEvent: () => self.events.run() });
+    this.items = new FieldItems(this.g);
+    this.menu = new MainMenu(this.g, this.text, this.field, {
+      useItem: (_g, a, slot) => self.items.use(a, slot),
+      equip: (g) => equip(g),
+      quake: () => self.events.quake(),
+      shake: () => self.events.shake(),
+    });
+    this.items.menu = this.menu;
+    this.facilities = new Facilities(this.g, this.menu, this.title, this.dialogue);
+    this.events = new Events(this.g, this.field, this.dialogue, {
+      battle: () => { throw new NotPorted("00:1BBE battle"); },
+      facility: () => self.facilities.run(),
+      giveItem: () => self.facilities.giveItem(),
+    });
   }
 
   setOptions(o: Partial<GameOptions>): void {

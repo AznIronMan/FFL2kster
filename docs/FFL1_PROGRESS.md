@@ -60,7 +60,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | Phase | Status | Evidence |
 |---|---|---|
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
-| P1 vertical slice | in progress | title, prologue, hero creation, map load, field loop/NPC walk: frame-exact (traces title1, probe1, newgame1: 3,393 waits, 0 differences) |
+| P1 vertical slice | in progress | title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild: frame-exact (12 traces, 9,966 waits, 0 differences; battle and sound driver to come) |
 | P2 full field | not started | |
 | P3 full battle | not started | |
 | P4 platforms | not started | |
@@ -141,3 +141,28 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   every screen identical (sound RAM, stack and timing registers excluded). Falsification: a cursor
   position change breaks title1 at once. One bug found by the traces: the C1 OAM page takes the
   second animation frame (00:1E10 continues the pointer).
+
+### 2026-10-12 — Port P1 (field menus, events, facilities)
+- `@ffl1k/core`: dialogue interpreter 00:0EBA (context stack C900, nested strings and events),
+  field events 00:16E0 (talk, chest, facility, warps, sound, say, give item, park, vehicle,
+  relative warp, moves, specials: quake/shake), menu grid engine 00:2B2E, main menu 00:269D
+  (abilities, member items, bag with swap/use/trash, spheres, equipment, save), party order
+  00:3BAD, item effects (tables 00:3739/00:3769), facilities 00:300E (inn with BCD prices, house of
+  life, guild, shops buy/sell).
+- Traces (`tools/ffl1/traces.py`; planned ones via `tools/ffl1/planner.py`): title1 397 waits,
+  probe1 1,777, newgame1 1,219, walk1 426, walk2 1,352, talk1 898, menu1 713, order1 274, inn1 475,
+  shop1 1,259, guild1 769, care1 429 — 9,966 waits, every wait's machine state identical (sound
+  RAM, stack, timing registers and the text-position scratch FF96–FF98 excluded), every screen
+  identical or accepted by a counted rule: lateWrite 58, splitTear 13 (frames after a busy
+  stretch that the original finished during the display), joypad re-phase 3.
+- Fixed by the traces: the menu engine stores the caller's leftover de/b/c in FFF4–FFF7 (the
+  port tracks them); event command 4 (facility) returns without 00:1AB8 (C5BD/C5BE and the bank
+  stay); field CARE (00:39AA) is literal (see FINDINGS).
+- Falsification: restoring the "intended" CARE heal breaks care1 at wait 202 (CC06); dropping the
+  window-latch picture from splitTear leaves exactly the three menu-close frames (menu1 f674,
+  inn1 f363, shop1 f1223) as differences; splitTear unit tests reject wrong-order splits, stray
+  pixels and whole old frames. Known leniency: on a frame after a busy stretch a pixel equal to
+  the previous picture is accepted above the split line; the wait compare and the following frames
+  still catch a stale state (the mutated CARE run: 227 wait differences).
+- Suites: port 4,315 passed, 15 skipped (FFL1 slice 12/12, tear 6, importer 11); pytest 111 passed;
+  FFL2 guard clean.

@@ -11,8 +11,8 @@ import { palettesOff, palettesOn, setSpeed, loadTileset, loadAttributes, loadSpr
 
 /** Calls from the field into other subsystems. */
 export interface FieldCalls {
-  /** 00:16E0 event commands not handled here (by C3A9 & 0F). */
-  event(g: Game, cmd: number): Co;
+  /** 00:16E0 — run the pending event (C3AB). */
+  events(g: Game): Co;
   /** 00:269D main menu (Start). */
   startMenu(g: Game): Co;
   /** 00:3BAD party order (Select). */
@@ -594,17 +594,9 @@ export class FieldEngine {
     m.wr(0xc3ab, 1);
   }
 
-  /** 00:16E0 — run the pending event (C3AB) and restore the bank (00:1AB8). */
+  /** 00:16E0 (field/events.ts). */
   private *events(): Co {
-    const m = this.m;
-    if (!m.rd(0xc3ab)) return;
-    m.wr(0xc5d0, m.hram[0x0b]!);
-    m.wr(0xc5b1, 0);
-    const cmd = m.rd(0xc3a9) & 0x0f;
-    const k = cmd.toString(16);
-    this.coverage[k] = (this.coverage[k] ?? 0) + 1;
-    yield* this.calls.event(this.g, cmd);
-    this.eventEnd();
+    yield* this.calls.events(this.g);
   }
 
   /** 00:1AB8 */
