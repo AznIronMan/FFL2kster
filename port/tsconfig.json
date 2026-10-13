@@ -3,6 +3,8 @@
   "references": [
     { "path": "packages/importer" },
     { "path": "packages/ffl1-importer" },
+    { "path": "packages/ffl1-core" },
+    { "path": "packages/ffl1-parity" },
     { "path": "packages/core" },
     { "path": "packages/render" },
     { "path": "packages/audio" },

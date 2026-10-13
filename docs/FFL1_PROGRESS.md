@@ -60,7 +60,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | Phase | Status | Evidence |
 |---|---|---|
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
-| P1 vertical slice | not started | |
+| P1 vertical slice | in progress | title, prologue, hero creation, map load, field loop/NPC walk: frame-exact (traces title1, probe1, newgame1: 3,393 waits, 0 differences) |
 | P2 full field | not started | |
 | P3 full battle | not started | |
 | P4 platforms | not started | |
@@ -125,3 +125,19 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   mutations (layout default metatile, ability-count mask), each failing exactly its domain test.
 - Port suite: 4,297 passed, 13 skipped; `tsc -b` clean. CI guard now also pins
   `port/packages/{importer,core,parity,render,audio}` to v1.0.0.
+
+### 2026-10-12 — Port P1 (first checkpoint)
+- `@ffl1k/core`: Memory (MBC2: bank via address bit 8, 512-nibble RAM), Game (frame clock of the TOL
+  engine core with Legend I's interrupts: vblank 00:06D3, STAT handlers 00:06D0 / 00:069F via C39D,
+  frame tick 00:06DB), bank-0 helpers (copies, VRAM bracket, joypad repeat, cursor sprites,
+  multiply/divide with their RAM side effects, the return-address RNG 00:07D3), engine text
+  00:0911 (all control codes), save RAM 00:04A6/050D, title 03:7D50, prologue 00:0862, hero
+  creation 00:0D80 (class select, name entry, member record 00:061F), field: layout drawer,
+  tileset/attributes/sprite sets, objects, screen, the loop (step/scroll, NPC walk, step checks,
+  buttons, event dispatch).
+- `@ffl1k/parity`: PyBoy traces (`tools/ffl1/trace_lib.py`, scenarios in `tools/ffl1/traces.py`)
+  replayed wait by wait; recursive disassembly `tools/ffl1/disasm.py` (+ entries file).
+- Verified: title1 (397 waits), probe1 (1,777), newgame1 (1,219): every wait's machine state and
+  every screen identical (sound RAM, stack and timing registers excluded). Falsification: a cursor
+  position change breaks title1 at once. One bug found by the traces: the C1 OAM page takes the
+  second animation frame (00:1E10 continues the pointer).

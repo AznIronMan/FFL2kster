@@ -1,0 +1,72 @@
+# Legend I entry points the recursive disassembler cannot find on its own.
+00:069F   # STAT handler (VRAM window mode), installed at C39D by 00:043D
+00:06D0   # STAT handler (normal), installed at C39D by 00:044E
+# engine text control codes 00-3F: jump table 00:0CE2 (00:0928)
+00:08FD
+00:0967
+00:096E
+00:097B
+00:0988
+00:0992
+00:09A3
+00:09D9
+00:09DE
+00:09EA
+00:0A05
+00:0A08
+00:0A0B
+00:0A33
+00:0A39
+00:0A78
+00:0A85
+00:0A9B
+00:0AC3
+00:0AC8
+00:0ACC
+00:0AD6
+00:0AF4
+00:0B13
+00:0B30
+00:0B38
+00:0B4E
+00:0B60
+00:0B65
+00:0B6A
+00:0B84
+00:0B89
+00:0B94
+00:0BB6
+00:0BC1
+00:0BD5
+00:0CA0
+# (entries 3D-3F of that table are not code: D5F5, 0016, 3E58)
+# dialogue interpreter states: jump table 00:0E6C (3 entries, 00:0EBA)
+00:0ED2
+00:1106
+00:1164
+# field item effects: jump tables 00:3739 (items < 0x18) and 00:3769 (abilities 0x80-0x86), 00:3710
+00:3881
+00:38CF
+00:3929
+00:394A
+00:3974
+00:39BD
+00:3802
+00:3777
+00:39D9
+00:39E0
+00:3A1B
+00:3A9E
+00:3AAA
+00:3AB6
+00:3B32
+00:3A75
+00:3B3D
+00:39AA
+# dialogue code 0x11 sub-handlers: jump table 00:0FBD (by the high nibble of the argument)
+00:0FC5
+00:0FFF
+00:1020
+00:108B
+00:10C6
+00:1100

@@ -1,0 +1,150 @@
+/** Replay a Legend I PyBoy trace through the engine and compare every frame wait and screen.
+ *  Synchronised on the original's frame waits (rst $10): the i-th wait of the engine is matched
+ *  with the i-th one recorded; frames the original spent without waiting (CPU-bound stretches,
+ *  e.g. VRAM copies paced by the 00:069F handler) are run as busy frames. Same method as
+ *  @ffl2k/parity's replay (the TOL engine core's harness), with Legend I's handlers and RAM. */
+import { VSYNC, SoftReset, type Co } from "@ffl1k/core";
+import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, tickInFrame, type Trace } from "./index.js";
+
+export interface WaitDiff {
+  wait: number;
+  frame: number;
+  diff: number[];
+  values: [number, number, number, number][];
+}
+
+export interface FrameDiff {
+  frame: number;
+  pixels: number;
+  got?: Uint8Array;
+  raster?: boolean;
+}
+
+export interface ReplayOptions {
+  /** The coroutine to start after the snapshot is loaded (default: the title, 03:7D50). */
+  start?: (rig: Rig) => Co;
+  busyFrames?: boolean;
+  ignore?: (addr: number) => boolean;
+  setup?: (rig: Rig) => void;
+  keepGoing?: boolean;
+  watch?: (wait: number, frame: number, exp: Uint8Array, got: Uint8Array) => void;
+  /** Stop after this many waits (debugging). */
+  maxWaits?: number;
+}
+
+export interface ReplayResult {
+  trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number;
+  lateWrites: number; error?: { message: string; wait: number };
+}
+
+export function lateWrite(got: Uint8Array, exp: Uint8Array, prev: Uint8Array): boolean {
+  const W = 160;
+  let y0 = 144;
+  for (let y = 143; y >= 0; y--) {
+    let same = true;
+    for (let x = 0; x < W && same; x++) same = got[y * W + x] === exp[y * W + x];
+    if (!same) break;
+    y0 = y;
+  }
+  if (y0 === 0 || y0 === 144) return false;
+  for (let i = 0; i < y0 * W; i++) if (exp[i] !== prev[i]) return false;
+  return true;
+}
+
+export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
+  const t = loadTrace(name);
+  const rig = new Rig(loadRom());
+  const m = rig.g.m;
+  m.loadFull(t.start);
+  opts.setup?.(rig);
+  rig.g.start(opts.start ? opts.start(rig) : rig.engine.fromTitle());
+  let lateWrites = 0;
+  let error: { message: string; wait: number } | undefined;
+  let lastGot: Uint8Array | null = t.prevScreen ?? null;
+  const n = t.meta.frames.length;
+  const wf = t.waitFrames;
+  const ign = opts.ignore ?? IGNORE;
+  const diffs: FrameDiff[] = [];
+  const waits: WaitDiff[] = [];
+  let nWaits = 0, f = -1, tickPhase = 0, busy = 0;
+  let pre: Uint8Array | null = null;
+  const btn = (k: number) => buttonBits(t.meta.frames[Math.min(Math.max(k, 0), n - 1)]!.btn);
+  rig.g.onWait = (kind) => {
+    const prev = f;
+    f = kind === VSYNC && nWaits < wf.length ? wf[nWaits]! : f + 1;
+    if (opts.busyFrames !== false && f - prev > 1) {
+      const nb = f - prev - 1;
+      rig.g.busyFrames = nb;
+      rig.g.onBusyFrame = (k) => {
+        rig.g.buttons = btn(prev + 1 + k);
+        if (k === nb - 1) rig.g.onFrameDone = () => { rig.g.buttons = btn(f); rig.g.onFrameDone = null; };
+        return tickInFrame(t, prev + 1 + k);
+      };
+      busy += nb;
+    }
+    rig.g.buttons = btn(f);
+    pre = kind === VSYNC ? m.snapshotFull() : null;
+  };
+  const compare = (exp: Uint8Array, got: Uint8Array): number[] => {
+    const diff: number[] = [];
+    for (let a = 0; a < 0x8000; a++) {
+      const addr = 0x8000 + a;
+      if (addr >= 0xa000 && addr < 0xc000) continue;
+      if (addr >= 0xe000 && addr < 0xfe00) continue;
+      if (addr >= 0xfea0 && addr < 0xff00) continue;
+      if (got[a] !== exp[a] && !ign(addr)) diff.push(addr);
+    }
+    return diff;
+  };
+  rig.g.onYield = (kind) => {
+    if (kind !== VSYNC) return;
+    const i = nWaits++;
+    if ((i + 1) * 0x8000 > t.waits.length) return;
+    const exp = t.waits.subarray(i * 0x8000, (i + 1) * 0x8000);
+    const got = m.snapshotFull();
+    opts.watch?.(i, wf[i] ?? -1, exp, got);
+    let diff = compare(exp, got);
+    if (diff.length && pre) {
+      const d2 = compare(exp, pre);
+      if (!d2.length) { tickPhase++; diff = d2; }
+    }
+    if (diff.length) waits.push({ wait: i, frame: wf[i] ?? -1, diff, values: diff.slice(0, 24).map((a) => [a, exp[a - 0x8000]!, got[a - 0x8000]!, pre ? pre[a - 0x8000]! : -1]) });
+  };
+  while (f < n - 1 && !(nWaits >= wf.length && wf.length) && !(opts.maxWaits && nWaits >= opts.maxWaits)) {
+    try {
+      rig.g.runFrame();
+    } catch (e) {
+      if (e instanceof SoftReset || !opts.keepGoing) throw e;
+      error = { message: String(e instanceof Error ? e.message : e), wait: nWaits };
+      break;
+    }
+    if (f < 0 || f >= n) continue;
+    if (nWaits < wf.length && wf[nWaits] === f) continue;
+    const exp = t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES);
+    const pixels = screenDiff(rig.ppu.frame, exp);
+    if (!pixels) { lastGot = rig.ppu.frame.slice(); continue; }
+    if (lastGot && lateWrite(rig.ppu.frame, exp, lastGot)) { lateWrites++; lastGot = rig.ppu.frame.slice(); continue; }
+    diffs.push({ frame: f, pixels, got: rig.ppu.frame.slice() });
+  }
+  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, error };
+}
+
+export function summarizeWaits(w: WaitDiff[]): string {
+  return w.slice(0, 8).map((d) => `wait ${d.wait} (frame ${d.frame}): ${d.values.slice(0, 12).map(([a, e, g]) => `${a.toString(16)}:${e.toString(16)}/${g.toString(16)}`).join(" ")}${d.diff.length > 12 ? ` +${d.diff.length - 12}` : ""}`).join("\n");
+}
+
+export function summarize(diffs: FrameDiff[]): string {
+  return diffs.slice(0, 10).map((d) => `f${d.frame}: px ${d.pixels}`).join("\n");
+}
+
+// ---------------------------------------------------------------- comparison filters
+
+/** Sound driver state (CE00-CEFF, FFE1-FFEF) and APU registers: verified separately per driver
+ *  call; in whole-game traces they depend on where the frame tick fell (CPU time). FFE0 (the
+ *  music request written by game code) is compared. */
+const SOUND = (a: number) => (a >= 0xce00 && a < 0xcf00) || (a >= 0xffe1 && a < 0xfff0) || (a >= 0xff10 && a < 0xff40);
+/** The SM83 stack (SP starts at D000) and the SP saved by the multiply/divide (C381/C382). */
+const STACK = (a: number) => (a >= 0xcf00 && a < 0xd000) || a === 0xc381 || a === 0xc382;
+/** Hardware timing registers and the joypad select register. */
+const TIMING = (a: number) => a === 0xff00 || a === 0xff04 || a === 0xff0f || a === 0xff41 || a === 0xff44 || a === 0xff45;
+export const IGNORE = (a: number) => SOUND(a) || STACK(a) || TIMING(a);
