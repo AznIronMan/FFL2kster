@@ -81,3 +81,51 @@ in exactly the Sprite HP bytes (entities 2-3 +10..+13, staging D690-D693) and CC
 115 times: in the original the first Sprite falls (press 91); in the patched game the Sprites
 keep 900 HP, Curtis falls at press 92 and the Simulator battle ends early into Myron's dialogue.
 Screenshots in `ffl3/build/test-artifacts/`.
+
+## 2026-10-13 — Items, spells and monster skills (M2a)
+
+Names first. A search for the weapon names seen in the prologue battle ("Long", "Bronze",
+"Battle", "Dive") found two lists. 0E:6D4F-6EBA holds 6 race names (Robot … Mutant), 10 status
+names of 4 letters (Good, Fell, Ston, Mute, Dark, Pois, Curs, Para, Slep, Conf) and 48 spell names
+of icon + 5 letters; 0E:6EBB-7532 holds 207 names of icon + 7 letters, ending where the monster
+names start. Code 00:1E8F confirms the split: id ≥ 30 → 0E:6EBB + 8·(id − 30), id < 30 → 0E:6D9B
++ 6·id, FF → a blank. 09:67BF holds 8 stat words of 7 letters (Attack … M.Evade), then 110+ monster
+skill names of 8 letters from 09:67F7 (Nail … Counter, then resist/weak entries with an icon).
+
+Records: the loader 09:5D87 (id in CE26) dispatches on the id: < 30 → 09:5A50 + 6·id; < 78 →
+09:55C4 + 7·(id − 30); < C0 → 09:5BFC + 5·(id − 78), then reloads the id in byte 3 (09:5E1F); ≥ C0
+→ 09:5B70 + 5·(id − C0) (below D8, or below CB / D1 with CD37 set). With CE25 ≠ 0 it reads
+09:57BC + 6·id instead (monster skills, ids < 6E; 0B:73A2/73B1 set CE25 = 1). It always copies 7
+bytes to CEDB (00:1F81). The multipliers are 00:2448 (× 6), 2453 (× 7), 243D (× 5). The five tables
+are contiguous in the order weapon, skill, spell, item, armor (55C4, 57BC, 5A50, 5B70, 5BFC, end
+5D64), bounded by code (`ret` at 55C3, `xor a` at 5D64).
+
+Falsified first: "the Sprite's ability 1A is a spell id." Spell 1A is Lit 2; the battle text says
+the Sprite used Dive, which is monster skill 1A (09:67F7 + 8·1A), a different id space selected by
+CE25.
+
+Emulator (`python tools/ffl3/item_change.py`, 17/17; hook on 09:5D82 after the loader):
+- From battle.state, 60 presses of A load exactly six records: weapons 30 Long (Arthur), 46 Battle
+  (Myron), 4B Battle (Curtis), 51 Bronze (Gloria) and skills 13 Kick (Diviner) and 1A Dive
+  (Sprite). Each load equals the ROM record.
+- Boundaries: Long and Battle(4B) b0 and b6 (first and last bytes) appear at CEDB+0 / +6 only;
+  Bronze b3 at +3; Dive and Kick b0 and b5 (first and last) at +0 / +5. The next skill's b0
+  appears at CEDB+6 of a skill load (7 bytes copied from a 6-byte table): skill 1B b0 shows in
+  Dive's load, 14 b0 in Kick's, while their b1-b5 do not.
+- Controls: weapons 31, 4A, 4C, 50, 52 and skills 12, 19 (all bytes 0x77) change no load.
+- Power (byte 1): Long 0A → 01 lowers Arthur's hit on the second Diviner from 20 to 18 (press 70);
+  Battle(4B) 07 → 60 makes Curtis's hit fatal (press 45; the original leaves 31 HP); Bronze(51)
+  06 → 60 makes Gloria's hit fatal (press 54; original 20 left); skill Dive 08 → 20 kills Gloria
+  (press 28; the original takes 5). Myron's Battle (46) 14 → 01 changes nothing: his hit kills
+  a Diviner either way (overkill), so it is not a test of that record.
+
+Patterns (probable, not tested in the game): byte 0 of spells/weapons/armor/items = element
+group << 4 | status in the status-name order (status cures Soft 02 … Calm 09 match Ston … Conf
+one for one); byte 1 of spells and items rises with the tier (Cure1/2/3, Fire1/2/X). Armor bytes
+1 and 2 are nibbles summed into a character's +3D..+3F by 0B:7422 (code); party totals live in the
+party records, so a test needs an equip change in the menu (M2b).
+
+RAM seen on the way: party records at C500 + 0x60·k (Arthur, Curtis, Gloria, Myron, Sharon: name
+at +07, HP +10/+12, value 2 +14/+16, stats +18, equipment ids from +40); the battle copies them
+to D000 + 0x80·k. The battle status shows value 2 under the HP (Arthur 5, Curtis 45): MP remains
+the likely reading.

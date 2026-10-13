@@ -59,8 +59,8 @@ def connect(path) -> sqlite3.Connection:
 
 
 def _domains():
-    from .schema import monsters
-    return list(monsters.TABLES)
+    from .schema import items, monsters
+    return list(monsters.TABLES) + list(items.TABLES)
 
 
 def import_rom(rom_path, db_path, project=None) -> dict:

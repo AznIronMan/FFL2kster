@@ -165,6 +165,22 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--rom", default=ROM)
     s.set_defaults(fn=cmd_monsters)
 
+    def cmd_items(a):
+        from .schema import items as I
+        rom = romlib.load_rom(a.rom)
+        for t in I.TABLES:
+            if a.table and t.DOMAIN != a.table:
+                continue
+            print(f"# {t.DOMAIN}: {t.BANK:02X}:{t.ADDRESS:04X}, {t.RECORD_COUNT} x {t.RECORD_SIZE} bytes")
+            for r in t.extract(rom):
+                print(f"{r['id']:02X} {r['bank']:02X}:{r['address']:04X} {r['name']:8s} " +
+                      " ".join(f"{k}={v}" for k, v in r["fields"].items()))
+        return 0
+    s = sub.add_parser("items", help="list the spell/weapon/armor/item/skill tables (bank 09)")
+    s.add_argument("--rom", default=ROM)
+    s.add_argument("--table", choices=["spell", "weapon", "armor", "item", "skill"])
+    s.set_defaults(fn=cmd_items)
+
     def cmd_db_import(a):
         from .db import import_rom
         p = load_project(a.project)

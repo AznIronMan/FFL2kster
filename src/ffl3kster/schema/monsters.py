@@ -20,12 +20,9 @@ Field meanings that only rest on the copy target are marked hypothesis.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from ffl2kster.build import Patch
-
 from .. import rom as romlib
 from ..text import decode
+from ._table import FieldDef, Table
 
 COUNT = 195
 BOSS_FROM = 0xBB          # 0B:45AB: ids >= BB have HP and value 2 multiplied by 16
@@ -35,96 +32,12 @@ PROFILE_469D = romlib.bank_to_file(0x0B, 0x469D)   # 16 x 4 bytes, index = b2 >>
 PROFILE_46DD = romlib.bank_to_file(0x0B, 0x46DD)   # 3-byte entries, index = b4 >> 4 (10-15 read zeros)
 
 
-@dataclass(frozen=True)
-class FieldDef:
-    name: str
-    offset: int
-    size: int
-    encoding: str      # u8 | bits:lo-hi | nibble:hi | u12 (byte, then the low nibble of the next)
-    meaning: str
-    status: str        # verified | probable | hypothesis
-    evidence: str
-    editable: bool = False
-    min: int = 0
-    max: int = 0xFF
-
-
-def _bits(spec: str) -> tuple[int, int]:
-    lo, hi = spec.split(":")[1].split("-")
-    return int(lo), int(hi)
-
-
-class Table:
-    def __init__(self, domain, bank, addr, size, fields, doc):
-        self.DOMAIN, self.BANK, self.RECORD_SIZE, self.RECORD_COUNT = domain, bank, size, COUNT
-        self.TABLE = romlib.bank_to_file(bank, addr)
-        self.FIELDS = fields
-        self.FIELD_BY_NAME = {f.name: f for f in fields}
-        self.EDITABLE = {f.name for f in fields if f.editable}
-        self.__doc__ = doc
-
-    def record_offset(self, mid: int) -> int:
-        if not 0 <= mid < COUNT:
-            raise ValueError(f"monster id {mid} out of range 0..{COUNT - 1}")
-        return self.TABLE + self.RECORD_SIZE * mid
-
-    def read_field(self, rom: bytes, mid: int, name: str) -> int:
-        f = self.FIELD_BY_NAME[name]
-        o = self.record_offset(mid) + f.offset
-        if f.encoding == "u12":
-            return rom[o] | (rom[o + 1] & 0x0F) << 8
-        raw = rom[o]
-        if f.encoding.startswith("bits:"):
-            lo, hi = _bits(f.encoding)
-            return (raw >> lo) & ((1 << (hi - lo + 1)) - 1)
-        if f.encoding == "nibble:hi":
-            return raw >> 4
-        return raw
-
-    def encode_field(self, rom: bytes, mid: int, f: FieldDef, value: int) -> bytes:
-        if not f.editable:
-            raise ValueError(f"field '{f.name}' is not editable in the current schema")
-        if not f.min <= value <= f.max:
-            raise ValueError(f"{f.name}={value} outside allowed range {f.min}..{f.max}")
-        o = self.record_offset(mid) + f.offset
-        if f.encoding == "u12":
-            return bytes([value & 0xFF, (rom[o + 1] & 0xF0) | value >> 8])
-        if f.encoding.startswith("bits:"):
-            lo, hi = _bits(f.encoding)
-            mask = ((1 << (hi - lo + 1)) - 1) << lo
-            return bytes([(rom[o] & ~mask & 0xFF) | (value << lo)])
-        if f.encoding == "nibble:hi":
-            return bytes([(rom[o] & 0x0F) | value << 4])
-        return bytes([value])
-
-    def extract(self, rom: bytes) -> list[dict]:
-        rows = []
-        for mid in range(COUNT):
-            off = self.record_offset(mid)
-            bank, addr = romlib.file_to_bank(off)
-            rows.append({"id": mid, "name": name(rom, mid), "record_offset": off, "bank": bank, "address": addr,
-                         "raw": rom[off:off + self.RECORD_SIZE].hex(" "),
-                         "fields": {f.name: self.read_field(rom, mid, f.name) for f in self.FIELDS}})
-        return rows
-
-    def resolve(self, rom: bytes, edit) -> list[Patch]:
-        if edit.field not in self.FIELD_BY_NAME:
-            raise ValueError(f"unknown {self.DOMAIN} field '{edit.field}' (editable: {sorted(self.EDITABLE)})")
-        f = self.FIELD_BY_NAME[edit.field]
-        data = self.encode_field(rom, edit.id, f, int(edit.value))
-        old = self.read_field(rom, edit.id, f.name)
-        reason = f"{self.DOMAIN} {edit.id:#04x} ({name(rom, edit.id)}) {f.name} {old} -> {edit.value}"
-        if edit.reason:
-            reason += f" [{edit.reason}]"
-        return [Patch(self.record_offset(edit.id) + f.offset, data, reason)]
-
-
 def name(rom: bytes, mid: int) -> str:
     return decode(rom[NAMES + NAME_SIZE * mid:NAMES + NAME_SIZE * (mid + 1)]).rstrip()
 
 
 CC = "tools/ffl3/controlled_change.py"
-MONSTER = Table("monster", 0x0B, 0x4A19, 12, [
+MONSTER = Table("monster", 0x0B, 0x4A19, 12, COUNT, lambda r, i: name(r, i), [
     FieldDef("kind", 0, 1, "bits:0-2", "kind; 4 keeps b9-b11 (0B:729B), other kinds have them recomputed from the "
              "entity's item list by 0B:7422. 4 = ids 00-3B and B4-C2 (74), 3 = 60, 1 = 30, 0 = 30, 2 = 1",
              "verified", f"Code 0B:454D -> entity +0D. {CC}: Sprite 03->05 and Diviner 03->06 change only +0D; "
@@ -155,7 +68,7 @@ MONSTER = Table("monster", 0x0B, 0x4A19, 12, [
              "b11 -> 66 reach +3D..+3F.", True) for i in range(3)
 ], "battle record")
 
-MONSTER_CLASS = Table("monster_class", 0x0B, 0x470D, 4, [
+MONSTER_CLASS = Table("monster_class", 0x0B, 0x470D, 4, COUNT, lambda r, i: name(r, i), [
     FieldDef("level", 0, 1, "bits:0-5", "level (entity +03; also +57 and the battle values C996/C9D4/C9ED); "
              "'level' is a guess from the range 1-42", "verified",
              f"Code 0B:4643. {CC}: Sprite C1->C5 sets +03 = 5, +57, C996 1->3, C9D4 4->12, C9ED 1->3.", True, 0, 63),
@@ -166,7 +79,7 @@ MONSTER_CLASS = Table("monster_class", 0x0B, 0x470D, 4, [
              f"Code 0B:4665. {CC}: Sprite 0E 0E C0 -> 11 22 33 changes only +65..+67.", True) for i in range(3)
 ], "class record")
 
-MONSTER_ABILITY = Table("monster_ability", 0x0B, 0x533D, 9, [
+MONSTER_ABILITY = Table("monster_ability", 0x0B, 0x533D, 9, COUNT, lambda r, i: name(r, i), [
     FieldDef("mask", 0, 1, "u8", "bit 7-k set: slot k is a battle ability (copied to the next free byte from "
              "entity +48); clear: an id >= 0x30 goes to D6C0, a lower id to 0B:6E74", "probable",
              "Code 0B:45F4-4626 (not changed in an emulator test yet)."),

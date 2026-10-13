@@ -35,6 +35,10 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | AF . F0 : F1 / F2 - F3 ! F4 ? AE … | punctuation (font tiles in VRAM) | verified |
 | 9C00 | window map: menus | verified |
 | 0E:7533 | monster names, 8 bytes × 195 (ids 00-C2), then the staff credits text | verified |
+| 0E:6D4F / 6D73 | race names 6 × 6 (Robot … Mutant) / status names 10 × 4 (Good … Conf) | verified (text) |
+| 0E:6D9B | spell names, icon + 5, ids 00-2F (icons A7/A8/A9 by 16) | verified (code 00:1E8F) |
+| 0E:6EBB | item names, icon + 7, ids 30-FE | verified (code 00:1E8F, battle text) |
+| 09:67BF / 67F7 | stat words 8 × 7 / monster skill names 8 bytes, ids 00-6D (+ resist/weak entries) | verified (battle text "Dive") |
 
 ## Monsters (bank 0B)
 
@@ -52,6 +56,19 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0B:468B | copy the staging entity (0x80 bytes) once per enemy into D280, D300, ... | verified |
 | 0B:728B / 7422 | recompute +36.., +39.., and (kind ≠ 4) +3D..+3F from the item list at +41 | verified (kind test) |
 
+## Items, spells, skills (bank 09)
+
+| Location | What | Status |
+|---|---|---|
+| 09:5D7F / 5D87 | record loader: id CE26, mode CE25 (1 = monster skill); 7 bytes → CEDB | verified (hook) |
+| 09:55C4 | weapons, ids 30-77, 7 bytes (byte 1 power) | verified (loads, damage) |
+| 09:57BC | monster skills, ids 00-6D, 6 bytes (byte 1 power) | verified (loads, damage) |
+| 09:5A50 | spells, ids 00-2F, 6 bytes | probable (code, contiguity) |
+| 09:5B70 | items, ids C0-DB, 5 bytes | probable |
+| 09:5BFC | armor and accessories, ids 78-BF, 5 bytes; byte 3 a linked id | probable |
+| 0B:7422 | sums armor nibbles into +3D..+3F from the item list at +41 | probable (code) |
+| 00:2448 / 2453 / 243D | A × 6 / × 7 / × 5 → hl | verified (code) |
+
 ## RAM
 
 | Address | What | Status |
@@ -62,4 +79,7 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | CC73 / CC74 | loader copies of record bytes 2 / 4 | verified |
 | D280 + 0x80·k | enemy entity k: +05 name, +0D kind, +0E id, +10/+12 HP cur/max, +14/+16 value 2, +18 stats, +48 abilities | verified |
 | D680 | staging entity | verified |
+| C500 + 0x60·k | party records (Arthur, Curtis, Gloria, Myron, Sharon in the prologue): +07 name, +10/+12 HP, +14/+16 value 2, +18 stats, +40 equipment ids | probable |
+| D000 + 0x80·k | party battle entities (copies of the party records) | verified (HP traces) |
+| CE25 / CE26 / CEDB | loader mode / id / record copy | verified |
 | C996 / C9D4 / C9ED | battle values that follow the level of the loaded enemy (1/4/1 at level 1, 3/12/3 at level 5) | verified (meaning unknown) |

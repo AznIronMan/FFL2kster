@@ -44,14 +44,14 @@ Reference ROM: `ffl3/input/original.gb` (read-only, never committed), SHA-256
    - [x] Same pre-battle state, original vs patched: Sprite HP 45 vs 900, WRAM differs only there;
          outcome differs (Sprite falls vs the battle ends on a party member's fall); screenshots
 
-Counts: tests/ffl3 22 passed (3 emulator); controlled changes 28/28; whole Python suite 159
+Counts (1.21.0): tests/ffl3 22 passed (3 emulator); controlled changes 28/28; whole Python suite 159
 passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 
 ## Milestones 2–7
 
 | Milestone | Status | Evidence |
 |---|---|---|
-| M2 items/abilities, growth | open | — |
+| M2 items/abilities, growth | M2a done (1.22.0); M2b armor/items in game, growth open | names (00:1E8F), five record tables in bank 09 (09:5D87), 17/17 controlled changes: loads, boundaries, controls, weapon and skill power changes damage |
 | M3 text | open | punctuation tiles known; the apostrophe code is not mapped yet |
 | M4 encounters/drops | open | — |
 | M5 maps/events | open | — |
@@ -65,3 +65,4 @@ Not started.
 ## Log
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
+- 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).

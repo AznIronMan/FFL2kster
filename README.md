@@ -6,10 +6,10 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.21.0`
+Version: `1.22.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
-milestone 1 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
+milestones 1 and 2a done (docs/FFL3_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -100,6 +100,10 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.22.0` — Legend III milestone 2a: the shared item id space (spells 00-2F, weapons, armor,
+  items) with its names and five record tables in bank 09, and the separate monster-skill table;
+  17/17 controlled changes (record loads, boundaries, neighbour controls, weapon and skill power
+  changing damage); `ffl3kster items`.
 - `1.21.0` — Legend III course started (FFL3kster: `src/ffl3kster`, `ffl3/`, docs/ffl3/): ROM
   identity and a byte-identical no-op build; a disassembler for its bank-stack far calls; cold-boot
   save states through the name screens to the prologue battle; the monster data (three tables in

@@ -43,6 +43,8 @@ both ROMs; differences are listed first because they are the valuable part.
 | Monster HP | 12-bit value (byte + low nibble of the next), × 16 for the eight last ids (bosses) | Legend II (stored value), not Legend I (class + random) |
 | Battle entity | 0x80 bytes per enemy, built in a staging slot (D680) and copied once per group member (D280, D300, ...); name copied into it | Legend II (name in WRAM); Legend I keeps 32-byte slots |
 | Ability list | a mask byte + 8 fixed slots (set bit: battle ability) | neither (count + list in I and II) |
+| Items | one id space for spells (00-2F), weapons, armor, items; four record tables of 6/7/5/5 bytes chosen by id range; names icon + 5 (spells) or icon + 7 | split by kind, unlike Legend I's single 8-byte table |
+| Monster abilities | a separate skill id space (00-6D, 6-byte records, own names) selected by a mode flag (CE25) | neither (I and II share the item ids) |
 
 ## Transferred unchanged (method and generic code)
 
