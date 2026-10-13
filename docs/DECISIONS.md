@@ -444,3 +444,21 @@ Decisions and assumptions for the Legend I work:
   pixels above line L, the port's picture from L on, with the DMG window latch: a window that
   started at line 0 stays on for the frame when WY is moved below the current line). FF96–FF98
   (text row/column scratch) is excluded: set from the caller's registers before every text.
+
+## 2026-10-12 — Legend I replay: rules for polled rasters, LCD switch-off and line-paced VRAM writes
+
+- rasterRows: the original's polled per-line register loops (WX slide, SCX fall and wave, BGP
+  stripes) are ported as line hooks: line ly takes the value the loop writes while LY = ly (for
+  the write-then-wait loops of bank 07: entry ly + 1; for 07:79A5, which writes SCY in hblank,
+  D900[k - 1]). As CPU time is not modelled, a frame whose differing lines (at most 8) each match
+  the port's picture redrawn with a neighbouring line's registers is accepted and counted.
+- LCD blank: PyBoy clears its screen when the LCD is switched off; the frame whose wait precedes
+  the switch and the first frame after it is switched on are white in the trace. Accepted only
+  when the trace frame is entirely white and the port switched the LCD off in that frame; counted.
+- mixTear: while the 00:069F STAT handler is installed (C39E = 9F at line 0), the original writes
+  VRAM line by line during the display, so a frame can mix the old and new pictures in any line
+  order. Accepted when every pixel equals the port's new picture or one of the two old pictures
+  (the port's previous frame, the trace's previous frame); counted. Unlike splitTear it needs no
+  busy frame before it.
+- Every rule is counted per trace and in the sweep totals; each was checked by a mutation that the
+  rule must not absorb (wrong WX mapping, no window latch, a wrong fill value).

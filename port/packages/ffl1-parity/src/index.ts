@@ -34,6 +34,9 @@ export class Rig {
    *  (Game.lineHook) was active during it. */
   readonly lineRegs: LcdRegs[] = [];
   raster = false;
+  /** Whether the frame was drawn with the VRAM-access handler 00:069F installed (the original
+   *  was writing VRAM line by line during it). */
+  vramWrites = false;
   /** Set when the code switched the LCD off (cleared by the replay before each frame). */
   lcdOff = false;
   constructor(readonly rom: Uint8Array) {
@@ -42,7 +45,7 @@ export class Rig {
     m.onLcdc = (v) => { if (!(v & 0x80)) this.lcdOff = true; };
     this.ppu = new Ppu(m.vram, m.oam);
     this.g.onLine = (y) => {
-      if (y === 0) { this.ppu.beginFrame(); this.raster = false; }
+      if (y === 0) { this.ppu.beginFrame(); this.raster = false; this.vramWrites = m.rd(0xc39e) === 0x9f; }
       if (this.g.lineHook) this.raster = true;
       this.ppu.regs = regsFromIo(m.io);
       this.lineRegs[y] = this.ppu.regs;

@@ -772,8 +772,7 @@ export class BattleUi {
       const c = m.rd(0xd83a);
       if (m.rd(0xd3ea) === 0) {
         if (c === 1) yield* this.bossFall();
-        else throw new NotPortedBattle("07:75C6 (boss death effect)");
-        throw new NotPortedBattle("07:75C6 (boss death effect)");
+        else yield* this.bossFade();
       }
     } else yield* this.eraseDead();
     copy(m, 0xd3e9, 0xd800, 6);
@@ -813,6 +812,93 @@ export class BattleUi {
     yield* vramFill(g, 0x9800, 0, 0x7f);
     yield* vsync(g);
     m.wr(0xff40, 0xc3);
+  }
+  /** 07:75C6 — the other boss death: the picture copied to the window (8 rows of 10 tiles from
+   *  980A to 9C00, a column of 10 from 9913 to 9D00), the window over lines 0-3F (WX = 57) while
+   *  the map behind it is blanked 4 tiles a frame; then per line 0-3F, SCX = D900[l], WX = SCX + 57
+   *  (at most A5) and BGP white where WX = A5. Every FFD0 frames (4, then 1 once FFD1 >= 20) the
+   *  entries down to FFD1 fall by FFD3 (1, then 8 once D93F moves; at most 50) and the rest are
+   *  cleared, until D93F = 50; then 9806 (8 rows of 4) set to tile C3. */
+  private *bossFade(): Co {
+    const m = this.m, g = this.g;
+    this.cov("75c6");
+    this.hw(0xffd0, 4);
+    this.hw(0xffd2, 1);
+    this.hw(0xffd3, 1);
+    this.hw(0xffd1, 0);
+    fill(m, 0xd900, 0, 0);
+    yield* vramBegin(g);
+    let hl = 0x980a, de = 0x9c00;
+    for (let c = 8; c; c--) {
+      [hl, de] = copy(m, hl, de, 10);
+      hl = (hl + 0x16) & 0xffff;
+      de = (de + 0x16) & 0xffff;
+    }
+    yield* vramEnd(g);
+    hl = 0x9913;
+    de = 0x9d00;
+    yield* vramBegin(g);
+    for (let c = 10; c; c--) {
+      m.wr(de, m.rd(hl));
+      hl = (hl + 0x20) & 0xffff;
+      de = (de + 0x20) & 0xffff;
+    }
+    yield* vramEnd(g);
+    yield* this.diOn();
+    m.wr(0xff40, 0xe3);
+    m.wr(0xff4a, 0);
+    // 07:7627: WX = 57 from line 0 (polled LY = 0), 9F from line 40 (polled LY >= 40)
+    const windowTop = () => {
+      m.wr(0xff4b, 0x57);
+      this.raster([0x4b], (ly) => [ly === 0x40 ? 0x9f : undefined]);
+      frameTick(g);
+    };
+    hl = 0x980a;
+    for (let c = 8; c; c--) {
+      windowTop();
+      yield* waitLy90(g);
+      hl = (fill(m, hl, 4, 0x7f) + 0x1c) & 0xffff;
+    }
+    windowTop();
+    for (;;) {
+      m.wr(0xff47, m.rd(0xc3a6));
+      yield* waitLy90(g); // 07:766B polls LY >= 98: the frame's vblank
+      const d = m.rd(0xc3a6), fall = this.hr(0xffd2) === 1;
+      const lines: number[][] = [];
+      for (let l = 0; l < 0x40; l++) {
+        const a = m.rd(0xd900 + l);
+        let wx = (a + 0x57) & 0xff;
+        if (wx >= 0xa5) wx = 0xa5;
+        lines.push([a, wx, wx === 0xa5 ? 0 : d]);
+        if (!fall) continue;
+        let v = 0;
+        if (this.hr(0xffd1) >= l) {
+          v = (this.hr(0xffd3) + a) & 0xff;
+          if (v >= 0x50) v = 0x50;
+        }
+        m.wr(0xd900 + l, v);
+      }
+      // each entry is written before its line is polled: line ly shows entry ly + 1
+      this.raster([0x43, 0x4b, 0x47], (ly) =>
+        ly < 0x3f ? lines[ly + 1]! : ly === 0x3f ? [0, 0x9f, d] : [undefined, undefined, undefined]);
+      frameTick(g);
+      this.hw(0xffd2, this.hr(0xffd2) - 1);
+      if (this.hr(0xffd2)) continue;
+      this.hw(0xffd2, this.hr(0xffd0));
+      let a = this.hr(0xffd1) + 1;
+      if (a >= 0x40) a = 0x40;
+      this.hw(0xffd1, a);
+      if (a >= 0x20) this.hw(0xffd0, 1);
+      if (m.rd(0xd93f)) this.hw(0xffd3, 8);
+      if (m.rd(0xd93f) === 0x50) break;
+    }
+    // 07:76EE: a = 7F for the fill is overwritten by the LCDC value: the 8 rows of 4 at 9806
+    // take tile C3
+    yield* waitLy90(g);
+    m.wr(0xff40, 0xc3);
+    hl = 0x9806;
+    for (let c = 8; c; c--) hl = (fill(m, hl, 4, 0xc3) + 0x1c) & 0xffff;
+    this.diOff();
   }
   /** 07:7595 — D900 from the top (FFD1 steps: 0 -> 1, else doubled up to 70) and from D93F
    *  down (0 -> FF, else doubled, at least 90). A zero entry is bumped without moving on. */
@@ -1328,6 +1414,7 @@ export class BattleUi {
    *  position after the block. */
   private *paths(): Co<number> {
     const m = this.m;
+    this.cov("6f1e");
     let hl = (this.script() - 1) & 0xffff;
     let de = 0xd861, bc = 0xd871;
     const n = m.rd(0xd83e);

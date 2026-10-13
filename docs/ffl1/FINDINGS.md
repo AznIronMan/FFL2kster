@@ -345,3 +345,19 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   attribute sets), music, and graphics (font, tilesets, sprite sets, 200 monster pictures). Like
   Legend II's `data/` it is generated locally and not committed (`data/` is gitignored); the test
   suite regenerates it and compares every file byte for byte.
+
+## 2026-10-12 — Battle (port P1/P3, from the PyBoy battle sweep)
+
+- 06:4D21 (handler 1E, several hits): draws a random number and then adds e (the product / 2),
+  not the number it drew (4D71 `ld d,0; add hl,de`): verified, a port adding the random value
+  differs in the sweep.
+- 06:4966 (handler 0E): 497A loads l from the target's +07 value before testing bit 2 at
+  [hl - 5], so the bit tested lies at (h << 8 | value) - 5, not in the target's record (probable
+  bug; ported as is, frame-exact in the sweep).
+- 07:75C6 (death of a picture-type-2 monster, the CREATOR): the closing fill at 9806 is meant to
+  blank (a = 7F) but `ld a,$c3; ldh [$40],a` inside the loop leaves a = C3, so 8 rows of 4 tiles
+  become tile C3: verified by bsw21 (the trace shows C3).
+- 07:7A0E (screen script 8) is used by no item: the effect byte (+6) high nibble of every item is
+  0-7, 9 or A (ACID 40 gives script 4 = 07:7895 and TORNADO 50 script 5 = 07:78F9, as traced), so the routine is unreachable in play.
+- Picture types (bank 02 7900[id], 07:71AC): 27-31 and 40 give type 1 (the boss fall 07:7510), 32
+  (only CREATOR, id C7) type 2 (07:75C6), else 0.

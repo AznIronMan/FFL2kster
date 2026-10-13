@@ -46,6 +46,16 @@ export interface ReplayResult {
   lateWrites: number; rephased: number; tears: number; rasterEdges: number; lcdBlanks: number; error?: { message: string; wait: number };
 }
 
+/** A frame drawn while VRAM was being written: every pixel is the port's (new) or an old
+ *  picture's. */
+export function mixTear(exp: Uint8Array, got: Uint8Array, olds: Uint8Array[]): boolean {
+  for (let i = 0; i < exp.length; i++) {
+    const v = exp[i];
+    if (v !== got[i] && !olds.some((o) => o[i] === v)) return false;
+  }
+  return true;
+}
+
 /** A polled raster's register write lands some cycles after the line change (the polling loop's
  *  latency, CPU time the port does not model), on either side of the point where the line's
  *  registers are taken: accept a frame when every differing line equals the port's frame drawn
@@ -212,6 +222,10 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     if (lastGot && lateWrite(rig.ppu.frame, exp, lastGot)) { lateWrites++; lastGot = rig.ppu.frame.slice(); continue; }
     // a polled raster frame: lines whose register write landed a line early or late
     if (rig.raster && opts.tears !== false && rasterRows(rig, exp)) { rasterEdges++; lastGot = rig.ppu.frame.slice(); continue; }
+    // drawn while the original wrote VRAM line by line (00:069F): every pixel old or new
+    if (opts.tears !== false && rig.vramWrites && lastGot && mixTear(exp, rig.ppu.frame, [lastGot, ...(f > 0 ? [t.screens.subarray((f - 1) * FRAME_BYTES, f * FRAME_BYTES)] : [])])) {
+      tears++; lastGot = rig.ppu.frame.slice(); continue;
+    }
     // only after a busy frame: the original had not reached its frame wait (its code ran on)
     if (opts.tears !== false && f - prevDrawn > 1) {
       // the window as latched at the frame's start (WY then; LCDC window enable then)

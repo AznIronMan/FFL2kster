@@ -66,3 +66,5 @@ both ROMs; differences are listed first because they are the valuable part.
   the table at CB00) instead of Legend II's single stream; each rand site is named in the port.
 - Same CPU-time effects in both (late joypad reads, mid-display writes), handled by counted
   replay rules rather than a CPU model.
+- Legend I's battle screen effects are polled per-line register loops with interrupts off (bank
+  07); the port renders them through line hooks, as the Legend II port does for its own rasters.

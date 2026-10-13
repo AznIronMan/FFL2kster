@@ -62,7 +62,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
 | P1 vertical slice | in progress | title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild: frame-exact (12 traces, 9,966 waits, 0 differences; battle and sound driver to come) |
 | P2 full field | not started | |
-| P3 full battle | not started | |
+| P3 full battle | in progress | battle sweep 24 traces (bsw01-bsw24), 63,885 waits, 0 differences; 44 of 49 effect handlers and every reachable screen effect / boss death reached (see the log); flee, defeat, random encounters, the sound driver to come |
 | P4 platforms | not started | |
 | P5 extras | not started | |
 
@@ -198,3 +198,33 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 - Ported: 07:786B (LCD-off flashes), 07:7895 stripes, 07:78F9 wave, 07:7969 wobble, 07:798F ripple
   (per-line SCY written in each hblank), 07:77DB top flash, 07:7843 scroll shake, 07:6F1E moving
   sprite paths, 07:7510 a boss's fall, 00:0D9C eating meat. Still NotPorted: 07:75C6, 07:7A0E.
+
+### 2026-10-12 — Battle sweep (rounds 2 and 3)
+- Round 2 (bsw13-bsw20): the boss formations 0-5 with a party at stats 99, a monster and a mutant
+  member (bsw20). Round 3: bsw21 the CREATOR (area 1, picture type 2) to the SAW; bsw22 EXPLODE
+  used first (in bsw12/bsw16 the battle ended before its turn: those traces stay as they are);
+  bsw23 ACID, bsw24 TORNADO (monster abilities in a member's slot 0).
+- Sweep (`sweep.test.ts`, every bsw trace): 24 traces, 63,885 waits, **0 differences**, 0 wait
+  differences; counted rules: lateWrite 7, splitTear/mixTear 1, rasterRows 2, LCD blank 160,
+  joypad re-phase 0. Slice suite 14/14 unchanged.
+- Coverage: effect handlers 44 of 49. Not reached: 44B0 (handler 0: the items with no battle
+  effect), 451B (handler 4, the {E9} items: not executed in bsw01/bsw13 although held in slot 0,
+  why not yet known), 5098 (handler 47: only item FC, held by no monster). Screen routines: all of
+  07:7AD5 except 07:7A0E, which only screen script 8 uses, and no item's effect byte (+6) selects
+  script 8 (unreachable); moving sprite paths 07:6F1E 9 times (now counted); both boss deaths
+  (07:7510 twice, 07:75C6 once).
+- Fixed: the boss-fall path raised NotPortedBattle after 07:7510 had finished (a leftover guard):
+  bsw13 now passes. 07:75C6 ported from the disassembly; its first trace (bsw21) differed only in
+  the final fill at 9806: the ROM loads a = 7F and then overwrites a with the LCDC value C3 before
+  the fill loop, so the 8 x 4 tiles become C3 (ported as such).
+- New counted rule mixTear: a frame drawn while the 00:069F handler was installed (C39E = 9F at
+  line 0, i.e. VRAM written line by line during the display) is accepted when every pixel equals
+  the port's new picture or one of the old pictures (bsw18: 1 frame).
+- Falsification: bossFade with the line mapping shifted (lines[ly] instead of ly + 1) 81 frame
+  differences; FFD3 = 7 instead of 8: 73 frames + 137 wait differences; no white BGP beyond WX = A5:
+  8 frames; FFD0 switch at 21 instead of 20: 42 frames. The WX switch one line late (line 41) is
+  absorbed by rasterRows (counted 8, 0 with the ported line) — the known tolerance. bossFall with
+  t[ly]: 96 frames; wave with 3 frames per step: 29 frames + 336 wait differences; stripes with
+  the toggle inverted: 64 frames, with 2 phases instead of 4: 27 frames + 81 waits.
+- Suites: port 4,342 passed, 17 skipped (tsc clean; no game content in the web build); pytest 111
+  passed (26 emulator tests deselected); FFL2 guard clean.

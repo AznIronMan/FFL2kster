@@ -101,6 +101,36 @@ SWEEP = {
     "bsw10": (117, [dict(items=[0xF4, 0x2E]), dict(items=[0xF5, 0x2E]), dict(items=[0x7E]), dict(items=[0xE4])], 60),
     "bsw11": (121, [dict(items=[0xEA, 0x2E]), dict(items=[0xEB, 0x2E]), dict(items=[0x1C]), dict(items=[0xAB])], 60),
     "bsw12": (16, [dict(items=[0xD9]), dict(items=[0x2E]), dict(items=[0x2E]), dict(items=[0x2E])], 40),
+    # round 2: tougher areas (the boss formations 0-5), so every member acts many times
+    "bsw13": (2, [dict(items=[0x4E], stats=(99, 99, 99, 99)), dict(items=[0x33], stats=(99, 99, 99, 99)),
+                  dict(items=[0x37], stats=(99, 99, 99, 99)), dict(items=[0x39], stats=(99, 99, 99, 99))], 60),
+    "bsw14": (3, [dict(items=[0x43], stats=(99, 99, 99, 99)), dict(items=[0x49], stats=(99, 99, 99, 99)),
+                  dict(items=[0x47], stats=(99, 99, 99, 99)), dict(items=[0x9B], stats=(99, 99, 99, 99))], 60),
+    "bsw15": (4, [dict(items=[0xEA], stats=(99, 99, 99, 99)), dict(items=[0xEB], stats=(99, 99, 99, 99)),
+                  dict(items=[0x79], stats=(99, 99, 99, 99)), dict(items=[0x44], stats=(99, 99, 99, 99))], 60),
+    "bsw16": (16, [dict(items=[0xD9]), dict(items=[]), dict(items=[0x2E]), dict(items=[0x2E])], 40),
+    "bsw17": (1, [dict(items=[0x37], stats=(99, 99, 99, 99)), dict(items=[0x39], stats=(99, 99, 99, 99)),
+                  dict(items=[0x02], stats=(99, 99, 99, 99)), dict(items=[0x00], stats=(99, 99, 99, 99))], 60),
+    "bsw18": (0, [dict(items=[0x37], stats=(99, 99, 99, 99)), dict(items=[0x45], stats=(99, 99, 99, 99)),
+                  dict(items=[0x6E], stats=(99, 99, 99, 99)), dict(items=[0x48], stats=(99, 99, 99, 99))], 60),
+    "bsw19": (5, [dict(items=[0x46], stats=(99, 99, 99, 99)), dict(items=[0x3F], stats=(99, 99, 99, 99)),
+                  dict(items=[0x3C], stats=(99, 99, 99, 99)), dict(items=[0x41], stats=(99, 99, 99, 99))], 60),
+    # victory with meat and growth: a monster member (record +0A bit 6) and a mutant
+    "bsw20": (17, [dict(items=[0x2E], cls=0x08, flags=0x43), dict(items=[0x2E], flags=0x23),
+                   dict(items=[0x37]), dict(items=[0x37])], 70),
+    # round 3: the CREATOR (area 1, picture type 2: the boss death 07:75C6) to the SAW; EXPLODE
+    # used by member 0, the fastest, before the weak weapons behind it (in bsw12/bsw16 the battle
+    # ended before the EXPLODE turn came)
+    "bsw21": (1, [dict(items=[0x42], stats=(99, 99, 99, 99)), dict(items=[0x42], stats=(99, 99, 99, 99)),
+                  dict(items=[0x42], stats=(99, 99, 99, 99)), dict(items=[0x42], stats=(99, 99, 99, 99))], 80),
+    "bsw22": (16, [dict(items=[0xD9], stats=(50, 50, 99, 50)), dict(items=[0x37], stats=(1, 1, 1, 1)),
+                   dict(items=[0x37], stats=(1, 1, 1, 1)), dict(items=[0x37], stats=(1, 1, 1, 1))], 50),
+    # the monster abilities with the remaining screen effects: ACID (07:7895), TORNADO (07:78F9;
+    # in bsw23 the ACID ended the battle first)
+    "bsw23": (16, [dict(items=[0xC1], stats=(50, 50, 99, 50)), dict(items=[0xC0], stats=(50, 50, 98, 50)),
+                   dict(items=[0x37], stats=(1, 1, 1, 1)), dict(items=[0x37], stats=(1, 1, 1, 1))], 50),
+    "bsw24": (16, [dict(items=[0xC0], stats=(50, 50, 99, 50)), dict(items=[0x37], stats=(1, 1, 1, 1)),
+                   dict(items=[0x37], stats=(1, 1, 1, 1)), dict(items=[0x37], stats=(1, 1, 1, 1))], 50),
 }
 for _n, (_area, _ms, _k) in SWEEP.items():
     PLANNED[_n] = ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * _k + [("wait", 120)])
