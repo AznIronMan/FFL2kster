@@ -27,6 +27,17 @@ SCENARIOS = {
                               "right:64,up:30,a:2,none:90,a:2,none:90,a:2,none:60,left:40,up:40,a:2,none:90,a:2,none:90,a:2,none:90"),
 }
 
+# Sound checks: from the first town's field loop (idle: no busy frames, so the frame tick and a
+# request written at the hook line up as in the port), a sound effect (FFE4 = 1-36, tables
+# 07:6BC7 / 07:6C0F) or a jingle (FFE2 = song: the music saved to CE60 and restored when the
+# jingle's channels have all ended) poked at the hook, then no input.
+SFX_COUNT = 36
+for _i in range(1, SFX_COUNT + 1):
+    SCENARIOS[f"sfx{_i:02d}"] = ("town0", FIELD, "none:150")
+JINGLES = (0x0B, 0x0C, 0x0D, 0x0F, 0x10, 0x11)
+for _j in JINGLES:
+    SCENARIOS[f"jng{_j:02x}"] = ("town0", FIELD, "none:900")
+
 # Planned scenarios: (state, hook, actions[, state saved at the end]) -> the plan comes from
 # tools/ffl1/planner.py run on the same state (deterministic).
 P = lambda b, w=24: ("press", b, 5, w)
@@ -170,6 +181,8 @@ POKES = {
     **{_n: battle_pokes(_area, _ms) for _n, (_area, _ms, _k) in SWEEP.items()},
     **{_n: [(0xC5BA, 0x00), (0xC3A9, 0x06 if _w >= 0x100 else 0x05), (0xC3AA, _w & 0xFF), (0xC3AB, 0x01)]
        for _n, _w in FIELD_SWEEP.items()},
+    **{f"sfx{_i:02d}": [(0xFFE4, _i)] for _i in range(1, SFX_COUNT + 1)},
+    **{f"jng{_j:02x}": [(0xFFE2, _j)] for _j in JINGLES},
     "care1": [(0xCC0F, 0x84), (0xCC10, 0x05), (0xCC06, 0x0A), (0xCC07, 0x00)],
     "battle1": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
     "flee1": battle_pokes(16, [dict(items=[0x37])] * 4),

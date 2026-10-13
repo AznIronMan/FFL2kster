@@ -329,3 +329,16 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   pixel and a whole old frame. The first sweep (without the C5BA poke) stayed in the town in the
   original and the port alike (state equal, 200/200 passing), which is why the maps reached are
   part of the output.
+
+### 2026-10-13 — Sound effects and jingles (isolated harness)
+- `tools/ffl1/traces.py`: sfx01-sfx36 (FFE4 = each effect of 07:6BC7 / 07:6C0F) and jng0b, 0c,
+  0d, 0f, 10, 11 (FFE2 = the song as a jingle) poked at the hook of the first town's idle field
+  loop, then no input (150 / 900 frames). Idle loop: no busy frames, so the request reaches the
+  same frame tick in both, which the battle traces could not guarantee.
+- `port/packages/ffl1-parity/test/sound.test.ts` (in the suite): these 42 plus the 11 title and
+  field traces, the driver RAM compared (CE00-CEFF, FFE1-FFEF): 53 traces, 19,569 waits, 0
+  differences; all 36 effects ran, 2 jingles ended and the music came back (the other 4 loop).
+- Mutations caught: noise step +1 (29 tests fail), pulse step +1 (20), the music restore from
+  CE19 instead of CE18 (37), the tempo restored from CEC1 (2), the effect loop count off by one
+  (7). Sound effects move from probable to verified; the battle-trace drift stays a CPU-time
+  effect of when requests land.
