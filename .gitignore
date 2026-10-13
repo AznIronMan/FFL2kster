@@ -14,6 +14,9 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Exported game data (regenerate locally with `python -m ffl2kster export-all`)
+data/
+
 # ROMs, saves, and save states (never commit game data)
 input/*.gb
 input/*.gbc
