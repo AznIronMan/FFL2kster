@@ -38,6 +38,8 @@ def test_export_all_reproduces_package(ffl1_rom, tmp_path):
     from ffl1kster.export import export_all
     export_all(ffl1_rom, tmp_path)
     golden = ROOT / "ffl1" / "data"
+    if not golden.exists():
+        pytest.skip("ffl1/data not generated (python -m ffl1kster export-all); it is local, like data/")
     a = sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*") if p.is_file())
     b = sorted(p.relative_to(golden) for p in golden.rglob("*") if p.is_file())
     assert a == b and len(a) == 248

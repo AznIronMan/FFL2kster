@@ -342,5 +342,6 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   2126.77, measured 45 + 44 + 44 + 1994 = 2127 per loop (the watched note occurs four times).
 - **Data package** `ffl1/data/` (`python -m ffl1kster export-all`, 248 files): monsters, items,
   encounters, meat, text, maps (records, event lists, warps, shops, prices, decoded layouts,
-  attribute sets), music, and graphics (font, tilesets, sprite sets, 200 monster pictures). The
-  test suite regenerates it and compares every file byte for byte.
+  attribute sets), music, and graphics (font, tilesets, sprite sets, 200 monster pictures). Like
+  Legend II's `data/` it is generated locally and not committed (`data/` is gitignored); the test
+  suite regenerates it and compares every file byte for byte.
