@@ -361,3 +361,10 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   0-7, 9 or A (ACID 40 gives script 4 = 07:7895 and TORNADO 50 script 5 = 07:78F9, as traced), so the routine is unreachable in play.
 - Picture types (bank 02 7900[id], 07:71AC): 27-31 and 40 give type 1 (the boss fall 07:7510), 32
   (only CREATOR, id C7) type 2 (07:75C6), else 0.
+- 00:0224 meant to clear NR50-NR52 (FF24-FF26) with `ld l,$24; ld [hl+],a` x3 but never sets h:
+  at power-on h = 01 (boot ROM), so the writes go to 0124-0126, the MBC2 ROM bank register (bank
+  1); after a defeat h is what the battle left. Harmless in both cases (the RAM it might hit is
+  cleared next). The ROM-bank and sound effects are undone by the following code.
+- A defeat restarts through 00:0101 -> 00:0224 with C425/C426 = 1B E4 still set, so C427 = 0
+  (warm; verified by defeat1: the mutated value differs at the first wait); a power-on gives C427 = 1
+  (code; who reads C427 is not yet traced).

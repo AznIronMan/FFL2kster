@@ -20,6 +20,8 @@ const TRACES: [string, string][] = [
   ["care1", "field use of the ability CARE (00:39AA: h never loaded, MBC2 bank selects; HP unchanged)"],
   ["battle1", "a battle (event 8, area 16): intro slide, menus, SABER, the lizards' bites, hit shakes"],
   ["battle2", "the same battle to victory: gold, the map back"],
+  ["flee1", "Run until the escape succeeds (one failed try), the map back"],
+  ["defeat1", "a party at 1 HP wiped out: game over, a button, the restart (00:0224) and the title"],
 ];
 
 describe.skipIf(!haveRom())("FFL1 scenario parity", () => {

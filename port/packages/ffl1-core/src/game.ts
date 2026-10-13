@@ -11,6 +11,9 @@ import { Memory, type Segments } from "./memory.js";
 
 export type Co<T = void> = Generator<number | void, T, void>;
 export const VSYNC = 1;
+/** Yielded by a busy loop that polls state set by the frame tick (line 0, LYC = 0): the code
+ *  resumes right after the next tick, in that frame (lines 1-143 drawn after it). */
+export const TICK = 2;
 export type LineHandler = (g: Game, ly: number) => void;
 
 /** Joypad bits as the game stores them (FF8D/FF8E): low nibble buttons, high nibble directions. */
@@ -46,6 +49,7 @@ export class Game {
   hooks: {
     soundTick?: (g: Game) => void; // 07:4003, from the frame tick
     softReset?: (g: Game) => void; // A+B+Select+Start (00:071C -> 00:0224)
+    divSeed?: (g: Game) => void; // 00:028C: C300-C37F read from DIV (FF04) at the start
   } = {};
   private main: Co | null = null;
   done = false;
@@ -65,15 +69,31 @@ export class Game {
     return this.m.selectBank(b);
   }
 
+  /** The last yield was TICK: the next frame resumes the code after its line 0. */
+  private tickPending = false;
+
   runFrame(): void {
-    let waited = false, kind: number | void = undefined;
+    let waited = false, kind: number | void = undefined, from = 0;
     if (this.main && !this.done) {
       try {
-        const r = this.main.next();
+        let r: IteratorResult<number | void, void>;
+        if (this.tickPending) {
+          this.tickPending = false;
+          this.lineRange(0, 1);
+          from = 1;
+        }
+        r = this.main.next();
+        if (!r.done && r.value === TICK && from === 0) {
+          // the tick of this very frame: line 0, then on
+          this.lineRange(0, 1);
+          from = 1;
+          r = this.main.next();
+        }
         if (r.done) this.done = true;
         else {
           waited = true;
           kind = r.value;
+          if (kind === TICK) this.tickPending = true;
           this.onWait?.(kind);
         }
       } catch (e) {
@@ -85,22 +105,29 @@ export class Game {
       this.busyFrames--;
       const irq = this.onBusyFrame?.(k) !== false, ime = this.ime;
       if (!irq) this.ime = false;
-      this.lines(false);
+      // a frame whose line 0 is drawn already (TICK) is the first busy frame
+      this.lines(false, undefined, from);
+      from = 0;
       this.ime = ime;
       this.frame++;
     }
-    this.lines(waited, kind);
+    this.lines(waited, kind, from);
     this.frame++;
   }
 
-  private lines(waited: boolean, kind?: number | void): void {
+  private lineRange(a: number, b: number): void {
     const io = this.m.io;
-    for (let ly = 0; ly < 144; ly++) {
+    for (let ly = a; ly < b; ly++) {
       io[0x44] = ly;
       this.lineHook?.(ly);
       this.statCheck(ly);
       this.onLine?.(ly);
     }
+  }
+
+  private lines(waited: boolean, kind?: number | void, from = 0): void {
+    const io = this.m.io;
+    this.lineRange(from, 144);
     io[0x44] = 0x90;
     if (this.ime && this.m.hram[0x7f]! & 0x01) this.vblank();
     if (waited) this.onYield?.(kind);

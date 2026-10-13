@@ -135,11 +135,20 @@ SWEEP = {
 for _n, (_area, _ms, _k) in SWEEP.items():
     PLANNED[_n] = ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * _k + [("wait", 120)])
 
+# flee: Run at the fight/run prompt until it succeeds (00:4xxx escape roll), then the map back
+PLANNED["flee1"] = ("town0", FIELD, [("wait", 240)] + [P("down"), P("a", 90)] * 8 + [("wait", 200)])
+
+# defeat: a party at 1 HP against area 16 (in area 2 the bosses never hit); game over, a button, the restart
+# (06:6298 jp 00:0101 -> 00:0224) and the title
+PLANNED["defeat1"] = ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * 70 + [("wait", 300)])
+
 # Fixture pokes applied at the hook (address, value[, mask]), by the planner and the recorder alike.
 POKES = {
     **{_n: battle_pokes(_area, _ms) for _n, (_area, _ms, _k) in SWEEP.items()},
     "care1": [(0xCC0F, 0x84), (0xCC10, 0x05), (0xCC06, 0x0A), (0xCC07, 0x00)],
     "battle1": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
+    "flee1": battle_pokes(16, [dict(items=[0x37])] * 4),
+    "defeat1": battle_pokes(16, [dict(items=[0x00], hp=1, stats=(1, 1, 1, 1))] * 4),
     "battle2": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
 }
 

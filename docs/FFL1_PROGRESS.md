@@ -60,7 +60,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | Phase | Status | Evidence |
 |---|---|---|
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
-| P1 vertical slice | in progress | title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild: frame-exact (12 traces, 9,966 waits, 0 differences; battle and sound driver to come) |
+| P1 vertical slice | in progress | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 16 traces, 0 differences); sound driver and the web player to come |
 | P2 full field | not started | |
 | P3 full battle | in progress | battle sweep 24 traces (bsw01-bsw24), 63,885 waits, 0 differences; 44 of 49 effect handlers and every reachable screen effect / boss death reached (see the log); flee, defeat, random encounters, the sound driver to come |
 | P4 platforms | not started | |
@@ -228,3 +228,27 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   the toggle inverted: 64 frames, with 2 phases instead of 4: 27 frames + 81 waits.
 - Suites: port 4,342 passed, 17 skipped (tsc clean; no game content in the web build); pytest 111
   passed (26 emulator tests deselected); FFL2 guard clean.
+
+### 2026-10-12 — Escape, defeat and the start code
+- flee1 (area 16, Run until it works: one failed try, the monsters' turn, then the escape and the
+  map back): 1,350 waits, 0 differences. defeat1 (a party at 1 HP; in area 2 the bosses never
+  hit, area 16 used): the party is lost, game over, a button, 06:6298 `jp 00:0101` -> 00:0224, the
+  title and the prologue: 3,336 waits, 0 differences, 1 start seeded.
+- Ported 00:0224: LCDC = 80 (BG off), IO reset, C000-CEFF / D000-DFFF / FF80-FFFE cleared, the
+  warm-start signature C425/C426 = 1B E4 with C427 = 1 on a cold start (0 after the defeat, as
+  traced), the DMA routine (00:00F0) and RAM vectors (00:00DD -> C380), C300-C37F from DIV, the
+  random table CB00 (x = 1; x = 11x mod 400, mirrored to 400 - x when x >= 200 and its low byte is
+  not 0; CB00 + c = x / 2), the sound reset (07:4000), C800 from 05:4E40, interrupts, the font
+  (03:7100, each byte twice, 9000-97FF) and the shared tiles (02:7A00, 02:7F00), then 03:7D50.
+  The engine's top level (`Engine.run`) restarts from 00:0224 on a defeat.
+- DIV seeding: the 128 random counters are read from the hardware divider, i.e. CPU time since
+  power-on, which the port does not model; the replay takes them from the trace's next frame wait
+  (before any draw; counted as `seeds`), the player from Math.random.
+- The game-over loop 06:6293 polls FF8D with no frame wait, so it leaves right after the line-0
+  tick that sees the button, in that frame (the original's frame is white from line 0): the
+  generator yields TICK and the frame clock resumes it after line 0. Before this, defeat1 differed
+  in exactly that frame (3,123 pixels).
+- Falsification: the CB00 multiplier 11 -> 13: 446 wait differences from the first wait after the
+  start; C427 inverted: 446; LCDC 81 instead of 80: 12 frames + 30 waits. (The last 16 bytes of the
+  font copy are not checked by this trace: VRAM keeps the same data from power-on.)
+- Suites: port 4,342 passed, 17 skipped; slice 16/16; sweep 24/24 unchanged.

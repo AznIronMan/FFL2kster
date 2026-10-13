@@ -43,7 +43,10 @@ export interface ReplayOptions {
 
 export interface ReplayResult {
   trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number;
-  lateWrites: number; rephased: number; tears: number; rasterEdges: number; lcdBlanks: number; error?: { message: string; wait: number };
+  lateWrites: number; rephased: number; tears: number; rasterEdges: number; lcdBlanks: number;
+  /** Starts (00:0224) whose DIV-seeded random counters C300-C37F were taken from the trace. */
+  seeds: number;
+  error?: { message: string; wait: number };
 }
 
 /** A frame drawn while VRAM was being written: every pixel is the port's (new) or an old
@@ -114,8 +117,8 @@ export function lateWrite(got: Uint8Array, exp: Uint8Array, prev: Uint8Array): b
 /** The port's entry point for a trace hook. */
 export function startFor(rig: Rig, hook: string): Co {
   switch (hook) {
-    case "03:7D50": return rig.engine.fromTitle();
-    case "00:1243": return rig.engine.field.loop();
+    case "03:7D50": return rig.engine.run(rig.engine.fromTitle());
+    case "00:1243": return rig.engine.run(rig.engine.field.loop());
     default: throw new Error(`no port entry point for hook ${hook}`);
   }
 }
@@ -126,6 +129,15 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   const m = rig.g.m;
   m.loadFull(t.start);
   opts.setup?.(rig);
+  // 00:028C seeds the random counters C300-C37F from DIV (CPU time since power-on, not modelled):
+  // taken from the trace's next frame wait, which follows before any random draw (counted)
+  let seeds = 0;
+  rig.g.hooks.divSeed = (g) => {
+    const i = nWaits;
+    if ((i + 1) * 0x8000 > t.waits.length) return;
+    for (let k = 0; k < 0x80; k++) g.m.wr(0xc300 + k, t.waits[i * 0x8000 + 0x4300 + k]!);
+    seeds++;
+  };
   rig.g.start(opts.start ? opts.start(rig) : startFor(rig, t.meta.hook));
   let lateWrites = 0;
   let error: { message: string; wait: number } | undefined;
@@ -242,7 +254,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     }
     diffs.push({ frame: f, pixels, got: rig.ppu.frame.slice() });
   }
-  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, error };
+  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, seeds, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {

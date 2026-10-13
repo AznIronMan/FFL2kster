@@ -2,7 +2,7 @@
  *  intro (monster tiles, the sliding window), the fight / run and command menus, the status and
  *  message windows, the attack animations and the hit shake. The battle logic (06:4000-5E24)
  *  is battle/core.ts. */
-import type { Game, Co } from "../game.js";
+import { TICK, type Game, type Co } from "../game.js";
 import type { Memory } from "../memory.js";
 import type { TextEngine } from "../text.js";
 import { frame, farcallRam, classTiles, newMember } from "../title.js";
@@ -88,8 +88,10 @@ export class BattleUi {
   /** 06:5E1B -> 06:6290 — game over: wait for a button, then the restart (00:0101). */
   *gameOver(): Co {
     yield* waitRelease(this.g);
-    while (!this.m.hram[0x0d]) yield;
-    throw new GameOver();
+    // 06:6293 polls FF8D without a frame wait: it leaves right after the frame tick that sees
+    // a button (line 0), in that frame
+    while (!this.m.hram[0x0d]) yield TICK;
+    throw new GameOver(this.b.r.h);
   }
   /** 06:5E15 -> 06:5F31 — a meat: eat it? (00:0D9C) */
   *meat(id: number): Co {
@@ -1537,5 +1539,6 @@ export class BattleUi {
 
 /** 06:6290 — the restart after a defeat (jp 00:0101). */
 export class GameOver extends Error {
-  constructor() { super("game over"); }
+  /** h at the jump: 00:0224 zeroes (h << 8) + 24..26 (meant for NR50-52 at FF24). */
+  constructor(readonly h: number) { super("game over"); }
 }

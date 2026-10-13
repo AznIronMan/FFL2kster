@@ -462,3 +462,14 @@ Decisions and assumptions for the Legend I work:
   busy frame before it.
 - Every rule is counted per trace and in the sweep totals; each was checked by a mutation that the
   rule must not absorb (wrong WX mapping, no window latch, a wrong fill value).
+
+## 2026-10-12 — Legend I: frame-tick polling and the DIV seed
+
+- A busy loop that polls state set by the frame tick (06:6293: FF8D) yields `TICK`: the frame
+  clock draws line 0 (where the STAT handler runs the tick), resumes the code, then draws lines
+  1-143 with what it set. Any frame wait the code then reaches ends that same frame; busy frames
+  the replay inserts are counted from it.
+- 00:0224 seeds C300-C37F from DIV (FF04). DIV depends on cycle-exact CPU time since power-on, so
+  the replay copies these 128 bytes from the trace's next frame-wait snapshot (no random draw comes
+  before it) and counts it (`seeds`); the player uses Math.random, which is as unpredictable to the
+  player as the hardware value.

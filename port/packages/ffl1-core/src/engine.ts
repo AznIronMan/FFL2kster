@@ -12,7 +12,8 @@ import { FieldItems, equip } from "./field/items.js";
 import { Facilities } from "./field/facilities.js";
 import { Battle } from "./battle/core.js";
 import { BattleUi } from "./battle/ui.js";
-import { vramBegin, vramEnd } from "./sys.js";
+import { vramBegin, vramEnd, fill, fill16, copy, copyBank, copyBank16, mul16, div16, statNormal } from "./sys.js";
+import { GameOver } from "./battle/ui.js";
 
 export class NotPorted extends Error {
   constructor(what: string) {
@@ -95,6 +96,96 @@ export class Engine {
 
   setOptions(o: Partial<GameOptions>): void {
     Object.assign(this.g.options, o);
+  }
+
+  /** The top level: `start`, then after a defeat (06:6298 jp 00:0101) the start again. */
+  *run(start: Co): Co {
+    let co = start;
+    for (;;) {
+      try {
+        yield* co;
+        return;
+      } catch (e) {
+        if (!(e instanceof GameOver)) throw e;
+        co = this.boot(e.h);
+      }
+    }
+  }
+
+  /** 00:0224 — the start (power-on through 00:0101, and the restart after a defeat): IO reset,
+   *  C000-CEFF / D000-DFFF / FF80-FFFE cleared (C427 = 1 on a cold start: no 1B E4 signature at
+   *  C425), the DMA routine and the RAM vectors, the 128 random counters C300 from DIV, the random
+   *  table CB00 (00:02A0), the sound driver reset (07:4000), C800 from 05:4E40, interrupts on,
+   *  the font (03:7100, each byte doubled) and the shared tiles (02:7A00, 02:7F00) to VRAM; then
+   *  the title (03:7D50). h: the h register at the jump (power-on: 01 from the boot ROM). */
+  *boot(h = 0x01): Co {
+    const g = this.g, m = g.m;
+    g.ime = false;
+    m.wr(0xff40, 0x80);
+    m.wr(0xff0f, 0);
+    m.hram[0x7f] = 0;
+    m.wr(0xff41, 0);
+    for (let i = 0; i < 3; i++) m.wr(((h & 0xff) << 8) | (0x24 + i), 0); // ld l,$24 with h as left
+    for (const r of [0xff47, 0xff48, 0xff49, 0xff43, 0xff42]) m.wr(r, 0);
+    const cold = !(m.rd(0xc425) === 0x1b && m.rd(0xc426) === 0xe4);
+    fill16(m, 0xc000, 0x0f00, 0);
+    fill16(m, 0xd000, 0x1000, 0);
+    fill(m, 0xff80, 0x7f, 0);
+    m.wr(0xc425, 0x1b);
+    m.wr(0xc426, 0xe4);
+    m.wr(0xc427, cold ? 1 : 0);
+    copy(m, 0x00f0, 0xff80, 8);
+    copy(m, 0x00dd, 0xc380, 0x13);
+    if (g.hooks.divSeed) g.hooks.divSeed(g);
+    else for (let i = 0; i < 0x80; i++) m.wr(0xc300 + i, Math.floor(Math.random() * 256));
+    // 00:02A0: x = 1; 256 times x = (x * 11) mod 400, mirrored (400 - x) when x >= 200 unless
+    // its low byte is 0; CB00 + c = x / 2
+    m.hram[0x08] = 1;
+    m.hram[0x09] = 0;
+    for (let c = 0; c < 256; c++) {
+      const x = m.hram[0x08]! | (m.hram[0x09]! << 8);
+      const [, lo] = mul16(x, 0x0b);
+      let [, de] = div16(m, lo, 0x400);
+      if ((de >> 8) >= 2 && (de & 0xff)) de = (0x400 - de) & 0xffff;
+      m.hram[0x08] = de & 0xff;
+      m.hram[0x09] = de >> 8;
+      m.wr(0xcb00 + c, (de >> 1) & 0xff);
+    }
+    // 07:4000: the sound driver reset
+    g.selectBank(0x07);
+    m.wr(0xff26, 0x8f);
+    for (const r of [0xff10, 0xff12, 0xff17, 0xff1c, 0xff21, 0xff25]) m.wr(r, 0);
+    m.hram[0x60] = 0;
+    m.hram[0x61] = 0;
+    m.wr(0xce00, 0xff);
+    m.wr(0xce20, 0xff);
+    m.wr(0xce40, 0xff);
+    m.hram[0x6a] = 0xff;
+    copyBank(g, 0x05, 0x4e40, 0xc800, 0);
+    g.ime = false;
+    m.wr(0xff45, 0);
+    m.wr(0xff0f, 0);
+    m.hram[0x7f] = 0x03;
+    m.wr(0xff41, 0x40);
+    m.wr(0xc39a, 0xc3);
+    m.wr(0xc39b, 0xd3);
+    m.wr(0xc39c, 0x06);
+    statNormal(g); // 00:044F
+    g.selectBank(0x03);
+    yield* vramBegin(g);
+    let de = 0x7100, hl = 0x9000;
+    for (let bc = 0x3b8; bc; bc--) {
+      const a = m.rd(de++);
+      m.wr(hl++, a);
+      m.wr(hl++, a);
+    }
+    copy(m, de, hl, 0x90);
+    copyBank16(g, 0x02, 0x7a00, 0x8800, 0x400);
+    copyBank(g, 0x02, 0x7f00, 0x8f00, 0);
+    yield* vramEnd(g);
+    copyBank(g, 0x05, 0x4e40, 0xc800, 0);
+    g.selectBank(0x03);
+    yield* this.fromTitle();
   }
 
   /** From the title screen (03:7D50, reached by the boot code with bank 03 selected). */

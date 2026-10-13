@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.13.0`
+Version: `1.14.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
@@ -99,6 +99,10 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.14.0` — Legend I port P1/P3: the start code 00:0224 (RAM and IO reset, random table CB00,
+  font and shared tiles) ported; a defeat now restarts the game (game over, a button, the title)
+  and escaping works, both frame-exact (flee1, defeat1; slice 16/16); busy loops that poll the
+  frame tick resume after line 0 of that frame (TICK).
 - `1.13.0` — Legend I port P3: battle sweep rounds 2-3 (24 PyBoy traces): 63,885 waits, 0
   differences; 07:75C6 (the CREATOR's death: window copy, per-line SCX/WX/BGP fall) ported and the
   boss-fall path no longer stops after 07:7510; EXPLODE and the stripes and wave effects reached;
