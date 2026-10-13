@@ -181,6 +181,20 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--table", choices=["spell", "weapon", "armor", "item", "skill"])
     s.set_defaults(fn=cmd_items)
 
+    def cmd_encounters(a):
+        from .schema import encounters as E
+        rom = romlib.load_rom(a.rom)
+        print("thresholds", rom[E.THRESHOLDS:E.THRESHOLDS + 6].hex(" "), " rates", rom[E.RATES:E.RATES + 8].hex(" "))
+        for r in E.ZONE.extract(rom):
+            print(f"zone {r['id']:2d} " + " ".join(f"{v:02X}" for v in r["fields"].values()))
+        for r in E.FORMATION.extract(rom):
+            v = r["fields"]
+            print(f"formation {r['id']:02X} {r['name']:32s} flags {v['flags']:02X} counts {v['counts']:02X}")
+        return 0
+    s = sub.add_parser("encounters", help="list encounter zones and formations")
+    s.add_argument("--rom", default=ROM)
+    s.set_defaults(fn=cmd_encounters)
+
     def cmd_text_export(a):
         from pathlib import Path
         from . import script_text as T

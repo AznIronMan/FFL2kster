@@ -216,3 +216,30 @@ wait n frames, 14 clear the box, 1C reset the name position, 1F n a name (00-03 
 FF the actor, 10+ other characters), 1E n an item or skill name, 30 n a number, 2A n an item
 name, 3E jump/scene, 39 f a b / 3A … branches on story flags (00:3CB2), 3C a yes/no choice,
 32/3B/3D n object movement in scenes.
+
+## 2026-10-13 — Encounters and EXP (M4)
+
+Code. Each finished step (01:4609, step counter C6EF) encounters when rand (00:39D5) < CA2B; CA2B
+comes from the map record (00:02EA: bits 5-7 → 00:119A = 0, 3, 4, 5, 6, 7, 8, 9) and CA2D, the
+zone, from the next byte (maps are M5). The battle (00:10C2) picks the zone (+1/+2 by the vehicle
+state C6E3, 00:1186), rolls again and counts the thresholds at 03:76BC (E5 BF 8C 4C 26 0C) that
+exceed it: slot 0 for r ≥ E5 … slot 6 for r < 0C. The zone table 03:76C2 has 7 slots × 76 zones
+(code follows at 03:78D6). The slot's low 7 bits index the formations at 0B:758B (5 bytes: three
+monster ids, CC5C, CC5D; 00:1126); scripted battles use the same table (0B:4094, the prologue is
+formation 01). Slot bit 7 takes the counts from CC5D.
+
+Emulator (`python tools/ffl3/encounter_change.py`, 14/14; talon.state, a new state inside the
+Talon, with CA2B = FF and CA2D poked since the Talon's own rate is 0): the baseline step picks
+formation 00 (Hooligan + F-Drake). Thresholds all 00 → slot 0 (formation 02); thresholds all FF and
+slot 6 → 05; zone 0 all slots → 05 (Turtle + Orc-Orc); formation 00's three ids and byte 3 reach
+CC59-CC5C; rate 00 gives no battle in 8 steps; zone 1 uses its own slots; zone 1 and formations
+01/7E as all-0x77 controls change nothing. Fixed counts (slot bit 7): byte 4 = 00/20/14/04 gives
+counts 2-2 / 6-2 / 4-4 / 2-4 for the two-group formation 05 and 15 gives 2-2-2 for the three-group
+formation 03, i.e. the 2-bit fields +1, doubled with two groups (why: not read yet). Byte 4 = 34
+or 24 (too many enemies) overwrites the group ids.
+
+EXP, corrected. "The floor of the mean" (M2b) fitted only because the prologue has 2 + 2 enemies.
+A Talon battle (1 Hooligan, 2 F-Drakes, both byte 1 = 15) gives 11 EXP; Hooligan 48 → 19, F-Drakes
+48 → 27, both 48 → 36: EXP = floor(sum of byte 1 over all enemies / 4). All 14 cases of
+`tools/ffl3/exp_change.py` fit; the divisor equals the party size in both battles (not separated).
+No GP was awarded in either battle (byte 2 and 3 changes have no effect on EXP; GP source open).

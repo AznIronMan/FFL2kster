@@ -78,7 +78,7 @@ def _exp(ffl3_rom, states, patches=()):
         os.remove(path)
 
 
-def test_exp_is_the_mean_of_byte_1(ffl3_rom, states):
+def test_exp_is_the_sum_of_byte_1_over_4(ffl3_rom, states):
     o = M.MONSTER_CLASS.record_offset(0x46) + 1
-    assert _exp(ffl3_rom, states) == (15 + 14) // 2
-    assert _exp(ffl3_rom, states, [(o, 0x30)]) == (0x30 + 14) // 2
+    assert _exp(ffl3_rom, states) == (2 * 15 + 2 * 14) // 4
+    assert _exp(ffl3_rom, states, [(o, 0x30)]) == (2 * 0x30 + 2 * 14) // 4

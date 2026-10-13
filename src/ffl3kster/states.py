@@ -7,6 +7,7 @@ Output (ffl3/build/states/ by default):
   battle.state       the prologue battle (Diviner x2, Sprite x2), Fight/Run/Auto menu
   field.state        after the battle and the intro scenes: the Talon hangar, free to move
   menu.state         the field menu open there (Item, Magic, Talent, Status, Equip, Auto, Save)
+  talon.state        inside the Talon, after the walk TALON_WALK from field.state (free to step)
   states.json        frames and the enemy groups seen
 """
 
@@ -19,6 +20,7 @@ from .emu import LOADER, Emulator
 
 NAMES = ["Hero ", "Boy ", "Girl ", "Heroine "]
 INTRO_PRESSES = 1000
+TALON_WALK = ["down"] * 9 + ["left"] * 3 + ["right"] * 6
 
 
 def _has(emu, s):
@@ -67,11 +69,17 @@ def make_states(rom_path, outdir="ffl3/build/states", log=print) -> dict:
             raise RuntimeError("still in a text scene after the intro presses")
         emu.save_state(out / "field.state")
         manifest["field"] = pb.frame_count
+        field = emu.state_bytes()
         emu.press("start", wait=40)
         if not emu.wait_for_text("Equip", 120, 5):
             raise RuntimeError("field menu not reached")
         emu.save_state(out / "menu.state")
         manifest["menu"] = pb.frame_count
+        emu.pb.load_state(__import__("io").BytesIO(field))
+        for b in TALON_WALK:
+            emu.press(b, hold=8, wait=12)
+        emu.save_state(out / "talon.state")
+        manifest["talon"] = pb.frame_count
         (out / "states.json").write_text(json.dumps(manifest, indent=2) + "\n")
         log(f"states in {out}: {manifest}")
         return manifest

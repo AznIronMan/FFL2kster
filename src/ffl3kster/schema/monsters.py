@@ -78,10 +78,11 @@ MONSTER_CLASS = Table("monster_class", 0x0B, 0x470D, 4, COUNT, lambda r, i: name
     FieldDef("class_bits", 0, 1, "bits:6-7", "entity +0F and +68; meaning not known", "verified",
              f"Code 0B:464B. {CC}: Sprite C1->41 sets +0F/+68 = 1 only.", True, 0, 3),
 ] + [
-    FieldDef("exp", 1, 1, "u8", "EXP value; a battle gives the floor of the mean over its enemies (entity +65)",
-             "verified", f"Code 0B:4665. {CC}: Sprite 0E -> 11 changes only +65. tools/ffl3/exp_change.py: "
-             "Diviner 15 / Sprite 14 give 14 EXP; 48/14 -> 31, 15/48 -> 31, 5/14 -> 9, 15/5 -> 10, 48/48 -> 48 "
-             "(mean per enemy and per group agree in this battle).", True),
+    FieldDef("exp", 1, 1, "u8", "EXP value; a battle gives floor(sum over its enemies / 4) (entity +65)",
+             "verified", f"Code 0B:4665. {CC}: Sprite 0E -> 11 changes only +65. tools/ffl3/exp_change.py (14/14): "
+             "prologue 2x15 + 2x14 -> 14 and five variations; a Talon battle with 1 Hooligan and 2 F-Drakes "
+             "(15 each) -> 11, Hooligan 48 -> 19, F-Drakes 48 -> 27, both -> 36 (unequal counts: a sum, not a "
+             "mean; the divisor 4 equals the party size in both).", True),
 ] + [
     FieldDef(f"c{i + 1}", 1 + i, 1, "u8", f"entity +{0x65 + i:02X}; meaning not known (no effect on EXP)", "verified",
              f"Code 0B:4665. {CC}: Sprite 0E 0E C0 -> 11 22 33 changes only +65..+67.", True) for i in (1, 2)

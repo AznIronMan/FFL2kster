@@ -27,6 +27,17 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:245F | A × 8 → hl | probable |
 | 00:1C7E | 16-bit multiply de × hl → de | verified (record index) |
 
+## Encounters
+
+| Location | What | Status |
+|---|---|---|
+| 01:4609-4636 | step end: rand < CA2B sets CA2C (battle) | verified (rate 00/FF) |
+| 00:02EA | map byte bits 5-7 → rate class 00:119A (0, 3..9); next byte → zone CA2D | probable (code) |
+| 00:10F5 / 00:1186 | zone (+vehicle state) and slot by the thresholds 03:76BC | verified |
+| 03:76C2 | zones, 7 slots × 76 (bit 7: fixed counts) | verified |
+| 0B:758B | formations, 5 bytes × 127: three ids, CC5C, CC5D | verified |
+| 00:1126 | copies a formation to CC59-CC5D | verified |
+
 ## Text
 
 | Location | What | Status |
@@ -55,6 +66,17 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0B:45CB | ability list and class record into the staging entity | verified |
 | 0B:468B | copy the staging entity (0x80 bytes) once per enemy into D280, D300, ... | verified |
 | 0B:728B / 7422 | recompute +36.., +39.., and (kind ≠ 4) +3D..+3F from the item list at +41 | verified (kind test) |
+
+## Encounters
+
+| Location | What | Status |
+|---|---|---|
+| 01:4609-4636 | step end: rand < CA2B sets CA2C (battle) | verified (rate 00/FF) |
+| 00:02EA | map byte bits 5-7 → rate class 00:119A (0, 3..9); next byte → zone CA2D | probable (code) |
+| 00:10F5 / 00:1186 | zone (+vehicle state) and slot by the thresholds 03:76BC | verified |
+| 03:76C2 | zones, 7 slots × 76 (bit 7: fixed counts) | verified |
+| 0B:758B | formations, 5 bytes × 127: three ids, CC5C, CC5D | verified |
+| 00:1126 | copies a formation to CC59-CC5D | verified |
 
 ## Text
 
@@ -96,4 +118,6 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | C703 | inventory: (id, count) pairs | probable (Radar at C703, poke used by the tests) |
 | D000 + 0x80·k | party battle entities (copies of the party records) | verified (HP traces) |
 | CE25 / CE26 / CEDB | loader mode / id / record copy | verified |
+| CA2B / CA2C / CA2D / FFCA | encounter rate / battle request / zone / formation (+bit 7) | verified |
+| CC59-CC5D / CC36-CC38 | battle groups (ids, flags, counts byte) / counts | verified |
 | C996 / C9D4 / C9ED | battle values that follow the level of the loaded enemy (1/4/1 at level 1, 3/12/3 at level 5) | verified (meaning unknown) |
