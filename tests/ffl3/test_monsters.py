@@ -37,10 +37,10 @@ def test_table_edges(ffl3_rom):
 def test_known_records(ffl3_rom):
     div, spr = T.extract(ffl3_rom)[0x46], T.extract(ffl3_rom)[0x4B]
     assert (div["name"], spr["name"]) == ("Diviner", "Sprite")
-    assert div["fields"] == {"kind": 3, "b0_high": 0, "hp": 45, "profile_a": 11, "value2": 54, "profile_b": 15,
-                             "stat1": 8, "stat2": 4, "stat3": 3, "stat4": 8, "bonus1": 2, "bonus2": 6, "bonus3": 6}
-    assert spr["fields"]["value2"] == 49 and [spr["fields"][f"stat{i}"] for i in range(1, 5)] == [3, 3, 7, 9]
-    assert C.extract(ffl3_rom)[0x4B]["fields"] == {"level": 1, "class_bits": 3, "c1": 14, "c2": 14, "c3": 0xC0}
+    assert div["fields"] == {"kind": 3, "b0_high": 0, "hp": 45, "profile_a": 11, "mp": 54, "profile_b": 15,
+                             "attack": 8, "defence": 4, "agility": 3, "magic": 8, "bonus1": 2, "bonus2": 6, "bonus3": 6}
+    assert spr["fields"]["mp"] == 49 and [spr["fields"][k] for k in ("attack", "defence", "agility", "magic")] == [3, 3, 7, 9]
+    assert C.extract(ffl3_rom)[0x4B]["fields"] == {"level": 1, "class_bits": 3, "exp": 14, "c2": 14, "c3": 0xC0}
     ab = A.extract(ffl3_rom)[0x46]["fields"]
     assert ab["mask"] == 0xC0 and (ab["slot1"], ab["slot2"], ab["slot3"]) == (0x13, 0x7E, 0xFF)
 

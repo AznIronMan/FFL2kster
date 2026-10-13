@@ -43,6 +43,9 @@ def test_known_records(ffl3_rom):
     # every weapon spell byte is FF or a spell id; every armor link is FF or a spell id
     assert all(W.read_field(ffl3_rom, i, "spell") in list(range(0x30)) + [0xFF] for i in W.ids)
     assert all(I.ARMOR.read_field(ffl3_rom, i, "linked") in list(range(0x30)) + [0xFF] for i in I.ARMOR.ids)
+    # armor nibbles: Leather 22 22, Bronze body armor 32 33
+    assert [I.ARMOR.read_field(ffl3_rom, 0x91, f) for f in ("defence", "m_def", "evade", "m_evade", "weight")] == [3, 2, 3, 3, 3]
+    assert {I.item_icon(ffl3_rom, i) for i in range(0x90, 0xA0)} == {0xA3}   # body armor slot icon
     # power tiers
     p = lambda i: I.SPELL.read_field(ffl3_rom, i, "power")
     assert p(0x00) < p(0x04) < p(0x08) and p(0x12) < p(0x18) < p(0x28)
@@ -54,4 +57,4 @@ def test_edits_compile(ffl3_rom):
     with pytest.raises(ValueError):
         I.WEAPON.record_offset(0x2F)
     with pytest.raises(ValueError):
-        compile_edits(ffl3_rom, [Edit("armor", 0x90, "b1", 1)])   # not editable yet
+        compile_edits(ffl3_rom, [Edit("spell", 0x00, "b2", 1)])   # not editable

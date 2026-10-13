@@ -65,8 +65,9 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 09:57BC | monster skills, ids 00-6D, 6 bytes (byte 1 power) | verified (loads, damage) |
 | 09:5A50 | spells, ids 00-2F, 6 bytes | probable (code, contiguity) |
 | 09:5B70 | items, ids C0-DB, 5 bytes | probable |
-| 09:5BFC | armor and accessories, ids 78-BF, 5 bytes; byte 3 a linked id | probable |
-| 0B:7422 | sums armor nibbles into +3D..+3F from the item list at +41 | probable (code) |
+| 09:5BFC | armor and accessories, ids 78-BF, 5 bytes: resist element/status, Defence/M.Def., Evade/M.Evade, linked id, weight | verified (Equip menu) |
+| 0B:7422 | sums armor nibbles into +3D..+3F from the item list at +41 | verified (Equip menu) |
+| 0B:7104 | element group → resistance bit (4 → 0x10) | verified (one value) |
 | 00:2448 / 2453 / 243D | A × 6 / × 7 / × 5 → hl | verified (code) |
 
 ## RAM
@@ -79,7 +80,8 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | CC73 / CC74 | loader copies of record bytes 2 / 4 | verified |
 | D280 + 0x80·k | enemy entity k: +05 name, +0D kind, +0E id, +10/+12 HP cur/max, +14/+16 value 2, +18 stats, +48 abilities | verified |
 | D680 | staging entity | verified |
-| C500 + 0x60·k | party records (Arthur, Curtis, Gloria, Myron, Sharon in the prologue): +07 name, +10/+12 HP, +14/+16 value 2, +18 stats, +40 equipment ids | probable |
+| C500 + 0x60·k | party records (Arthur, Curtis, Gloria, Myron, Sharon): +07 name, +10/+12 HP, +14/+16 MP, +18..+1B Attack/Defence/Agility/Magic, +21 base Defence, +28 u16 10 × weight, +2D weight, +36..+3A resistance bits, +3C Defence bonus, +3D Evade, +3E M.Def., +3F M.Evade, +40..+47 equipment (weapon, shield, helm, armor, gloves, shoes, others ×2) | verified (status/equip screens) |
+| C703 | inventory: (id, count) pairs | probable (Radar at C703, poke used by the tests) |
 | D000 + 0x80·k | party battle entities (copies of the party records) | verified (HP traces) |
 | CE25 / CE26 / CEDB | loader mode / id / record copy | verified |
 | C996 / C9D4 / C9ED | battle values that follow the level of the loaded enemy (1/4/1 at level 1, 3/12/3 at level 5) | verified (meaning unknown) |

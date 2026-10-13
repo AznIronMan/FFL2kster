@@ -158,8 +158,8 @@ def main(argv: list[str] | None = None) -> int:
             v, k = r["fields"], c["fields"]
             boss = "x16" if r["id"] >= M.BOSS_FROM else "   "
             print(f"{r['id']:02X} {r['bank']:02X}:{r['address']:04X} {r['name']:8s} Lv{k['level']:2d} kind {v['kind']} "
-                  f"HP {v['hp']:4d}{boss} V2 {v['value2']:4d} stats {v['stat1']:3d} {v['stat2']:3d} {v['stat3']:3d} "
-                  f"{v['stat4']:3d} abil {ab['raw']}")
+                  f"HP {v['hp']:4d}{boss} MP {v['mp']:4d} Atk {v['attack']:3d} Def {v['defence']:3d} Agl {v['agility']:3d} "
+                  f"Mag {v['magic']:3d} EXP {k['exp']:3d} abil {ab['raw']}")
         return 0
     s = sub.add_parser("monsters", help="list the monster tables (0B:470D/4A19/533D, names 0E:7533)")
     s.add_argument("--rom", default=ROM)

@@ -13,7 +13,8 @@ With CE25 = 1 the same loader reads monster skills instead (0B:73A2 / 73B1):
 The five tables are contiguous, 09:55C4-5D63, with code on both sides (55C3 `ret`, 5D64 `xor a`).
 Ids DC-FE have names but no record (robot parts, key items).
 
-Evidence: docs/ffl3/FINDINGS.md (2026-10-13, items); tools/ffl3/item_change.py (17/17).
+Evidence: docs/ffl3/FINDINGS.md (2026-10-13, items); tools/ffl3/item_change.py (17/17),
+tools/ffl3/equip_change.py (11/11).
 Byte 0 of spells, weapons, armor and items packs a status in the low nibble with the order of the
 status names at 0E:6D73 (Good, Fell, Ston, Mute, Dark, Pois, Curs, Para, Slep, Conf: Venom 05,
 Stone 02, Antedot 05, Soft 02 ...) and an element group in the high nibble (Fire1/Fire2/FireX
@@ -93,17 +94,29 @@ WEAPON = Table("weapon", 0x09, 0x55C4, 7, 0x48, item_name, [
              "hypothesis", f"Loaded to CEDB+6 ({TC}: Long and Battle(4B) b6 01->7F).", True),
 ], "weapons (ids 30-77)", id_base=0x30)
 
+EC = "tools/ffl3/equip_change.py"
 ARMOR = Table("armor", 0x09, 0x5BFC, 5, 0x48, item_name, [
-    _attr("Fire 40, Ice 30, Diamond 50; Fur 07, Mage 09"),
-    FieldDef("b1", 1, 1, "u8", "two nibbles; the low one is added to a character's +3E by 0B:7422", "probable",
-             "Code 0B:744E (party totals are kept in the party record; no emulator test yet)."),
-    FieldDef("b2", 2, 1, "u8", "two nibbles added to +3D (high) and +3F (low) by 0B:7422", "probable",
-             "Code 0B:7445/7455."),
+    FieldDef("resist_element", 0, 1, "nibble:hi", "element group resisted: sets a bit in the party record's +36 and "
+             "+39 (4 -> 0x10, via 0B:7104)", "verified", f"{EC}: Bronze b0 00->40 sets +36/+39 = 0x10 only.", True, 0, 15),
+    FieldDef("resist_status", 0, 1, "nibble:lo", "status resisted: sets a bit in +37 and +3A (5 = Pois -> 0x08)",
+             "verified", f"{EC}: Bronze b0 00->05 sets +37/+3A = 0x08 only.", True, 0, 15),
+    FieldDef("defence", 1, 1, "nibble:hi", "Defence bonus (+3C, added into +19)", "verified",
+             f"{EC}: Bronze b1 32->41 gives Defence 8->9 on the status screen (+19, +3C); Leather 22->32, "
+             "unequipped, subtracts 3 instead of 2.", True, 0, 15),
+    FieldDef("m_def", 1, 1, "nibble:lo", "M.Def. bonus (+3E)", "verified",
+             f"{EC}: Bronze b1 32->41 gives M.Def. 2->1.", True, 0, 15),
+    FieldDef("evade", 2, 1, "nibble:hi", "Evade bonus (+3D)", "verified",
+             f"{EC}: Bronze b2 33->23 gives Evade 3->2.", True, 0, 15),
+    FieldDef("m_evade", 2, 1, "nibble:lo", "M.Evade bonus (+3F)", "verified",
+             f"{EC}: Bronze b2 33->35 gives M.Evade 3->5.", True, 0, 15),
     FieldDef("linked", 3, 1, "u8", "id loaded after this record when not FF (SandMan 11 = Sleep, Cool 16 = "
-             "Ice 2, Warm 18 = Fire2)", "probable", "Code 09:5E1F-5E3A (CEDE -> CE26, reload)."),
-    FieldDef("grade", 4, 1, "u8", "not known; rises with quality (Leather 1, Bronze 3, Silver 4, Gold 5)",
-             "hypothesis", "Position only."),
-], "armor and accessories (ids 78-BF)", id_base=0x78)
+             "Ice 2, Warm 18 = Fire2); no effect on the equip totals", "probable",
+             f"Code 09:5E1F-5E3A (CEDE -> CE26, reload). {EC}: Bronze FF->12 changes nothing on equip.", True),
+    FieldDef("weight", 4, 1, "u8", "summed over the equipment into +2D, and x10 into the u16 at +28 (meaning not "
+             "known; 'weight' is a guess)", "verified",
+             f"{EC}: Bronze 03->07 gives +2D 3->7, +28 30->70; Leather 01->05 unequipped gives -1 / -10.", True),
+], "armor and accessories (ids 78-BF); the name icon is the slot: A1 shield, A2 helm, A3 armor, A4 gloves, "
+   "A5 shoes, A6 others (the Equip screen order)", id_base=0x78)
 
 ITEM = Table("item", 0x09, 0x5B70, 5, 0x1C, item_name, [
     _attr("Soft 02, Throat 03, EyeDrop 04, Antedot 05, Relax 07, Awake 08, Calm 09: the status cured"),

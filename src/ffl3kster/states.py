@@ -5,6 +5,8 @@ Output (ffl3/build/states/ by default):
   name_entry.state   the first name screen (Hero, default "Arthur") after the intro
   pre_battle.state   the last default name accepted (Start), before the prologue battle loads
   battle.state       the prologue battle (Diviner x2, Sprite x2), Fight/Run/Auto menu
+  field.state        after the battle and the intro scenes: the Talon hangar, free to move
+  menu.state         the field menu open there (Item, Magic, Talent, Status, Equip, Auto, Save)
   states.json        frames and the enemy groups seen
 """
 
@@ -16,6 +18,7 @@ from pathlib import Path
 from .emu import LOADER, Emulator
 
 NAMES = ["Hero ", "Boy ", "Girl ", "Heroine "]
+INTRO_PRESSES = 1000
 
 
 def _has(emu, s):
@@ -58,6 +61,17 @@ def make_states(rom_path, outdir="ffl3/build/states", log=print) -> dict:
         m = pb.memory
         manifest.update(battle=pb.frame_count, loads=list(loads),
                         group_ids=[m[0xCC59 + k] for k in range(3)], group_counts=[m[0xCC36 + k] for k in range(3)])
+        for _ in range(INTRO_PRESSES):         # the battle, then the scenes up to the hangar
+            emu.press("a", wait=30)
+        if any(r.strip(" \u00b7") for r in emu.screen_text()[:4]):
+            raise RuntimeError("still in a text scene after the intro presses")
+        emu.save_state(out / "field.state")
+        manifest["field"] = pb.frame_count
+        emu.press("start", wait=40)
+        if not emu.wait_for_text("Equip", 120, 5):
+            raise RuntimeError("field menu not reached")
+        emu.save_state(out / "menu.state")
+        manifest["menu"] = pb.frame_count
         (out / "states.json").write_text(json.dumps(manifest, indent=2) + "\n")
         log(f"states in {out}: {manifest}")
         return manifest

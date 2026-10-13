@@ -129,3 +129,43 @@ RAM seen on the way: party records at C500 + 0x60·k (Arthur, Curtis, Gloria, My
 at +07, HP +10/+12, value 2 +14/+16, stats +18, equipment ids from +40); the battle copies them
 to D000 + 0x80·k. The battle status shows value 2 under the HP (Arthur 5, Curtis 45): MP remains
 the likely reading.
+
+## 2026-10-13 — Equipment, status words, MP and EXP (M2b)
+
+States: `make-states` now also writes field.state (after the battle and 1,000 presses of A
+through the intro scenes: the Talon hangar, free to move) and menu.state (Start: Item, Magic,
+Talent, Status, Equip, Auto, Save).
+
+Status screen (Arthur, L1): "Attack 6 / Defence 7 / Agility 4 / Magic 5" = party record +18..+1B
+(06 07 04 05), and "H… 50/50 M… 5/5" = +10/+12 and +14/+16. The battle entities use the same
+layout, so the monster record's b5-b8 are Attack, Defence, Agility, Magic and its second 12-bit
+value is **MP**. The party list in the Magic menu shows the MP of all five (5, 45, 50, 5, 120).
+
+Equip (`python tools/ffl3/equip_change.py`, 11/11). The Equip screen has eight slots in the
+order of the record's +40..+47: weapon, shield, helm, armor, gloves, shoes, others, others; the
+armor name icons A1-A6 are the slots. With one Bronze body armor (91) poked into the inventory
+(C705/C706, after the Radar at C703; the list keeps a blank row between entries), picking it
+swaps out Leather (90): Defence 7 → 8 and +3C..+3F 02 02 02 02 → 03 03 02 03. Then:
+- Bronze b1 32 → 41: Defence 9 and M.Def. 1 on the status screen (+19, +3C, +3E); b2 33 → 23:
+  Evade 2 (+3D); b2 33 → 35: M.Evade 5 (+3F). So b1 = Defence | M.Def., b2 = Evade | M.Evade
+  (high | low nibble). The code read (0B:7422, "+3D += b2>>4, +3E += b1&0F, +3F += b2&0F") agrees.
+- b0 00 → 40 sets +36/+39 = 0x10; 00 → 05 sets +37/+3A = 0x08 (element and status resistances).
+- b4 03 → 07: +2D 3 → 7 and the u16 at +28 30 → 70 (sum and 10 × sum over the equipment).
+- b3 FF → 12: no change on equip.
+- The removed Leather's *current* record is subtracted: Leather b1 22 → 32 leaves Defence 7
+  (3 subtracted where 2 was added), b4 01 → 05 leaves +2D = −1 and +28/+29 = −10.
+- Controls: helm 8F and armor 92 (all 0x77) change nothing.
+- Falsified on the way: patching an armor record and opening the Status screen changes nothing;
+  the totals are stored in the party record and only recomputed by an equip change.
+
+EXP (`python tools/ffl3/exp_change.py`, 9/9): the prologue battle gives 14 EXP. The class
+record's byte 1 (Diviner 15, Sprite 14) decides it: 48/14 → 31, 15/48 → 31, 5/14 → 9, 15/5 → 10,
+48/48 → 48, i.e. the floor of the mean. With two enemies per group, a mean per enemy and per group
+agree; which one the game takes is open. **Falsified:** "EXP follows the level" (levels 1 → 9 for
+both: still 14); bytes 2 and 3 have no effect either. Arthur's status after the battle: L1, EXP
+14, NEXT 6.
+
+Not done: using an item or casting a spell in the field. The Item list (A picks an item up to move
+it; a trash can sits at the right) did not offer a use with A, Start or Select, and the Magic
+lists are empty in this state (poking a spell id into the party record at +48 shows nothing);
+these wait for a shop state (M5).

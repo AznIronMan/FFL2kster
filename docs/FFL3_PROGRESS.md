@@ -51,7 +51,7 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 
 | Milestone | Status | Evidence |
 |---|---|---|
-| M2 items/abilities, growth | M2a done (1.22.0); M2b armor/items in game, growth open | names (00:1E8F), five record tables in bank 09 (09:5D87), 17/17 controlled changes: loads, boundaries, controls, weapon and skill power changes damage |
+| M2 items/abilities, growth | M2a (1.22.0) and M2b (1.23.0) done; item use and spells in the field wait for shops (M5); level-up open | names (00:1E8F), five record tables in bank 09 (09:5D87), 17/17 controlled changes (loads, boundaries, controls, power → damage); armor via the Equip menu 11/11 (every nibble named from the status screen); stats = Attack/Defence/Agility/Magic, value 2 = MP; EXP = mean of class byte 1, 9/9 |
 | M3 text | open | punctuation tiles known; the apostrophe code is not mapped yet |
 | M4 encounters/drops | open | — |
 | M5 maps/events | open | — |
@@ -66,3 +66,4 @@ Not started.
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
 - 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).
+- 2026-10-13 (1.23.0): M2b — field and menu states; armor through the Equip menu; stat names, MP, EXP; tests/ffl3 30 passed (7 emulator).

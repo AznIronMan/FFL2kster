@@ -49,18 +49,21 @@ MONSTER = Table("monster", 0x0B, 0x4A19, 12, COUNT, lambda r, i: name(r, i), [
              "likewise; RAM poke id BB: 375 -> 6000 (x16), id BA: 4000 (x1).", True, 1, 0xFFF),
     FieldDef("profile_a", 2, 1, "nibble:hi", "index into 0B:469D (4 bytes -> entity +59..+5C); meaning not known",
              "verified", f"Code 0B:4588. {CC}: Sprite b2 C0->10 loads 469D+4.. into +59..+5C only.", True, 0, 15),
-    FieldDef("value2", 3, 2, "u12", "second 12-bit value (current +14/+15, max +16/+17; x16 for ids >= 0xBB); "
-             "MP is a guess: Chaos and Maitreya spend 20 of it before the first menu", "verified",
-             f"Code 0B:4563/45AB. {CC}: Sprite b3 31->55 and b4 F0->F2 change +14..+17 only.", True, 0, 0xFFF),
+    FieldDef("mp", 3, 2, "u12", "MP (current +14/+15, max +16/+17; x16 for ids >= 0xBB); Chaos and Maitreya spend "
+             "20 before the first menu", "verified",
+             f"Code 0B:4563/45AB. {CC}: Sprite b3 31->55 and b4 F0->F2 change +14..+17 only. The same entity "
+             "offsets hold the party's MP (status screen 'M… 5/5' for Arthur's +14/+16).", True, 0, 0xFFF),
     FieldDef("profile_b", 4, 1, "nibble:hi", "index into 0B:46DD (3 bytes -> entity +5D..+5F; 10-15 read zeros, "
              "15 is used by 139 records)", "verified",
              f"Code 0B:4597. {CC}: Sprite b4 F0->30 loads 46DD+9.. into +5D..+5F only.", True, 0, 15),
 ] + [
-    FieldDef(f"stat{i + 1}", 5 + i, 1, "u8",
-             "battle stat -> entity +%02X and +%02X%s (probably Str/Def/Agl/Mana in some order)"
-             % (0x18 + i, 0x70 + i, "; also +57 = (stat3 + level)/2 + 0x4B" if i == 2 else ""),
+    FieldDef(n, 5 + i, 1, "u8",
+             "%s -> entity +%02X and +%02X%s" % (n.capitalize(), 0x18 + i, 0x70 + i,
+                                                  "; also +57 = (agility + level)/2 + 0x4B" if i == 2 else ""),
              "verified", f"Code 0B:4573-457D (two 4-byte copies). {CC}: Sprite b{5 + i} changes only +{0x18 + i:02X} "
-             f"and +{0x70 + i:02X}" + (" and +57" if i == 2 else "") + ".", True) for i in range(4)
+             f"and +{0x70 + i:02X}" + (" and +57" if i == 2 else "") + ". The name: the party status screen shows "
+             "+18..+1B of the same entity layout as Attack, Defence, Agility, Magic (Arthur 6 7 4 5).", True)
+    for i, n in enumerate(("attack", "defence", "agility", "magic"))
 ] + [
     FieldDef(f"bonus{i + 1}", 9 + i, 1, "u8", f"entity +{0x3D + i:02X}, kept only for kind 4 (otherwise recomputed "
              "from the item list, which is empty for monsters, so 0)", "verified",
@@ -69,14 +72,19 @@ MONSTER = Table("monster", 0x0B, 0x4A19, 12, COUNT, lambda r, i: name(r, i), [
 ], "battle record")
 
 MONSTER_CLASS = Table("monster_class", 0x0B, 0x470D, 4, COUNT, lambda r, i: name(r, i), [
-    FieldDef("level", 0, 1, "bits:0-5", "level (entity +03; also +57 and the battle values C996/C9D4/C9ED); "
-             "'level' is a guess from the range 1-42", "verified",
+    FieldDef("level", 0, 1, "bits:0-5", "level (entity +03; also +57 and the battle values C996/C9D4/C9ED; not "
+             "the EXP); 'level' is a guess from the range 1-42", "verified",
              f"Code 0B:4643. {CC}: Sprite C1->C5 sets +03 = 5, +57, C996 1->3, C9D4 4->12, C9ED 1->3.", True, 0, 63),
     FieldDef("class_bits", 0, 1, "bits:6-7", "entity +0F and +68; meaning not known", "verified",
              f"Code 0B:464B. {CC}: Sprite C1->41 sets +0F/+68 = 1 only.", True, 0, 3),
 ] + [
-    FieldDef(f"c{i + 1}", 1 + i, 1, "u8", f"entity +{0x65 + i:02X}; meaning not known", "verified",
-             f"Code 0B:4665. {CC}: Sprite 0E 0E C0 -> 11 22 33 changes only +65..+67.", True) for i in range(3)
+    FieldDef("exp", 1, 1, "u8", "EXP value; a battle gives the floor of the mean over its enemies (entity +65)",
+             "verified", f"Code 0B:4665. {CC}: Sprite 0E -> 11 changes only +65. tools/ffl3/exp_change.py: "
+             "Diviner 15 / Sprite 14 give 14 EXP; 48/14 -> 31, 15/48 -> 31, 5/14 -> 9, 15/5 -> 10, 48/48 -> 48 "
+             "(mean per enemy and per group agree in this battle).", True),
+] + [
+    FieldDef(f"c{i + 1}", 1 + i, 1, "u8", f"entity +{0x65 + i:02X}; meaning not known (no effect on EXP)", "verified",
+             f"Code 0B:4665. {CC}: Sprite 0E 0E C0 -> 11 22 33 changes only +65..+67.", True) for i in (1, 2)
 ], "class record")
 
 MONSTER_ABILITY = Table("monster_ability", 0x0B, 0x533D, 9, COUNT, lambda r, i: name(r, i), [
