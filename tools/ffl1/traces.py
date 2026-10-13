@@ -214,6 +214,28 @@ def _event_sweep():
 
 
 _event_sweep()
+
+
+def _talk_battles():
+    """Objects whose talk text (command 0, text = parameter) starts a battle (text codes 00-02
+    with event 8): the battle's stack depth from the talk path (evt0 + map)."""
+    import json
+    import os
+    import re
+    if not os.path.exists("ffl1/data/text.json"):
+        return
+    t = json.load(open("ffl1/data/text.json"))["tables"]["dialogue"]["entries"]
+    bt = {e["id"] for e in t if re.search(r"\{0[012] [0-9A-F]8 [0-9A-F]{2}\}", e["text"])}
+    seen = set()
+    for mp in json.load(open("ffl1/data/maps.json"))["maps"]:
+        for e in mp.get("event_list", []):
+            if e.get("command") == 0 and e.get("param") in bt and mp["id"] not in seen:
+                if f"fsw{mp['id']:03d}" in FIELD_SWEEP:
+                    seen.add(mp["id"])
+                    EVENT_SWEEP[f"evt0_{mp['id']:03d}_{e['x']:02d}{e['y']:02d}"] = (mp["id"], "talk", e["x"], e["y"])
+
+
+_talk_battles()
 for _n, (_mp, _k, _x, _y) in EVENT_SWEEP.items():
     PLANNED[_n] = ("town0", FIELD, [("wait", 90), (_k, _x, _y)] + [P("a", 60)] * 6 + [("wait", 200)])
 
@@ -244,6 +266,22 @@ def _text_sweep():
 
 
 _text_sweep()
+
+
+def _talk_texts():
+    """Talk events (command 0: window, text C3AA) for the texts that start a battle (tsb + id):
+    the stack depth of a battle started from a talk."""
+    import json
+    import os
+    import re
+    if not os.path.exists("ffl1/data/text.json"):
+        return
+    for e in json.load(open("ffl1/data/text.json"))["tables"]["dialogue"]["entries"]:
+        if re.search(r"\{0[012] [0-9A-F]8 [0-9A-F]{2}\}", e["text"]):
+            TEXT_SWEEP[f"tsb0_00{e['id']:02x}"] = (0x00, e["id"])
+
+
+_talk_texts()
 for _n in TEXT_SWEEP:
     PLANNED[_n] = ("town0", FIELD, [("wait", 30)] + [P("a", 50)] * 12 + [("wait", 200)])
 

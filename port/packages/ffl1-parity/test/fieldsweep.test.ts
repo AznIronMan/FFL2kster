@@ -15,7 +15,7 @@ import { haveRom, haveTrace, replay, summarize, summarizeWaits, TRACES } from ".
  *  the port, whose writes complete within the step, cannot draw (docs/FFL1_PROGRESS.md). */
 const RESIDUAL: Record<string, [number, number][]> = { fsw097: [[147, 590]], fsw101: [[126, 10]] };
 
-const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => /^(fsw\d+|ev[rt][0-9a-f]_\d+_\d+|tsw[0-9a-f]_[0-9a-f]{4})$/.test(n)).sort() : [];
+const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => /^(fsw\d+|ev[rt][0-9a-f]_\d+_\d+|ts[wb][0-9a-f]_[0-9a-f]{4})$/.test(n)).sort() : [];
 const events: Record<string, number> = {};
 const maps = new Set<number>();
 const totals = { traces: 0, waits: 0, late: 0, tears: 0, raster: 0, blank: 0, rephased: 0, tickPhase: 0, battles: 0, lateRegs: 0, objOrder: 0 };

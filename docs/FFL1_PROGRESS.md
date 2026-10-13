@@ -63,7 +63,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 |---|---|---|
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
 | P1 vertical slice | in progress | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 16 traces, 0 differences); sound driver and the web player to come |
-| P2 full field | in progress | field + event sweep: 293 traces (every map; trigger cells, objects and text-started events: commands 0, 1, 3-F), 299,221 waits, 0 state differences; 2 residual frames (half-written tile data during busy stretches) |
+| P2 full field | in progress | field + event sweep: 327 traces (every map; trigger cells, objects, talk and text-started events: commands 0, 1, 3-F), 333,695 waits, 0 state differences; 2 residual frames (half-written tile data during busy stretches) |
 | P3 full battle | in progress | battle sweep 29 traces, 84,833 waits, 0 differences; 45 of 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters (field sweep: 19 battles) frame-exact; sound verified separately |
 | P4 platforms | not started | |
 | P5 extras | not started | |
@@ -370,3 +370,12 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 - Totals: battle sweep 29 traces, 84,833 waits, 0 differences, handlers 45 of 49; field sweep
   293 traces, 299,221 waits, 0 state differences, counted lateWrite 706, lateRegs 22, objOrder
   13, tears 6; the same 2 residual frames. Suites: port 4,704 passed (tear tests 12).
+
+### 2026-10-13 — Talk-started battles (attempt)
+- To check the stack depth of a battle started from a talk text (the model: 0x10 per nested
+  event, verified only for event 9 -> text -> 8), 11 objects whose talk text holds a battle
+  (evt0_*) and the 23 such texts as talk events (tsb0_*) were recorded: all 34 frame-exact, nested
+  events 5, 9, B, E, F ran from talk texts, but no battle started (the objects moved or were out of
+  reach; the texts' battles sit behind progress and item conditions). The talk-path SP stays a
+  hypothesis.
+- Field sweep now 327 traces, 333,695 waits, 0 state differences (event commands 0 x59, 1, 3-F).
