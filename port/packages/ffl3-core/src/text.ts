@@ -206,6 +206,23 @@ function* waitA(g: Game): Co {
   yield* g.until(() => !!(g.m.hram[0x0b]! & 0x01));
 }
 
+/** 00:276D — up to c frames (0 = 256), cut short by A (FF8B): returns whether A ended it. */
+function* pauseFrames(g: Game, c: number): Co<boolean> {
+  for (;;) {
+    yield* wait1(g);
+    if (g.m.hram[0x0b]! & 0x01) return true;
+    c = (c - 1) & 0xff;
+    if (!c) return false;
+  }
+}
+
+/** 00:2766 — code 0C n: a pause of n frames, then n more, cut short by A. */
+function* pause(g: Game, hl: number): Co<number> {
+  const n = g.m.rd(hl);
+  if (!(yield* pauseFrames(g, n))) yield* pauseFrames(g, n);
+  return (hl + 1) & 0xffff;
+}
+
 /** 00:30B8 — the dictionary entry of a code (4E-87: 0-57; the 22 low codes 00:30D1: 58-79). */
 function dictIndex(c: number): number {
   if (c >= 0x4e) return c - 0x4e;
@@ -239,6 +256,9 @@ function* control(g: Game, c: number, hl: number): Co<number> {
   if (c === 0x05) return hl;
   if (c === 0x07) { lineReset(m); yield* farcall(g, 0x0f, function* () { boxFrame(g); }); return hl; }
   if (c === 0x14) { yield* windowToggle(g); return hl; }
+  if (c === 0x08) { yield* waitA(g); yield* windowToggle(g); return hl; } // 00:274D
+  if (c === 0x0b) { yield* waitA(g); return hl; }
+  if (c === 0x0c) return yield* pause(g, hl);
   if (c === 0x3e) return yield* scriptRef(g, 0x40, hl);
   if (SCENE_CODES.has(c)) {
     const op = m.rd(hl);

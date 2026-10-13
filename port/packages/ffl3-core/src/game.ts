@@ -74,6 +74,9 @@ export class Game {
    *  CDC5 stays set and the interrupts stay off unless the work enabled them); undefined in
    *  play. */
   onWork: (() => [number, number] | undefined) | null = null;
+  /** The code is about to reach `addr` (bank << 16 | address; a sync point): the frame and line
+   *  at which the original did (parity re-timing, as `onPollStart`); undefined in play. */
+  onPoint: ((addr: number) => [number, number] | undefined) | null = null;
   /** Debugging output (parity tools). */
   debug: ((msg: string) => void) | null = null;
   hooks: {
@@ -214,7 +217,22 @@ export class Game {
 
   /** Before 00:1D9E / 00:1DFD: with `onPollStart`, the CPU time until the original's entry. */
   *pollStart(): Co {
-    const p = this.onPollStart?.();
+    yield* this.until_(this.onPollStart?.());
+  }
+
+  /** Before the routine at `addr` (a sync point): with `onPoint`, the CPU time until the
+   *  original's entry. */
+  *point(addr: number): Co {
+    yield* this.until_(this.onPoint?.(addr));
+  }
+
+  /** From the code itself (not an interrupt): the frame work it just ran (00:1E38) goes on until
+   *  the end the replay gave (`handlerBusy`). */
+  *workDone(): Co {
+    if (this.work) yield* this.until_(this.work.end);
+  }
+
+  private *until_(p: [number, number] | undefined): Co {
     if (!p) return;
     this.lineAt = p;
     yield LINE;

@@ -58,6 +58,17 @@ export class Rig {
     }
     return p.frame;
   }
+  /** The last frame drawn again from the current VRAM and OAM with each line's registers but
+   *  the palettes given (BGP, OBP0, OBP1). */
+  redrawPalettes([bgp, obp0, obp1]: [number, number, number]): Uint8Array {
+    const p = new Ppu(this.g.m.vram, this.g.m.oam);
+    p.beginFrame();
+    for (let k = 0; k < 144; k++) {
+      p.regs = { ...this.lineRegs[k]!, bgp, obp0, obp1 };
+      p.line(k);
+    }
+    return p.frame;
+  }
   get g() {
     return this.engine.g;
   }
@@ -83,6 +94,9 @@ export interface Trace {
   works: [number, number, number, number][];
   /** [frame, LY] at which each frame wait began (00:3A6D). */
   starts: [number, number][];
+  /** The times the CPU reached the sync points (tools/ffl3/trace_lib.py POINTS), by bank << 16 |
+   *  address. */
+  points: Record<number, [number, number][]>;
   prevScreen?: Uint8Array;
 }
 
@@ -100,9 +114,13 @@ function undelta(gz: Uint8Array, size: number, first?: Uint8Array): Uint8Array {
   return out;
 }
 
-function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts"> {
+function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts" | "points"> {
   const w = JSON.parse(readFileSync(f, "utf8"));
-  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [] };
+  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [],
+    points: Object.fromEntries(Object.entries(w.points ?? {}).map(([k, v]) => {
+      const [b, a] = k.includes(":") ? k.split(":").map((x) => parseInt(x, 16)) as [number, number] : [0, parseInt(k, 16)];
+      return [(b << 16) | a, v as [number, number][]];
+    })) };
 }
 
 export function loadTrace(name: string): Trace {

@@ -20,6 +20,18 @@ SCENARIOS = {
                               "down:45,none:30,left:3,none:30"),
     # New Game: the prologue text over the world scene (map 0D), then on
     "newgame1": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:1200"),
+    # New Game with A held through the prologue text (one frame a tile), its last pause
+    # (code 0C), then the name entry screen (0F:7A44) idle
+    "newgame2": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:300"),
+    # the names: letters, cursor moves both ways (wrapping), B to delete, Start (also empty:
+    # buzzer), B on an empty name (back a member); the fade into the opening script
+    "newgame3": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                                "right:3,none:20,a:3,none:20,down:3,none:20,a:3,none:20,b:3,none:20,left:3,none:20,"
+                                "left:3,none:20,right:3,none:20,"
+                                "up:3,none:20,up:3,none:20,a:3,none:20,start:3,none:60,"
+                                "start:3,none:20,a:3,none:20,start:3,none:60,"
+                                "b:3,none:60,a:3,none:20,start:3,none:60,"
+                                "a:3,none:10,a:3,none:20,start:3,none:30"),
 }
 
 

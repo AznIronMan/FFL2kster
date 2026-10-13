@@ -136,9 +136,12 @@ export function decompress(m: Memory, hl: number, end: number, dest: number): nu
 
 // ---------------------------------------------------------------- VRAM bracket, waits
 
-/** 00:1E38 — with CD3D set, the frame work of 00:3549 (also run by the bracket's STAT handler). */
-function bracketWork(g: Game): void {
-  if (g.m.rd(0xcd3d)) g.hooks.statWork?.(g);
+/** 00:1E38 — with CD3D set, the frame work of 00:3549 (also run by the bracket's STAT handler);
+ *  the code goes on when it is done (its CPU time, `Game.workDone`). */
+function* bracketWork(g: Game): Co {
+  if (!g.m.rd(0xcd3d)) return;
+  g.hooks.statWork?.(g);
+  yield* g.workDone();
 }
 
 /** 00:1D9E — enter the VRAM bracket (nested: CDCE counts): di; the first level saves IE, STAT,
@@ -152,7 +155,7 @@ export function* bracketEnter(g: Game, timed = false): Co {
   const n = m.rd(0xcdce);
   m.wr(0xcdce, n + 1);
   if (n === 0) {
-    bracketWork(g);
+    yield* bracketWork(g);
     m.wr(0xcdd0, m.hram[0x7f]!);
     m.wr(0xcdcf, m.rd(0xff41));
     m.wr(0xcdca, m.rd(0xff45));
@@ -178,7 +181,7 @@ export function* bracketLeave(g: Game): Co {
   const n = (m.rd(0xcdce) - 1) & 0xff;
   m.wr(0xcdce, n);
   if (n === 0) {
-    bracketWork(g);
+    yield* bracketWork(g);
     m.hram[0x7f] = m.rd(0xcdd0);
     m.wr(0xff41, m.rd(0xcdcf));
     m.wr(0xff45, m.rd(0xcdca));

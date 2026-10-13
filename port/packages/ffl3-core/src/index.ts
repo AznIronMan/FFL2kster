@@ -12,3 +12,5 @@ export * from "./mapload.js";
 export * from "./events.js";
 export * from "./window.js";
 export * from "./newgame.js";
+export * from "./menu.js";
+export * from "./names.js";

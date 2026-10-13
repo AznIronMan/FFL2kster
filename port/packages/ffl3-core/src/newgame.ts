@@ -5,6 +5,7 @@ import { copyB, copyBC, far0, far0Sync, farSync, fadeOut, textBegin, windowOff, 
 import { NotPorted } from "./irq.js";
 import { windowTop } from "./title.js";
 import { printText } from "./text.js";
+import { names } from "./names.js";
 
 /** 01:7DFD — the window map (9C00, 0x240) blank (FF, 0F:792C). */
 export function windowClear(g: Game): void {
@@ -37,6 +38,6 @@ function* newGame(g: Game): Co {
   m.wr(0xca6e, 1);
   windowOff(m);
   yield* far0(g, 0x09, () => printText(g, 0x00, 0x5ead, 0x0101, 0x0612));
-  throw new NotPorted("01:7D75 (after the prologue: the names)");
+  yield* names(g);
 }
 

@@ -11,7 +11,9 @@ compact storage). Per trace directory build/traces/NAME:
                 of every entry to 00:1D9E / 00:1DFD (di: the interrupts stay off until the poll's reti), and
                 "works": [frame, LY, end frame, end LY] of every run of the frame work 00:3557 (from 00:3549,
                 CDC5 0 -> 1; it ends back at 00:3552), whose hblank-paced VRAM copies span lines, and
-                "starts": [frame, LY] at which each frame wait began (00:3A6D)
+                "starts": [frame, LY] at which each frame wait began (00:3A6D), and "points": {"BB:AAAA":
+                [[frame, LY], ...]} of the times the CPU reached the addresses in POINTS (sync points: the port
+                spends the CPU time before them, e.g. 00:1E49, a menu drawn after hblank-paced copies)
   tick.bin      CB00 (the music tempo accumulator, advanced by every sound tick) and FF93 (the vblank frame
                 counter) after every frame
   prev.bin      the screen of the frame before the hook (160x144 shades)
@@ -95,6 +97,13 @@ class Recorder:
                 syncs.append(nframes[0] if recording[0] else -1)  # -1: the rest of the hook's frame
 
         polls = []
+        points = {f"{b:02X}:{a:04X}": [] for b, a in POINTS}
+
+        def mk_point(b, a):
+            def at_point(_):
+                if start:
+                    points[f"{b:02X}:{a:04X}"].append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
+            return at_point
 
         def at_poll(_):
             if start:
@@ -150,6 +159,8 @@ class Recorder:
         pb.hook_register(0, 0x1D9E, at_poll, None)
         pb.hook_register(0, 0x1DFD, at_poll, None)
         pb.hook_register(0, 0x3557, at_work, None)
+        for b, a in POINTS:
+            pb.hook_register(b, a, mk_point(b, a), None)
         pb.hook_register(0, 0x3552, at_work_end, None)
         try:
             for _ in range(max_pre):
@@ -202,6 +213,8 @@ class Recorder:
             pb.hook_deregister(0, 0x1D9E)
             pb.hook_deregister(0, 0x1DFD)
             pb.hook_deregister(0, 0x3557)
+            for b, a in POINTS:
+                pb.hook_deregister(b, a)
             pb.hook_deregister(0, 0x3552)
             for mb, ma in marks:
                 pb.hook_deregister(mb, ma)
@@ -222,11 +235,19 @@ class Recorder:
         open(f"{out}/screens.dx.gz", "wb").write(_dx(screens, 160 * 144))
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
         json.dump({"frames": wait_frames, "syncs": syncs, "polls": polls, "works": works,
-                   "starts": wait_starts}, open(f"{out}/waits.json", "w"))
+                   "starts": wait_starts, "points": points}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
                    "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))
         return len(frames), len(wait_frames)
+
+
+# addresses (bank, address) recorded as sync points ("points" in waits.json); a few only (PyBoy
+# hooks patch the ROM): 00:1E49 the menu boxes (after the copies that set them up), 09:5014 the
+# boxes drawn (the OAM DMA held until then, CD39), 0F:7B75 the name entry's sprite tiles (0B:7DCA)
+# loaded after its record copy, 01:7DCA after the name entry's 2 KiB background
+# fill (before WY 50, which turns the frame work to the field)
+POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75))
 
 
 def plan_steps(plan):

@@ -8,7 +8,7 @@
  *  (`Game.onPollStart`, the frame and line of the original's 00:1D9E / 00:1DFD, whose di holds
  *  the interrupts of the poll back until its reti), so the interrupts' work in a busy stretch
  *  sees the code's state of that stretch. */
-import { BUSY, type Co } from "@ffl3k/core";
+import { BUSY, LINE, type Co } from "@ffl3k/core";
 import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, type Trace } from "./index.js";
 
 export interface WaitDiff {
@@ -47,6 +47,8 @@ export interface ReplayResult {
    *  again (the interrupts' sprite work saw the original's code half way, e.g. a copy of the
    *  party records interrupted by the STAT handler: CPU time). */
   oamTransient: number;
+  /** Those waits (for inspection). */
+  transient: WaitDiff[];
   /** Vblank polls the port reached after the original's frame (should be 0), and their count. */
   lateSyncs: number; nSyncs: number;
   /** Frames drawn while the original's code was still writing VRAM line by line (CPU time; the
@@ -61,6 +63,8 @@ export interface ReplayResult {
   /** Bracket entries (00:1D9E / 00:1DFD) the port reached after the original's frame and line
    *  (should be 0), and their count. */
   latePolls: number; nPolls: number;
+  /** Sync points (see `Game.onPoint`) the port reached after the original (should be 0). */
+  latePoints: number; nPoints: number;
   /** Frames equal to the port's picture drawn with the original's objects of that frame, in or
    *  right after a busy stretch: the original's code wrote the OAM buffer after that frame's DMA
    *  (CPU time). The objects are compared byte for byte at every wait. */
@@ -121,6 +125,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   const ign = opts.ignore ?? IGNORE;
   const waits: WaitDiff[] = [], diffs: FrameDiff[] = [];
   let nWaits = 0, busy = 0, tears = 0, oamLate = 0, prevBusy = false, oamTransient = 0;
+  const transient: WaitDiff[] = [];
   const isOam = (a: number) => (a >= 0xc000 && a < 0xc0a0) || (a >= 0xfe00 && a < 0xfea0);
   let oamPending: WaitDiff[] = [];
   let error: { message: string; wait: number } | undefined;
@@ -153,6 +158,18 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePolls++;
     return p;
   };
+  // ... and reach the sync-point routines at the original's frame and line
+  let nPoints = 0, latePoints = 0;
+  const pointAt = new Map<number, number>();
+  g.onPoint = (addr) => {
+    const k = pointAt.get(addr) ?? 0;
+    pointAt.set(addr, k + 1);
+    const p = t.points[addr]?.[k];
+    nPoints++;
+    if (!p) return undefined;
+    if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePoints++;
+    return p;
+  };
   // the frame work's runs end when the original's did (hblank-paced copies)
   let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0;
   /** Where the port ran each work (in no time: its VRAM writes are all on that line). */
@@ -175,6 +192,12 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     if (!((f0 < f || (f0 === f && l0 < 144)) && w[2] >= f)) return [];
     return [[f0 < f ? 0 : l0, w[2] > f ? 143 : Math.min(w[3], 143)] as [number, number]];
   });
+  /** The port's frame drawn with the original's palettes of the frame before (a palette the
+   *  original's code wrote later in the frame than the port). */
+  const oldPalette = (f: number): Uint8Array[] => {
+    const lcd = (t.meta.frames[f - 1] as { lcd?: number[] } | undefined)?.lcd;
+    return lcd ? [rig.redrawPalettes([lcd[5]!, lcd[6]!, lcd[7]!])] : [];
+  };
   /** The visible lines of frame f the original's main code ran: up to the last frame wait or
    *  bracket entry it reached in that frame. */
   const mainLines = (f: number): [number, number][] => {
@@ -200,7 +223,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     }
     const frameOk = g.frame === wf[i];
     const oamOnly = frameOk && diff.length > 0 && diff.every(isOam);
-    if (!oamOnly && !diff.some(isOam)) { oamTransient += oamPending.length; oamPending = []; }
+    if (!oamOnly && !diff.some(isOam)) { oamTransient += oamPending.length; transient.push(...oamPending); oamPending = []; }
     if (oamOnly) {
       oamPending.push({ wait: i, frame: wf[i] ?? -1, diff, values: diff.slice(0, 24).map((a) => [a, exp[a - 0x8000]!, got[a - 0x8000]!]) });
       return;
@@ -222,7 +245,8 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
       g.buttons = btn(f);
       rig.lcdOff = false;
       // the original's CPU was still busy in this frame (its code had not reached the wait yet)
-      const busyFrame = g.waitingFor === BUSY;
+      // (or before a bracket entry / sync point it reaches later)
+      const busyFrame = g.waitingFor === BUSY || g.waitingFor === LINE;
       g.runFrame();
       const exp = t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES);
       const got = rig.ppu.frame;
@@ -232,8 +256,11 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
           .filter((x): x is Uint8Array => !!x);
         const oamOf = (k: number) => t.oam.subarray(k * 0xa0, (k + 1) * 0xa0);
         let lt: ReturnType<typeof lineTear> = false;
-        if (opts.tears !== false && busyFrame && mixTear(exp, got, olds)) tears++;
-        else if (opts.tears !== false && (lt = lineTear(exp, got, olds, [...workLines(f), ...mainLines(f)]))) {
+        // in a busy frame, also the port's objects and registers over the VRAM of the last wait
+        // (the original had not written its new tiles yet)
+        const lastVram = (): Uint8Array[] => nWaits > 0 ? [rig.redrawFrom(t.waits.subarray((nWaits - 1) * 0x8000, (nWaits - 1) * 0x8000 + 0x2000))] : [];
+        if (opts.tears !== false && busyFrame && (mixTear(exp, got, olds) || mixTear(exp, got, [...olds, ...lastVram()]))) tears++;
+        else if (opts.tears !== false && (lt = lineTear(exp, got, [...olds, ...oldPalette(f)], [...workLines(f), ...mainLines(f)]))) {
           lineTears++;
           if (lt === "partial") chunkTears++;
         }
@@ -250,7 +277,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   }
   waits.push(...oamPending);
   waits.sort((a, b) => a.wait - b.wait);
-  return { trace: t, diffs, waits, nWaits, busy, tears, oamLate, oamTransient, lateSyncs, nSyncs, latePolls, nPolls, lineTears, chunkTears, workMismatch, nWorks, error };
+  return { trace: t, diffs, waits, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, lineTears, chunkTears, workMismatch, nWorks, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {

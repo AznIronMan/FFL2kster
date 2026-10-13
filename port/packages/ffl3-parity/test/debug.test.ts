@@ -35,7 +35,21 @@ it.skipIf(!NAME || !haveRom() || !haveTrace(NAME))(`debug ${NAME}`, () => {
     const px: string[] = [];
     for (let i = 0; i < 23040 && px.length < 16; i++) if (d.got && d.got[i] !== exp[i]) px.push(`${i % 160},${Math.floor(i / 160)}:${exp[i]}/${d.got[i]}/${prev[i]}`);
     console.log(px.join(" "));
+    const odd: string[] = [];
+    for (let i = 0; i < 23040; i++) if (d.got && d.got[i] !== exp[i] && prev[i] !== exp[i]) odd.push(`${i % 160},${Math.floor(i / 160)}:${exp[i]}/${d.got[i]}/${prev[i]}`);
+    if (process.env.FFL3K_GRID) {
+      const [x0, x1, y0, y1] = process.env.FFL3K_GRID.split(",").map(Number) as [number, number, number, number];
+      const old2 = r.trace.screens.subarray((d.frame - 2) * 23040, (d.frame - 1) * 23040);
+      const nxt = r.trace.screens.subarray((d.frame + 1) * 23040, (d.frame + 2) * 23040);
+      for (let y = y0; y <= y1; y++) {
+        const row = (a: Uint8Array) => Array.from({ length: x1 - x0 + 1 }, (_, k) => a[y * 160 + x0 + k]).join("");
+        console.log(`grid y${y} exp ${row(exp)} got ${row(d.got!)} prev ${row(prev)} prev2 ${row(old2)} next ${row(nxt)}`);
+      }
+    }
+    console.log(`not old: ${odd.length} ${odd.slice(0, 12).join(" ")}`);
     console.log(`diff f${d.frame}: px ${d.pixels} rows ${rs[0]}-${rs[rs.length - 1]} (${rs.length}) works ${works}`);
   }
+  console.log(`transient OAM waits:\n${summarizeWaits(r.transient)}`);
+  console.log(`counts: tears ${r.tears} oamLate ${r.oamLate} transient ${r.oamTransient} syncs ${r.nSyncs}/${r.trace.syncs.length} late ${r.lateSyncs} polls ${r.nPolls}/${r.trace.polls.length} late ${r.latePolls} points ${r.nPoints} late ${r.latePoints} works ${r.nWorks}/${r.trace.works.length} mismatch ${r.workMismatch} lineTears ${r.lineTears}`);
   console.log(`waits ${r.nWaits} busy ${r.busy} error ${r.error?.message ?? "-"}\n${summarizeWaits(r.waits)}`);
 });

@@ -565,3 +565,9 @@ Decisions and assumptions:
   old picture; at most two half-written lines). OAM-only wait differences that a later wait shows
   equal again are counted as transient (the interrupts' sprite work saw a half-done copy). The
   replay requires every bracket entry and poll on time and every work matched by frame.
+- 1.33.0: sync points — a short list of (bank, address) whose CPU arrival times the traces record
+  (tools/ffl3/trace_lib.py POINTS); the port calls `Game.point` at the same place on every path,
+  matched by count, and spends the time before it with the interrupts on. Points are added only
+  where a replay shows the original's CPU time changing what an interrupt sees. Frames before a
+  bracket entry or a point count as busy frames (tears allowed: every pixel new, old, or the
+  port's objects over the last wait's VRAM).

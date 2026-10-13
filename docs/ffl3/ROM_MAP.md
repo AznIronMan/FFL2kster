@@ -226,3 +226,23 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:3575 | field frame work: map animation 01:54A0 (CA6F guard; CA18 mode table at 01:54B4), objects 00:01A0, scroll 00:3D2B, shake 00:108F, objects under the window hidden (00:3A32) | verified (parity) |
 | 01:5993 / 01:5814 / 01:5730 / 01:57A9 | water (mode 22, every 32 frames), falls (mode 23: strip 9080/9180 every 8 frames, 9600/9610 rolled down every 4), strip scroll (ends with reti), tile roll | verified (parity) |
 | 00:3211 and helpers | text engine: flush 00:331B, line at once 00:3357, tile by tile 00:338E (delay 00:3593), box scroll 00:342C / 00:34B2, dictionary 00:308C / 00:30B8, wait for A 00:275C | verified (parity) |
+
+## Menus and the name entry (port P1)
+
+| Location | What | Status |
+|---|---|---|
+| 00:1E49 / 09:4FEF | menu boxes: C8B0 -> C8CE (0x1E), CD3A = 1, arrows 22/23 (C08A/C08E), DMA held (CD39) while 09:5045 draws rows 0-17 (battle 0-9) of every box (09:5070) into C880 -> 9E40 + 20 r, then 09:5020 copies them to 9C00 | verified (parity newgame2/3) |
+| 09:5070 | one box row: descriptor (x, y, w, h, text, flags) in CD0C-CD12; top / bottom borders, inside FB..FB with text (09:5143 codes only, sets flags bit 0; 09:5169 letters, clears it, moves CD10; next byte 05 or 4C 05: codes again); below the first box tiles 04 05 / 06 07 (battle: blank); CD3C = 1: empty party slot boxes (C503/C563/C5C3 = FF) bordered only | verified (empty slots, background: code) |
+| 09:519C / 09:51BA | a menu control code through the 00:3175 table; afterwards de - 1, b + 1 (no column) | verified |
+| 00:20DE | parameter byte: 80 -> CD4C, FF -> CD36; 5-8 -> 0-3; >= 80 - 7B | verified (04, 20) |
+| 00:2955 | code 1F p: p < 5 member name (C507 + record -> CDA9, 4C shown blank; CD34 bit 1 drops trailing blanks), 5-F entity name (C505 + ..., 8), 10-1F 00:29A5 (not ported), >= 20 class name of the named record (C68D, 7 letters) | verified (p 04, 20) |
+| 00:2FBF | code 43 x y p: 2 x 2 figure of member p at C000 + 16 p (slot >= 5: also tiles 4 slot.. and attribute 0), unchanged when CD1C set or at the same place (low bits aside); CDEB nibble moves x off screen | verified (p 04) |
+| 00:3114 / 00:3168 | with CD3A: c characters copied on a letter row, skipped on a code row; b - c | verified |
+| 00:2766 | code 0C n: n frames then n more, A ends it | verified (parity newgame2) |
+| 00:240E | letter grid 09:78A0 -> D000 (54 letters, each after FF), 00 | verified |
+| 0F:7B64 | name entry screen of member a: 07:7A81 + 0x60 a -> C680, sprite tiles 0B:7DCA, boxes 0F:7B90, cursor (40, 10), window top | verified |
+| 0F:7A44 | name entry (menu 00:1E51): A letter (first: name C687 cleared; blank stored 4C; 6: buzzer), B back (none: CDEA = FF, out), Select buzzer, Start keeps the name (C507 + record; empty: buzzer), directions move C080 / C081 with wrap (rows CD15 0-5) | verified (parity newgame3) |
+| 01:7D75-7DD7 | after the prologue: fade out, C200 cleared, window top, objects hidden, grid, first screen, arrows x 8, fade in, 4 names, fade out, C620 -> C680, 0B:6DE4 (3, 2), 0B:6E33 (4), 0F:79D4, 9800 blank, WY 50, bracket left twice | verified |
+| 0B:6DE4 / 0B:6E33 | member slot a from the starting record 0B:7573[b] (CE00 + 4 a cleared); slot a emptied (C503 + record = FF) | verified (3, 2 / 4) |
+| 0F:79D4 / 00:2499 | per member 0-3: (L + 4)(L + 1)^2 (L = C503 + record; 99: 0) -> CD9D + 3 k, 16 x 16 multiply in CD46-CD49 | verified (RAM at waits) |
+| 00:023F | start code after the title: story flag 31 clear -> fade in, opening script 09:6015 (box 1,1 18 x 6), flag 31 set, LYC 0, field loop 00:0265 | probable (port runs to the script's first event) |

@@ -424,3 +424,37 @@ that frame, or on a line its frame work spanned, and shows an old picture; at mo
 (16 pixels) may show a half-written tile row (5 of 147 frames in newgame1). Falsification: the
 waterfall rolled 1 pixel instead of 2, the strip rotated through the wrong plane, and the work's
 end dropped (CDC5 released at once) each fail newgame1.
+
+## 2026-10-13 — Port P1, third checkpoint: the name entry (1.33.0)
+
+Ported and replayed: text codes 08 (wait for A, then the window toggle), 0B (wait for A) and 0C n
+(00:2766: n frames, then n more, cut short by A; the prologue ends with 0C 2C); A held makes the
+tile-by-tile text one frame a tile (00:3593 checks FF8A bit 0), B held pauses it. After the
+prologue (01:7D75): fade out, the window at the top, the letter grid (00:240E: 09:78A0, each of
+54 letters after a blank), then the name entry 0F:7A44 for members 0-3 (B on an empty name goes
+back a member), then (01:7DAE) member slot 3 from the starting records (0B:6DE4, record 0B:7573[2]),
+slot 4 emptied (C683 = FF), a 3-byte value per member at CD9D (0F:79D4: (L + 4)(L + 1)^2 from
+the byte C503 + record, 99 -> 0; meaning not checked), the background map 9800 blanked (2 KiB),
+WY 50, and the start code's opening script 09:6015 (not yet ported past its first event, type 1B).
+
+The menu boxes (09:4FEF via 00:1E49): descriptors of 7 bytes (x, y, width, height, text pointer,
+flags) at C8B0 are drawn row by row into the line buffer C880 (top F7 FC.. F9, sides FB, bottom F8
+FC.. FA; below the first box a background of tiles 04 05 / 06 07), each row to 9E40 + 20 r, then
+the 18 rows to 9C00 after a frame. Box text alternates a row of control codes only and a row of
+letters (code 05 keeps the next row a letter row); codes take no column. Menu codes seen: 00
+(end), 06 (rest of the row blank), 1F p (a member's name / an entity's name / the class name
+of the record being named: C68D bits 3-6 -> 00:29D7 -> 09:78D7), 43 x y p (member p's 2 x 2
+figure at C000 + 16 p). The OAM DMA is held (CD39) while the rows are drawn.
+
+Timing found and now taken from the traces as sync points (the time the CPU reached an
+address): 00:1E49 (a menu starts after its set-up copies; the walking-figure work every 16
+frames saw the old boxes in between), 09:5014 (the rows drawn: the DMA held until then), 01:7DCA
+(after the 2 KiB background fill: WY 50 turns the frame work to the field branch, so writing it
+early made an extra strip scroll). The frame work a bracket entry runs itself (00:1E38) now keeps
+the code until its end. New counted screen evidence: in a frame the original's code was still
+busy in, a pixel may also show the port's objects over the VRAM of the last wait (new tiles not
+yet written; newgame3 frame 1552: the old figure one pixel right, the walking frame), and the
+line-tear olds include the port's picture with the previous frame's palettes (a palette written
+after a long interrupt-time work: newgame2 frame 1055). Falsification: the cursor's right / left
+wrap, the grid row stride (9 -> 8), a box corner (F7 -> F8), the level byte (C503 -> C504), the
+DMA hold point and the back-a-member flag (CDEA) each fail the traces.
