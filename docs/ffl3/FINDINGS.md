@@ -512,3 +512,41 @@ points were found by the replay (0C:6B3E, 6B67, 6B68 effect 11; 0C:6B4F and 6B55
 / 0B:7E96 still unported). 44 OAM-only wait differences (arrow objects shown or hidden a frame
 apart, a walking figure's x low bit) are counted as transient: each equal again at a later wait.
 
+## 2026-10-13 — Port: the opening scene after the battle (1.36.0)
+
+`opening1` (battle3's plan, then A every 40 frames through the scene after the battle, then 1,200
+idle frames; 11,118 frames) is wait-exact: 9425/9425 waits, 8424 frame works, 60 random draws,
+678 bracket polls matched; screens equal or counted (43 busy-frame tears, 233 line tears).
+Found:
+
+- After the battle, WY 50 (which turns the STAT frame work to the field branch) is written after
+  the 2 KiB background fill and 00:20CF; the sync point is 0B:5D2B (0B:5CFF was too early: the
+  frame work at 8179/3 still took the old branch in the port).
+- rst $20 (00:0020: di, bank push 00:38E1, reti) turns the interrupts on. The field frame work's
+  objects (00:01A0) switch banks with it, so a frame work that runs past the next LYC (one started
+  in vblank after a bracket leave, 8355/152 to 8356/61) is interrupted by the nested STAT, which
+  only ticks the sound (CDC5 set). The port held that STAT to the work's end and then ran a whole
+  second frame work.
+- The map animation 01:54A0 has 36 modes (table 01:54B4): strip scrolls 01:5730 (ending with
+  reti), tile rolls down / up 01:57A9 / 01:57CE, byte rotations 01:5847, tile swaps through C800
+  (16 or 32 bytes) every 16, 32 or 64 frames, and frame tables (01:5601, 01:565F). All are ported;
+  `opening1` reaches mode 1B (01:5964: 9220/9250 and 9320/9350 every 16 frames).
+- Under the normal handlers (00:1B2D, during scripted walks) the vblank handler 00:11A2 can run
+  into the next frame (9253/144 to 9254/7), so the code resumes from a
+  wait there. The recorder now gives each wait the frame of the vblank interrupt that ended it
+  (00:0040), not the frame in which the code reached 00:3A77; it also lists where each wait ended
+  ("ends", diagnostic). With the old rule two waits shared a frame and the port was a frame late.
+- Scene events take CPU time, and the STAT frame work runs only while CD3D is set; 00:1236 clears
+  it and 00:12CA restores it. Between two scripted walks (00:1B50 ... 00:1B2D) the original runs a
+  frame work at 9269/6 that the port skipped, having run the next event at once. Sync points
+  00:2F0B (a script reference's event about to start) and 00:12CA (an event's end) fix it; a
+  third at 00:1B2D was redundant (its mutation passed) and was dropped.
+- A tile swap made by the code after the top lines were drawn (9424: rows 0-22 show the old
+  tiles) is counted as a line tear: in the lines the original's code ran, a row may show the VRAM
+  of the last wait that ended before the frame.
+
+Falsification (ffl3/scratch/mut4.sh): the rst $20 interrupt enable removed, mode 1B off, a wrong
+swap tile, the 00:2F0B or 00:12CA point removed, and the last-wait VRAM taken out of line tears
+each fail `opening1`; before the recorder change the replay stopped a frame late at wait 7656.
+A port of the late resume (the code resuming at the original's line) was tried and dropped: its
+mutation passed.

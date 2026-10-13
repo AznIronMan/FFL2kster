@@ -44,6 +44,10 @@ SCENARIOS = {
     "battle3": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
                                "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
                                + "a:3,none:37," * 150 + "none:600"),
+    # battle3 on through the opening scene after the battle (texts, scripted walks, map animation 1B)
+    "opening1": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                                "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
+                                + "a:3,none:37," * 210 + "none:1200"),
 }
 
 

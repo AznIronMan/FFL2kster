@@ -14,6 +14,7 @@ const TRACES: [string, string][] = [
   ["battle2", "the opening battle's first round: Fight, every member's command and target, the actions"],
   ["battle3", "the opening battle to its end: every round with the default commands and targets"],
   ["newgame3", "the names: letters, cursor wrapping, B, Start (empty: buzzer), back a member; fade into the opening"],
+  ["opening1", "after the battle: the opening scene's texts, scripted walks (normal handlers), map animation 1B"],
 ];
 
 describe.skipIf(!haveRom())("FFL3 scenario parity", () => {

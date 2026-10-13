@@ -575,6 +575,7 @@ function* battleEnd(g: Game): Co {
     hl += 0x60;
   }
   oamClear(g);
+  yield* g.point(0x0b5d2b); // after the 2 KiB background fill and 00:20CF (CPU time): WY 50 turns the frame work to the field
   windowOff(m);
   m.wr(0xff4a, 0x50);
   m.wr(0xcd37, 0);

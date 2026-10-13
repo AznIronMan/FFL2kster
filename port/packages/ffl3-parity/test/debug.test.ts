@@ -3,6 +3,7 @@
 import { it } from "vitest";
 import { haveRom, haveTrace, replay, summarizeWaits } from "../src/index.js";
 
+Error.stackTraceLimit = 100;
 const NAME = process.env.FFL3K_DEBUG ?? "";
 const FROM = Number(process.env.FFL3K_FROM ?? 0), TO = Number(process.env.FFL3K_TO ?? 20);
 const SF = Number(process.env.FFL3K_SFROM ?? 1e9), ST = Number(process.env.FFL3K_STO ?? -1);
@@ -11,16 +12,25 @@ it.skipIf(!NAME || !haveRom() || !haveTrace(NAME))(`debug ${NAME}`, () => {
   const DF = Number(process.env.FFL3K_DFROM ?? 1e9), DT = Number(process.env.FFL3K_DTO ?? -1);
   const r = replay(NAME, {
     keepGoing: true,
-    setup: (rig) => { rig.g.debug = (msg) => { if (rig.g.frame >= DF && rig.g.frame <= DT) console.log(msg); }; },
+    setup: (rig) => {
+      rig.g.debug = (msg) => { if (rig.g.frame >= DF && rig.g.frame <= DT) console.log(msg); };
+      const regs = (process.env.FFL3K_LCD ?? "").split(",").filter(Boolean).map((x) => parseInt(x, 16));
+      if (regs.length) rig.g.m.onLcdWrite = (a, v) => {
+        if (!regs.includes(a) || rig.g.frame < DF || rig.g.frame > DT) return;
+        const st = (new Error().stack ?? "").split("\n").filter((l) => l.includes("ffl3-core")).slice(1, 7)
+          .map((l) => l.trim().replace(/\(.*src\//, "(").replace(/^at /, "")).join(" < ");
+        console.log(`lcd ${a.toString(16)}=${v.toString(16)} f${rig.g.frame} ly${rig.g.ly}: ${st}`);
+      };
+    },
     onSync: (i, f, pf) => {
       if (pf < SF || pf > ST) return;
-      const st = (new Error().stack ?? "").split("\n").filter((l) => l.includes("ffl3-core")).slice(2, 9)
+      const st = (new Error().stack ?? "").split("\n").filter((l) => l.includes("ffl3-core")).slice(2, 2 + Number(process.env.FFL3K_DEPTH ?? 7))
         .map((l) => l.trim().replace(/\(.*src\//, "(").replace(/^at /, "")).join(" < ");
       console.log(`sync ${i} trace f${f} port f${pf}: ${st}`);
     },
     onWaitStart: (i, f, pf) => {
       if (i < FROM || i > TO) return;
-      const st = (new Error().stack ?? "").split("\n").filter((l) => l.includes("ffl3-core")).slice(1, 9)
+      const st = (new Error().stack ?? "").split("\n").filter((l) => l.includes("ffl3-core")).slice(1, 1 + Number(process.env.FFL3K_DEPTH ?? 8))
         .map((l) => l.trim().replace(/\(.*src\//, "(").replace(/^at /, "")).join(" < ");
       console.log(`wait ${i} trace f${f} port f${pf}: ${st}`);
     },

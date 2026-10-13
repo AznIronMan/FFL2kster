@@ -105,3 +105,7 @@ both ROMs; differences are listed first because they are the valuable part.
   Legend III's battle flow is a bytecode script (0C:4000 interpreting 0C:4A2D, natives by
   address), not native code as in Legend I/II; its random draws depend on the interpreter's CPU
   time, so the replay supplies the frame counter at each draw.
+  A frame wait's frame should be taken from the vblank interrupt that ends it, not from where the
+  code resumes: Legend III's normal vblank handler (tile list, sound) can run into the next frame.
+  Its rst $20 / rst $28 bank switches end with reti, so code that switches banks turns the
+  interrupts on (an interrupt-time frame work can be interrupted).

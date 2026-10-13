@@ -37,24 +37,26 @@ export function boxFrame(g: Game): void {
 
 // ---------------------------------------------------------------- the field frame work
 
-/** 01:5993 — map mode 22: every 32 frames the water tiles 9620/9660 and 9720/9760 swap
- *  (through C800). */
-function animWater(m: Memory): void {
-  if (m.hram[0x13]! & 0x1f) return;
-  for (const [a, b] of [[0x9620, 0x9660], [0x9720, 0x9760]] as const) {
-    vramCopy(m, a, 0xc800, 0x20);
-    vramCopy(m, b, a, 0x20);
-    vramCopy(m, 0xc800, b, 0x20);
-  }
+/** The frame counter FF93. */
+function frame(m: Memory): number {
+  return m.hram[0x13]!;
+}
+
+/** 01:6101 / 01:015F / 01:6107 (n = 32) and 01:60F5 / 00:0159 / 01:60FB (n = 16) — the tiles at
+ *  a and b swapped through C800. */
+function tileSwap(m: Memory, a: number, b: number, n: number): void {
+  vramCopy(m, a, 0xc800, n);
+  vramCopy(m, b, a, n);
+  vramCopy(m, 0xc800, b, n);
 }
 
 /** 01:5730 — a 2-tile strip (hl, hl + 16) scrolled right by a pixel (each plane byte pair
- *  rotated through), at FF93 & 0F = 6 (hl) or 0E (hl + 100); C800 counts the 16 bytes. The
- *  original polls hblank per byte and ends with reti (interrupts on). */
-function stripScroll(g: Game, hl: number): void {
+ *  rotated through), at FF93 & 0F = 6 (hl) or 0E (hl + 100; not for 01:5723, `once`); C800
+ *  counts the 16 bytes. The original polls hblank per byte and ends with reti (interrupts on). */
+function stripScroll(g: Game, hl: number, once = false): void {
   const m = g.m;
-  const f = m.hram[0x13]! & 0x0f;
-  if (f === 0x0e) hl += 0x100;
+  const f = frame(m) & 0x0f;
+  if (f === 0x0e && !once) hl += 0x100;
   else if (f !== 0x06) { g.ime = true; return; }
   for (let k = 0; k < 0x10; k++) {
     m.wr(0xc800, k);
@@ -82,25 +84,155 @@ function tileRollDown(m: Memory, hl: number): void {
   vramCopy(m, 0xc800, hl, 0x10);
 }
 
-/** 01:5814 — map mode 23: the strip 9080 / 9180 (01:56E4), and every 4 frames the tiles 9600
- *  and 9610 rolled down (a waterfall). */
-function animFalls(g: Game): void {
-  const m = g.m;
-  stripScroll(g, 0x9080);
-  if (m.hram[0x13]! & 0x03) return;
-  tileRollDown(m, 0x9600);
-  tileRollDown(m, 0x9610);
+/** 01:57CE — the tile at hl rolled up a pixel row (copied to C801-C810, rotated by 2 through
+ *  C800-C810, back from C801). */
+function tileRollUp(m: Memory, hl: number): void {
+  vramCopy(m, hl, 0xc801, 0x10);
+  for (let b = 0; b < 2; b++) {
+    for (let p = 0xc801; p <= 0xc810; p++) m.wr(p - 1, m.rd(p));
+    m.wr(0xc810, m.rd(0xc800));
+  }
+  vramCopy(m, 0xc801, hl, 0x10);
 }
 
-/** 01:54A0 — the map mode's tile animation (CA18; once: CA6F). */
-function mapAnimation(g: Game): void {
+/** 01:5847 (through C800) — the 16 bytes of the tile at hl each rotated right (rrc). */
+function tileRotate(m: Memory, hl: number): void {
+  vramCopy(m, hl, 0xc800, 0x10);
+  for (let p = 0xc800; p < 0xc810; p++) { const v = m.rd(p); m.wr(p, ((v >> 1) | (v << 7)) & 0xff); }
+  vramCopy(m, 0xc800, hl, 0x10);
+}
+
+/** 01:5836 — every 4 frames the tiles 9790 and 97A0 rolled down. */
+function anim5836(m: Memory): void {
+  if (frame(m) & 0x03) return;
+  tileRollDown(m, 0x9790);
+  tileRollDown(m, 0x97a0);
+}
+
+/** 01:5828 — at FF93 & 3 = 2 the tile 9190 rolled down, then 01:5836. */
+function anim5828(m: Memory): void {
+  if ((frame(m) & 0x03) === 2) tileRollDown(m, 0x9190);
+  anim5836(m);
+}
+
+/** 01:578C / 01:5798 — at FF93 & 3 = 2 the tile up rolled up (01:57C7), at 0 the tile down rolled
+ *  down (01:57A4). */
+function rollPair(m: Memory, up: number, down: number): void {
+  if ((frame(m) & 0x03) === 2) tileRollUp(m, up);
+  if (!(frame(m) & 0x03)) tileRollDown(m, down);
+}
+
+/** 01:58A1 — every 16 frames the tiles 97B0 / 9690 and 96D0 / 9790 swapped (32 bytes). */
+function anim58A1(m: Memory): void {
+  if (frame(m) & 0x0f) return;
+  tileSwap(m, 0x97b0, 0x9690, 0x20);
+  tileSwap(m, 0x96d0, 0x9790, 0x20);
+}
+
+/** 01:5964 — every 16 frames the tiles 9220 / 9250 and 9320 / 9350 swapped (32 bytes). */
+function anim5964(m: Memory): void {
+  if (frame(m) & 0x0f) return;
+  tileSwap(m, 0x9220, 0x9250, 0x20);
+  tileSwap(m, 0x9320, 0x9350, 0x20);
+}
+
+/** 01:5601 — every 16 frames tiles 9060 and 9160 (32 bytes each) from one of four frames
+ *  (FF93 bits 4-5): 9460 / 94A0 / 94C0 / 94E0 and 9560 / 95A0 / 95C0 / 95E0. */
+function anim5601(m: Memory): void {
+  if (frame(m) & 0x0f) return;
+  const k = (frame(m) >> 4) & 3;
+  const src = [0x9460, 0x94a0, 0x94c0, 0x94e0][k]!;
+  vramCopy(m, src, 0x9060, 0x20);
+  vramCopy(m, src + 0x100, 0x9160, 0x20);
+}
+
+/** 01:565F — every 16 frames tiles 96D0 and 97D0 (32 bytes each) from one of four frames: 90A0 /
+ *  90C0 / 90E0 / 9440 and 91A0 / 91C0 / 91E0 / 9540; then 01:5836. */
+function anim565F(m: Memory): void {
+  if (!(frame(m) & 0x0f)) {
+    const k = (frame(m) >> 4) & 3;
+    const src = [0x90a0, 0x90c0, 0x90e0, 0x9440][k]!;
+    vramCopy(m, src, 0x96d0, 0x20);
+    vramCopy(m, src + 0x100, 0x97d0, 0x20);
+  }
+  anim5836(m);
+}
+
+/** 01:54A0 — the map mode's tile animation (CA18, the table at 01:54B4; once: CA6F). The strip
+ *  scrolls (01:5730) end with reti; the others leave the interrupts as they are. */
+export function mapAnimation(g: Game): void {
   const m = g.m;
   if (m.rd(0xca6f)) return;
   m.wr(0xca6f, 1);
   const mode = m.rd(0xca18);
-  if (mode === 0x22) animWater(m);
-  else if (mode === 0x23) animFalls(g);
-  else if (mode !== 0x00 && mode !== 0x0c) throw new NotPorted(`01:54A0 map animation mode ${mode.toString(16)}`);
+  const f = frame(m);
+  switch (mode) {
+    case 0x00: case 0x0c: break; // 01:5500
+    case 0x01: stripScroll(g, 0x9080); break; // 01:56E4
+    case 0x02: stripScroll(g, 0x9600); break; // 01:571E
+    case 0x03: stripScroll(g, 0x9680, true); break; // 01:5723
+    case 0x04: stripScroll(g, 0x9200); break; // 01:56DF
+    case 0x05: stripScroll(g, 0x9680); break; // 01:5719
+    case 0x06: stripScroll(g, 0x9000); break; // 01:5714
+    case 0x07: rollPair(m, 0x9020, 0x91b0); break; // 01:578C
+    case 0x08: // 01:59C2
+      stripScroll(g, 0x96c0);
+      if ((f & 0x3f) === 0x20) tileSwap(m, 0x97e0, 0x96e0, 0x20);
+      else if (!(f & 0x3f)) tileSwap(m, 0x97c0, 0x96c0, 0x20);
+      break;
+    case 0x09: stripScroll(g, 0x9400); break; // 01:56C8
+    case 0x0a: stripScroll(g, 0x9080); stripScroll(g, 0x9400); break; // 01:56C5
+    case 0x0b: if (!(f & 0x3f)) tileSwap(m, 0x97e0, 0x96e0, 0x20); break; // 01:59FE
+    case 0x0d: // 01:57F2
+      if ((f & 0x0f) === 0x08) tileRollUp(m, 0x9380);
+      else if (!(f & 0x0f)) tileRotate(m, 0x9390);
+      break;
+    case 0x0e: // 01:56E9
+      if (f & 0x0f) { stripScroll(g, 0x9000); break; }
+      tileRotate(m, 0x9190);
+      stripScroll(g, 0x9600); // 01:5701
+      stripScroll(g, 0x9060);
+      break;
+    case 0x0f: case 0x15: case 0x1e: anim5601(m); break;
+    case 0x10: anim5836(m); break;
+    case 0x11: case 0x1d: anim5828(m); break;
+    case 0x12: case 0x13: anim565F(m); break;
+    case 0x14: // 01:586A
+      if (!(f & 0x1f)) { tileSwap(m, 0x9440, 0x9460, 0x20); tileSwap(m, 0x9540, 0x9560, 0x20); }
+      break;
+    case 0x16: rollPair(m, 0x9220, 0x93b0); anim58A1(m); break; // 01:589E
+    case 0x17: stripScroll(g, 0x9000); anim58A1(m); break; // 01:5899
+    case 0x18: rollPair(m, 0x9220, 0x93b0); break; // 01:5798
+    case 0x19: // 01:58D0
+      if (!(f & 0x0f)) tileSwap(m, 0x90c0, 0x92a0, 0x10); // 01:594A
+      anim5964(m);
+      break;
+    case 0x1a: // 01:58D6
+      if (!(f & 0x0f)) tileSwap(m, 0x9500, 0x9510, 0x10);
+      if (!(f & 0x1f)) {
+        tileSwap(m, 0x92e0, 0x96c0, 0x10);
+        tileSwap(m, 0x93e0, 0x96d0, 0x10);
+        tileSwap(m, 0x93b0, 0x9640, 0x10);
+        tileSwap(m, 0x93c0, 0x9750, 0x10);
+      }
+      break;
+    case 0x1b: anim5964(m); break;
+    case 0x1c: // 01:56CD
+      if (!(f & 0x03)) { tileRollDown(m, 0x8600); tileRollDown(m, 0x8610); }
+      stripScroll(g, 0x9200);
+      break;
+    case 0x1f: stripScroll(g, 0x9600); stripScroll(g, 0x9060); break; // 01:5701
+    case 0x20: stripScroll(g, 0x9260); stripScroll(g, 0x9400); break; // 01:5709
+    case 0x21: if (!(f & 0x0f)) tileSwap(m, 0x9660, 0x9760, 0x20); break; // 01:5850
+    case 0x22: // 01:5993
+      if (!(f & 0x1f)) { tileSwap(m, 0x9620, 0x9660, 0x20); tileSwap(m, 0x9720, 0x9760, 0x20); }
+      break;
+    case 0x23: // 01:5814
+      stripScroll(g, 0x9080);
+      if (!(f & 0x03)) { tileRollDown(m, 0x9600); tileRollDown(m, 0x9610); }
+      break;
+    default: throw new NotPorted(`01:54A0 map animation mode ${mode.toString(16)}`);
+  }
   m.wr(0xca6f, 0);
 }
 

@@ -13,7 +13,7 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | C0B9 / C0BC | RAM jump vectors for vblank / STAT (installed by 00:3D46 / 00:3D5A) | verified (PyBoy) |
 | 00:11A2 | vblank handler (via C0B9) | verified (hook) |
 | 00:11E3 | STAT handler (via C0BC): reti | verified (hook) |
-| 00:11A2 work | DMA (CD39 = 0), joypad 00:36F1, CA26, then while FF95 counts: FF95 - 1, the tile list C100 (00:3757), FF93/94 + 1; scroll 00:3D2B, shake 00:108F, sound 00:1F3A | probable (code; normal mode not yet in a trace) |
+| 00:11A2 work | DMA (CD39 = 0), joypad 00:36F1, CA26, then while FF95 counts: FF95 - 1, the tile list C100 (00:3757), FF93/94 + 1; scroll 00:3D2B, shake 00:108F, sound 00:1F3A; can run into the next frame (9253/144 to 9254/7 in `opening1`) | verified (parity opening1) |
 | 00:1D9E / 00:1DFD | VRAM bracket enter / leave (nested, CDCE): IE/STAT/LYC and vectors saved to CDD0/CDCF/CDCA/CDC7/CDCB; IE \| 3, STAT 40, LYC 3, STAT -> 00:1F27, vblank -> 00:1EFA; di at the entry, then the switch, then the poll for mode 1, then reti (interrupts that came meanwhile are taken by the new handlers) | verified (parity title1/title2/newgame1; hooks) |
 | 00:1D98 / 00:1DF3 | CD3D + 1 then enter / leave then CD3D - 1 | verified (parity) |
 | 00:1EFA | bracket vblank: 00:3E26 sprite flip (CBFF), DMA, joypad, CDAF \|= FF8B, FF93/94 + 1, FF95 - 1 | verified (parity) |
@@ -224,7 +224,11 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:1B64 | return point C7C9-C7CB for maps below 0A, one step back against the facing | verified (parity) |
 | 00:35AF / 00:35D2 / 00:27AB | text window open / close / toggle (code 14): slide 6B -> 51 (2 lines a frame) with STAT 00:3631 (BGP flashes, WX on/off, LYC mirrored around 6E), a sound tick and the field work per frame | verified (parity) |
 | 00:3575 | field frame work: map animation 01:54A0 (CA6F guard; CA18 mode table at 01:54B4), objects 00:01A0, scroll 00:3D2B, shake 00:108F, objects under the window hidden (00:3A32) | verified (parity) |
-| 01:5993 / 01:5814 / 01:5730 / 01:57A9 | water (mode 22, every 32 frames), falls (mode 23: strip 9080/9180 every 8 frames, 9600/9610 rolled down every 4), strip scroll (ends with reti), tile roll | verified (parity) |
+| 01:54A0 / 01:54B4 | map animation, 36 modes (CA18): 00/0C nothing; strip scrolls 01:5730 (a 2-tile strip a pixel right at FF93 & 0F = 6, or + 100 at 0E; hblank-paced, ends with reti; 01:5723 at 6 only) for 01-06, 09, 0A, 1C, 1F, 20, 08, 17, 0E, 23; tile rolls down 01:57A9 / up 01:57CE (pairs 01:578C, 01:5798, 01:5828, 01:5836); byte rotations 01:5847 (0D, 0E); swaps through C800 (01:6101/6107 32 bytes, 01:60F5/60FB 16) in 08, 0B, 14, 16, 17, 19, 1A, 1B (01:5964), 21, 22 (01:5993); frame tables 01:5601 (0F, 15, 1E) and 01:565F (12, 13) | verified for 1B, 22, 23 (parity); the rest from the code |
+| 00:0020 / 00:0028 | rst $20 / rst $28: di, bank push 00:38E1 / pop 00:38FC, reti (the interrupts on: in the frame work, 00:01A0's rst $20 lets a nested STAT in) | verified (parity opening1) |
+| 00:2EF8 -> 00:2F0B / 00:12CA | a script reference's event is called at 00:2F0B; 00:1236 returns through 00:12CA (C2F0, CD3D back); both are sync points (the events' CPU time decides whether a STAT frame work sees CD3D) | verified (parity opening1) |
+| 00:1B2D / 00:1B50 | a frame, then the normal handlers (11A2 / 11E3) with the current ones kept at CA5A / CA5D; back | verified (parity opening1) |
+| 01:41AF / 01:41C0 | a frame of the leader's / an object's scripted walk: map animation, objects, a frame (the leader's steps 01:441D-4609, the objects' 01:50AC-5312) | verified where `opening1` reaches (scripted walks) |
 | 00:3211 and helpers | text engine: flush 00:331B, line at once 00:3357, tile by tile 00:338E (delay 00:3593), box scroll 00:342C / 00:34B2, dictionary 00:308C / 00:30B8, wait for A 00:275C | verified (parity) |
 
 ## Menus and the name entry (port P1)

@@ -578,3 +578,11 @@ Decisions and assumptions:
   sub-agents count as verified only where a replay reaches them.
 - 1.35.0: the port's code is held while an interrupt handler's work (with its trace end) is still
   running — the original's code cannot run during a handler.
+- 1.36.0: a trace's wait frame is the frame of the vblank interrupt that ended the wait (00:0040),
+  not the frame in which the code reached 00:3A77 (a long vblank handler resumes it in the next
+  frame); the trace also lists where each wait ended, as a diagnostic only — porting the late
+  resume was tried and dropped because no trace needed it. In the lines the original's code ran,
+  a line tear may show the VRAM of the last wait that ended before the frame. Sync points stay
+  few and each must fail a trace when removed (00:1B2D was dropped for that reason); every path
+  into 00:1236 in the port goes through `dispatch` so the 00:12CA point is counted as in the
+  original.

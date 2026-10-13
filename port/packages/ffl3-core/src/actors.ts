@@ -203,7 +203,10 @@ function drawOthers(m: Memory): void {
   }
 }
 
-/** 00:01A0 — draw every object into the OAM buffer (once: CA14), with the DMA held (CD39 = 1). */
+/** 00:01A0 — draw every object into the OAM buffer (once: CA14), with the DMA held (CD39 = 1).
+ *  Its bank switch is rst $20, whose reti turns the interrupts on (in the STAT frame work too: a
+ *  work running past the next LYC is interrupted by the nested STAT, which only ticks the
+ *  sound). */
 export function drawObjects(g: Game): void {
   const m = g.m;
   if (m.rd(0xca14)) return;
@@ -212,6 +215,7 @@ export function drawObjects(g: Game): void {
   m.wr(0xcd39, 1);
   const s = slot(m);
   pushBank(g, 0x01);
+  g.ime = true;
   oamHideAll(m);
   m.hram[0x17] = 0;
   drawLeader(m);

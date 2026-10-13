@@ -11,7 +11,9 @@ compact storage). Per trace directory build/traces/NAME:
                 of every entry to 00:1D9E / 00:1DFD (di: the interrupts stay off until the poll's reti), and
                 "works": [frame, LY, end frame, end LY] of every run of the frame work 00:3557 (from 00:3549,
                 CDC5 0 -> 1; it ends back at 00:3552), whose hblank-paced VRAM copies span lines, and
-                "starts": [frame, LY] at which each frame wait began (00:3A6D), and "points": {"BB:AAAA":
+                "starts": [frame, LY] at which each frame wait began (00:3A6D), "ends": [frame, LY] at which
+                each ended (00:3A77, the code resumed; diagnostic: a long vblank handler resumes it in the next
+                frame), and "points": {"BB:AAAA":
                 [[frame, LY], ...]} of the times the CPU reached the addresses in POINTS (sync points: the port
                 spends the CPU time before them, e.g. 00:1E49, a menu drawn after hblank-paced copies), and
                 "rand": [frame, LY, FF93] at every call of the random generator 00:39D5 (it reads FF93)
@@ -21,7 +23,8 @@ compact storage). Per trace directory build/traces/NAME:
   screens.dx.gz 160x144 shade bytes per frame, each XORed with the previous frame, gzip
   waits.dx.gz   machine 8000-FFFF where every frame wait ends (00:3A77: FF95 counted down to 0 by the
                 vblank handler after 00:3A6D set it), each XORed with the previous
-                one (the first with start.bin), gzip; waits.json lists the frame of each.
+                one (the first with start.bin), gzip; waits.json lists the frame of each (the frame of the vblank
+                interrupt that ended it: a long vblank handler may resume the main in the next frame).
   marks.bin     with marks=[(bank, addr)]: machine 8000-FFFF each time the CPU reaches a mark after the
                 start (marks.json: frame, waits recorded before it, address, registers); with
                 stop_after=N the recording ends N frames after the first mark.
@@ -84,11 +87,14 @@ class Recorder:
             start["frame"] = pb.frame_count
             start["ly"] = pb.memory[0xFF44]
 
-        wait_starts, arm_at = [], [None]
+        wait_starts, wait_ends, arm_at = [], [], [None]
+
+        arm_vbl = [0]
 
         def arm(_):
             if start:
                 armed[0] = True
+                arm_vbl[0] = last_vbl[1]
                 arm_at[0] = [nframes[0] if recording[0] else -1, pb.memory[0xFF44]]
 
         syncs, recording = [], [False]
@@ -126,12 +132,24 @@ class Recorder:
                 works.append(open_work + [nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
                 open_work.clear()
 
+        last_vbl = [None, 0]  # frame of the latest vblank interrupt (00:0040), count of them
+
+        def at_vbl(_):
+            last_vbl[0] = nframes[0]
+            last_vbl[1] += 1
+
         def at_halt(_):
             if armed[0]:
                 armed[0] = False
                 waits.append(bytes(pb.memory[0x8000:0x10000]))
-                wait_frames.append(nframes[0])
+                # the frame of the vblank that ended the wait (its handler may run past the frame's end,
+                # e.g. a long vblank tile list or sound tick: the main then resumes in the next frame)
+                f = nframes[0]
+                if recording[0] and last_vbl[1] != arm_vbl[0]:
+                    f = last_vbl[0]
+                wait_frames.append(f)
                 wait_starts.append(arm_at[0])
+                wait_ends.append([nframes[0], pb.memory[0xFF44]])
         mark_mem, mark_meta = bytearray(), []
 
         def mk_mark(bank, addr):
@@ -161,6 +179,7 @@ class Recorder:
             pb.hook_register(mb, ma, mk_mark(mb, ma), None)
         pb.hook_register(0, 0x3A6D, arm, None)
         pb.hook_register(0, 0x3A77, at_halt, None)
+        pb.hook_register(0, 0x0040, at_vbl, None)
         pb.hook_register(0, 0x1E35, at_sync, None)
         pb.hook_register(0, 0x1D9E, at_poll, None)
         pb.hook_register(0, 0x39D5, at_rand, None)
@@ -243,7 +262,7 @@ class Recorder:
         open(f"{out}/screens.dx.gz", "wb").write(_dx(screens, 160 * 144))
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
         json.dump({"frames": wait_frames, "syncs": syncs, "polls": polls, "works": works,
-                   "starts": wait_starts, "points": points,
+                   "starts": wait_starts, "ends": wait_ends, "points": points,
                    "rand": rand}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
                    "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
@@ -255,8 +274,10 @@ class Recorder:
 # hooks patch the ROM): 00:1E49 the menu boxes (after the copies that set them up), 09:5014 the
 # boxes drawn (the OAM DMA held until then, CD39), 0F:7B75 the name entry's sprite tiles (0B:7DCA)
 # loaded after its record copy, 02:5278 a battle effect reading LY between paced copies, 01:7DCA after the name entry's 2 KiB background
-# fill (before WY 50, which turns the frame work to the field)
-POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278))
+# fill (before WY 50, which turns the frame work to the field), 0B:5D2B the same after a battle (after its fill and 00:20CF), 00:2F0B a script
+# reference's scene event (00:1236 clears CD3D: the STAT frame work may run before) and 00:12CA its end
+# (CD3D back): the events take CPU time, e.g. between two scripted walks
+POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA))
 
 
 def plan_steps(plan):

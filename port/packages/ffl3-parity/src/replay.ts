@@ -168,6 +168,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     pointAt.set(addr, k + 1);
     const p = t.points[addr]?.[k];
     nPoints++;
+    if (process.env.FFL3K_POINTS) console.log(`point ${addr.toString(16)} #${k} trace ${p?.join(",")} port f${g.frame} ly${g.ly}`);
     if (!p) return undefined;
     if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePoints++;
     return p;
@@ -263,9 +264,16 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
         let lt: ReturnType<typeof lineTear> = false;
         // in a busy frame, also the port's objects and registers over the VRAM of the last wait
         // (the original had not written its new tiles yet)
-        const lastVram = (): Uint8Array[] => nWaits > 0 ? [rig.redrawFrom(t.waits.subarray((nWaits - 1) * 0x8000, (nWaits - 1) * 0x8000 + 0x2000))] : [];
+        // (the last wait that ended before this frame: one ending in its vblank wrote after it was drawn)
+        const lastVram = (): Uint8Array[] => {
+          let k = nWaits - 1;
+          while (k >= 0 && (wf[k] ?? -1) >= f) k--;
+          return k >= 0 ? [rig.redrawFrom(t.waits.subarray(k * 0x8000, k * 0x8000 + 0x2000))] : [];
+        };
         if (opts.tears !== false && busyFrame && (mixTear(exp, got, olds) || mixTear(exp, got, [...olds, ...lastVram()]))) tears++;
-        else if (opts.tears !== false && (lt = lineTear(exp, got, [...olds, ...oldPalette(f)], [...workLines(f), ...mainLines(f)]))) {
+        // (in the lines the original's main code ran, also the VRAM of the last wait: its tile writes,
+        // e.g. a map animation, had not been made yet)
+        else if (opts.tears !== false && (lt = lineTear(exp, got, [...olds, ...oldPalette(f), ...lastVram()], [...workLines(f), ...mainLines(f)]))) {
           lineTears++;
           if (lt === "partial") chunkTears++;
         }
