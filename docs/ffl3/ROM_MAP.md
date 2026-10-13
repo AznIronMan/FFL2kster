@@ -12,7 +12,15 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:0100 | entry, `jp $0200` | verified |
 | C0B9 / C0BC | RAM jump vectors for vblank / STAT (installed by 00:3D46 / 00:3D5A) | verified (PyBoy) |
 | 00:11A2 | vblank handler (via C0B9) | verified (hook) |
-| 00:11E3 | STAT handler (via C0BC) | verified (hook) |
+| 00:11E3 | STAT handler (via C0BC): reti | verified (hook) |
+| 00:11A2 work | DMA (CD39 = 0), joypad 00:36F1, CA26, then while FF95 counts: FF95 - 1, the tile list C100 (00:3757), FF93/94 + 1; scroll 00:3D2B, shake 00:108F, sound 00:1F3A | probable (code; normal mode not yet in a trace) |
+| 00:1D9E / 00:1DFD | VRAM bracket enter / leave (nested, CDCE): IE/STAT/LYC and vectors saved to CDD0/CDCF/CDCA/CDC7/CDCB; IE \| 3, STAT 40, LYC 3, STAT -> 00:1F27, vblank -> 00:1EFA; both poll for mode 1 with interrupts off, then reti | verified (parity title1/title2) |
+| 00:1D98 / 00:1DF3 | CD3D + 1 then enter / leave then CD3D - 1 | verified (parity) |
+| 00:1EFA | bracket vblank: 00:3E26 sprite flip (CBFF), DMA, joypad, CDAF \|= FF8B, FF93/94 + 1, FF95 - 1 | verified (parity) |
+| 00:1F27 | bracket STAT (LYC 3): sound (00:1F3A, bank 0F pushed), then 00:3549 while CD3D | verified (parity) |
+| 00:3549 / 00:3557 | once (CDC5): CDC4 or WY = 50 -> bank 01 00:3575 (field work); else 00:2192 party figures + 00:1ED7 | verified (parity, title path) |
+| 00:3A6D / 00:3A6B | frame wait: FF95 = n (1), halt until 0 (00:3A77) | verified (parity) |
+| 00:36F1 | joypad: FF8A held (A B Sel Start low, R L U D high), FF8B new presses | verified (parity) |
 
 ## Bank switching and far calls
 
@@ -23,9 +31,16 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | rst $30 → 00:38D4 | call through the trampoline at C0B2 | probable |
 | rst $18 → 00:378A | far call with one inline byte x: bit 3 clear → bank-0 routine 38C4[x&7] (3211, 20FF, 1F8A, 1F97, 1FB1, 1E51, 3D6E, 3D73) with bank x>>4 selected; bit 3 set → table entry (x&F0)\|2(x&7) at 3806/3807, bank 3802[hi>>6] ∈ {01, 09, 0B, 0F}, address ((hi&3F)\|40)<<8 \| lo | verified (disassembler output matches hooks) |
 | 00:1F8A / 1F8D / 1F90 / 1F93 | copy 4 / 3 / 2 / 1 bytes hl→de (fall-through chain) | verified (battle RAM) |
-| 00:1F50 / 1F53 / 1F55 | fill 6 / 3 / 2 bytes with A | probable |
+| 00:1F50 / 1F53 / 1F55 | fill 9 / 6 / 4 bytes with A (the chain from 00:1F45 fills 20; corrected in 1.31.0, the earlier 6 / 3 / 2 was a misread) | probable (code) |
 | 00:245F | A × 8 → hl | probable |
 | 00:1C7E | 16-bit multiply de × hl → de | verified (record index) |
+| 00:1F5A-1F95 / 00:1F45-1F58 | unrolled copy (20 .. 1 bytes by entry) / fill (20 .. 4) | verified (parity) |
+| 00:1F97 / 00:1FB1 / 00:3921 | copy b / copy bc / fill bc bytes | verified (parity) |
+| 00:20FF | VRAM copy bc bytes, 5 per hblank (or in vblank) clear of LYC - LY < 3; multi-frame | verified (parity, re-timed) |
+| 00:3D76 | block decompressor (as the layouts) to a destination through C800; C840-C846 | verified (parity) |
+| 00:1E51 | menu input: wait for a button (Select ignored), jump through the 8 words after the call by the lowest bit; handlers return into 00:1E57 (0B:6D22 key repeat pause) | verified (parity title2) |
+| 0B:6D22 | key repeat pause (CDAF, CD38; Select held = 1 frame) | verified (parity title2) |
+| 0F:79AE / 00:3A0C / 00:39F3 | fade levels CDB7/CDBA from CDB4 / fade in (CDBA, CDB7, CDB4, 5 frames each) / fade out | verified (parity) |
 
 ## Encounters
 
@@ -187,3 +202,12 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | CA2B / CA2C / CA2D / FFCA | encounter rate / battle request / zone / formation (+bit 7) | verified |
 | CC59-CC5D / CC36-CC38 | battle groups (ids, flags, counts byte) / counts | verified |
 | C996 / C9D4 / C9ED | battle values that follow the level of the loaded enemy (1/4/1 at level 1, 3/12/3 at level 5) | verified (meaning unknown) |
+
+## Title and sprites (port P1)
+
+| Location | What | Status |
+|---|---|---|
+| 01:7C79 | title: music 6, bracket, palettes 01:7DDA -> CDB4, picture 03:5C00 -> D000 -> 9000, font 03:4000 -> 8800, window 0B:6D04, sprites 09:40E8, 03:71B5 -> 8180, logo 9C22 (8 x 16), texts 09:7215, cursor C080, fade in, menu 00:1E51 (Up/Down toggle C080 ^ 10, others buzz, A 01:7D21) | verified (parity title1/title2) |
+| 09:40E8 / 0B:7DCA / 0B:7E17 | sprite reset: member sprite tiles (bank 04 by 0B:6DC7, mirrored for a status) to 8000, shared tiles bank 03 5700-57BF to 8180; OAM buffer C000 | verified (parity) |
+| 00:21A9 | party walking figures in C000 / C050 (CD3C), frame by FF93 bit 4, type by 0B:748F (00:2315 / 00:2322) | verified (parity) |
+| 00:2205 | cursor step C080 (CD15 bit 7) | probable (code; CD15 clear in the traces) |

@@ -95,3 +95,8 @@ both ROMs; differences are listed first because they are the valuable part.
   re-phase); Legend I adds rules for its polled rasters, PyBoy's LCD-off blanking, DIV-seeded
   random counters at start-up, frame-tick polling loops (TICK) and late LCD register writes. The
   field sweep design (every map through its first warp) carried over from Legend II's P2.
+- Runtime (Legend III, port P1): frame waits count FF95 down in the vblank handler (Legend I:
+  rst $10 halts until LY >= 90); VRAM is written by polling hblank (00:20FF) inside a bracket
+  that swaps the interrupt handlers, not by a line-paced STAT handler as in Legend I. The
+  port-side design (generators, original RAM, busy frames from the trace) carries over; the busy
+  frames are taken at the wait's start because Legend III's copies span several frames.

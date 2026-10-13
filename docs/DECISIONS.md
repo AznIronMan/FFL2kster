@@ -538,3 +538,21 @@ Decisions and assumptions:
 - A Python behaviour the port exposed is fixed in Python first, with an emulator test, before the
   port is made to agree (map 11: patch rows past the map are dropped; the game writes them after
   the buffer).
+
+## 2026-10-13 — Legend III port P1: runtime and parity rules
+
+- `@ffl3k/core` follows `@ffl1k/core`'s design (ported routines as generators, original RAM
+  addresses, no CPU emulation) with Legend III's own runtime: frame waits through FF95, the VRAM
+  bracket's handler swap, and a line-by-line clock that takes interrupts as the hardware would
+  (IF raised at LYC and line 144; vblank polls resume before the interrupt is taken).
+- CPU time is not modelled. Legend III's VRAM copies (00:20FF) are paced by hblank and by the
+  sound handler's length, so their duration cannot be derived without cycle-exact emulation of
+  the driver; the replay therefore re-times each frame wait from the trace (busy frames spent
+  before the wait sets FF95, with the interrupts running) — the same principle as Legend I's busy
+  frames, applied at the wait's start.
+- Parity rules (counted, each falsified with a mutation): wait states compared byte for byte
+  except sound driver RAM (until the driver is ported), the stack, timing registers, rst $18's
+  scratch, the dead bank stack slots, and CDCF's mode bits; screens equal, or in a busy frame
+  every pixel new or old (tear), or in/just after a busy stretch equal to the port's picture with
+  the original's objects of the previous frame (late OAM writes; the objects are compared at the
+  next wait). Traces now also record the OAM per frame (oam.bin).

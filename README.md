@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.30.0`
+Version: `1.31.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,10 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.31.0` — Legend III port P1, first checkpoint: `@ffl3k/core` (the Legend III runtime: frame
+  waits, interrupts and the VRAM bracket, ROM bank stack, copies, decompressor, fades, text lines,
+  party sprites, the title and its menu) and `@ffl3k/parity` (PyBoy trace replay). The title is
+  frame-exact against PyBoy in two traces (686 waits; screens equal or counted busy-frame tears).
 - `1.30.0` — Legend III port P0: `@ffl3k/importer` (TypeScript) reproduces the Python Legend III data
   package from the player's ROM — every table record, maps/objects/warps, decoded layouts and
   patches, all 1,639 scripts, the music streams and driver loops, and the graphics/map buffers

@@ -1,0 +1,10 @@
+{
+  "name": "@ffl3k/parity",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Legend III parity harness: replays PyBoy traces (generated locally from the player's ROM, never committed) through @ffl3k/core.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": { "@ffl3k/core": "*", "@ffl2k/render": "*" }
+}

@@ -10,6 +10,9 @@ Legend III conventions (from the ROM, 2026-10-13; docs/ffl3/ROM_MAP.md):
     bit 3 set:   entry (x & F0) | 2 (x & 7) of the table at 00:3806 (lo) / 00:3807 (hi): bank
                  00:3802[hi >> 6], address (hi & 3F | 40) << 8 | lo.
 - `call $373A` + a word per case: a jump table (followed until the lowest target is reached).
+- `call $1E51` (or rst $18 x=05, the same routine): wait for a button, then jump through the 8
+  words that follow the call, indexed by the lowest set button bit (A, B, -, Start, Right, Left,
+  Up, Down; 00:1EE7); the handlers end with `pop hl` x2 + ret or return into the loop at 1E57.
 - rst $30 (00:38D4): call the RAM trampoline C0B2 (jp set by the caller) with bank a: not followed.
 - interrupts: vblank -> C0B9, STAT -> C0BC (RAM vectors; their handlers are found from where the
   code installs them, listed in tools/ffl3/disasm_entries.txt).
@@ -43,6 +46,18 @@ def rst18(x):
     return (bank, tgt, f"farcall {bank:02X}:{tgt:04X}")
 
 
+def _table(code, todo, xref, key, ctx, tbl, n):
+    """A fixed table of n code words at tbl (bank context ctx)."""
+    for k in range(n):
+        o = off(ctx, tbl + 2 * k)
+        w = rom[o] | rom[o + 1] << 8
+        code[(ctx if tbl >= 0x4000 else 0, tbl + 2 * k)] = (2, "dw $%04x" % w)
+        if 0x100 <= w < 0x8000 and not (w >= 0x4000 and ctx == 0):
+            tb = ctx if w >= 0x4000 else 0
+            todo.append((tb, w, False))
+            xref.setdefault((tb, w), set()).add(key)
+
+
 def crawl(entries):
     code, labels, xref = {}, {}, {}
     todo = [(b, p, True) for b, p in entries]
@@ -67,10 +82,16 @@ def crawl(entries):
                 else:
                     todo.append((bk, tgt, True))
                     xref.setdefault((bk, tgt), set()).add(key)
+                if tgt == 0x1E51:
+                    _table(code, todo, xref, key, ctx, pc + 2, 8)
+                    break
                 pc += 2
                 last_lda = None
                 continue
             code[key] = (l, t)
+            if t == "call $1e51":
+                _table(code, todo, xref, key, ctx, pc + 3, 8)
+                break
             if t == "call $373a":                    # jump table: a word per case follows the call
                 tbl, n, first = pc + 3, 0, 0x10000
                 while n < 64 and tbl + 2 * n < first:

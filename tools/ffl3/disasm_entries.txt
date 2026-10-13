@@ -51,3 +51,9 @@
 00:3174
 00:308C
 00:30B8
+# interrupt handlers installed at C0B9 (vblank) / C0BC (STAT) by the VRAM bracket 00:1D9E and others
+00:1EFA   # vblank in the VRAM bracket (installed from 00:1E43 by 00:1D9E)
+00:1F27   # STAT in the VRAM bracket (LYC 3; from 00:1E40)
+00:3E26   # tile animation step (called by 00:1EFA)
+00:11E4   # STAT handler
+00:121D   # STAT handler

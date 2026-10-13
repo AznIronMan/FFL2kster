@@ -6,6 +6,8 @@
     { "path": "packages/ffl1-core" },
     { "path": "packages/ffl1-parity" },
     { "path": "packages/ffl3-importer" },
+    { "path": "packages/ffl3-core" },
+    { "path": "packages/ffl3-parity" },
     { "path": "packages/core" },
     { "path": "packages/render" },
     { "path": "packages/audio" },

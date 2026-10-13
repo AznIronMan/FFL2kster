@@ -349,3 +349,37 @@ share a period (e.g. song 1: 1,536 ticks, noise 48); song 7 is a jingle that end
 `ffl3kster export-all` writes the processed package ffl3/data/ (local, gitignored like data/):
 monsters, items, encounters, maps, layouts (metatile rows), text, music (JSON) and font,
 tilesets and 194 monster pictures (PNG), 253 files, reproduced byte for byte.
+
+## 2026-10-13 — Port P1, first checkpoint: the runtime and the title (1.31.0)
+
+Method (as for Legend I): PyBoy traces (`tools/ffl3/trace_lib.py`, scenarios
+`tools/ffl3/traces.py`) record the machine state 8000-FFFF at every frame wait (00:3A77, after
+00:3A6D set FF95) and every screen; `@ffl3k/parity` replays them through `@ffl3k/core`. The call
+order of a stretch is listed by `tools/ffl3/calltrace.py` (every routine entry with frame and LY).
+
+Runtime model (verified by the replays, see ROM_MAP "Start-up and interrupts"):
+- Frame waits: 00:3A6D sets FF95 = n and halts; the vblank handler counts FF95 down; the wait
+  ends after the vblank interrupt that reaches 0.
+- The VRAM bracket 00:1D9E / 00:1DFD (nested by CDCE) swaps in the vblank handler 00:1EFA and a
+  STAT handler 00:1F27 at LYC 3 (the sound driver, then 00:3549 while CD3D is set: the party
+  figures every 16 frames), polls STAT for mode 1 with interrupts off and ends with reti, so the
+  vblank interrupt is taken at once with the new handler.
+- 00:20FF copies 5 bytes per hblank (or in vblank) while LYC - LY >= 3: measured in PyBoy, one
+  chunk per visible line from line 6-8 (after the sound handler, 3-21 lines long depending on the
+  music) and 9-10 chunks in vblank; a 2 KiB copy spans about 3 frames. This is CPU time: the port
+  copies at once and the replay takes the busy frames from the trace.
+- The interrupt handlers push and pop ROM banks (00:1F3A every frame): the bank stack slots
+  above its depth (C0A0 + C0B0 ..) hold whatever bank was current where the CPU was; they are
+  dead (a pop reads only what its push wrote).
+
+Results: `title1` (the title from 01:7C79, 400 frames: pictures, texts, sprites, fade in, idle)
+373/373 waits identical; frames: 384 identical, 15 drawn while the original was still copying
+(busy frames: every pixel new or old), 1 with the original's previous objects (the cursor
+written after that frame's DMA). `title2` (menu: cursor down/up, B, Start, Select, a direction
+held for key repeat, Left) 313/313 waits identical, same frame counts. Excluded from the wait
+compare: sound driver RAM (not ported), the stack, timing registers, rst $18's scratch FFA1-FFA4,
+the dead bank stack slots; CDCF (STAT as read by 00:1D9E) compared without its mode bits.
+Falsification: the cursor y 78 -> 79 fails every wait (C080/FE80) and every frame after the fade;
+a text line step of 0x20 instead of 0x40 fails at the first wait (9D66.. text tiles). Found on the
+way: the PyBoy frame (one `tick`) runs from LY 0 to 153; the fill chain 00:1F50/1F53/1F55 fills
+9/6/4 bytes (ROM_MAP had 6/3/2).
