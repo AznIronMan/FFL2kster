@@ -347,3 +347,9 @@ Architecture guidance for the importer and the web app; not new feature work.
 - Settings are per device (localStorage, wrapped in try/catch; defaults when unavailable).
 - Correction to the P2 entry: the field sweeps are 1,643 cases but 1,637 recordings (6 context
   cases on maps the first-town warp cannot reach were never recorded); all 1,637 pass.
+
+## 2026-10-12 — Direction note E: private use, no store submissions (Geon)
+
+- The port stays private for now: no App Store, Play Store, Microsoft Store or Steam submissions.
+  P6 keeps the hardening work and replaces store submissions with private distribution to the
+  owner's own devices (PORT_PLAN updated).

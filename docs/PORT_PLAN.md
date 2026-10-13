@@ -76,7 +76,7 @@ The Python toolkit (`src/ffl2kster`) stays the **reference implementation and re
 | **P3 Full battle** | All rules | All 50 effect handlers via the VM; statuses, AI, growth, mutants, robots, equipment; parity suite over many seeds | Battle parity suite green; mutant-growth question settled | M |
 | **P4 Platforms** | Shipping shells | Tauri desktop (sign and notarize), Capacitor iOS/Android, PWA install, touch controls, per-platform ROM import and save storage, controller support | Installable builds on all six targets; saves portable between them | M |
 | **P5 Extras** | Opt-in enhancements | Widescreen field, fast text, battle speed, auto-battle, rebinding, palettes, accessibility, run-time mods from FFL2kster-patched ROMs | Each extra toggleable; core parity unaffected when off | M |
-| **P6 Release** | Hardening | Performance on low-end mobile, audio latency, legal notices, no-content packaging checks, store submissions | Release checklist complete | S–M |
+| **P6 Release** | Hardening (private use; no store submissions, 2026-10-12) | Performance on low-end mobile, audio latency, legal notices, no-content packaging checks, private distribution to the owner's devices | Release checklist complete | S–M |
 
 ### P0: importer gaps to close
 
