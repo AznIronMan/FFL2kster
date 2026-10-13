@@ -3,7 +3,8 @@
  *  browsers (installable as a PWA), in the Tauri desktop shell and in the Capacitor mobile shells
  *  (platform.ts holds the differences). */
 import { checkRom, importRom, decodeTile, type DataPackage, type RomCheck } from "@ffl2k/importer";
-import { clearPackage, loadPackage, savePackage, loadSram, saveBase, clearBase } from "./storage";
+import { clearPackage, loadPackage, savePackage, loadSram, saveSram, saveBase, clearBase, loadSramBackup, saveSramBackup } from "./storage";
+import { aboutPanel } from "./about";
 import { modsPanel } from "./mods";
 import { Player } from "./player";
 import { PACKAGE_FORMAT } from "@ffl2k/importer";
@@ -11,6 +12,7 @@ import { pickFile, platform, platformName, toggleFullscreen } from "./platform";
 import { exportSave, importSave, SAV_NAME } from "./saves";
 import { TouchPad, touchByDefault } from "./touch";
 import { optionsPanel, applyDisplay } from "./options";
+import { settings, onSettings, type Settings } from "./settings";
 
 /** Displayed title: the project (FFTOL, Tower of Legends) and the game this port plays. */
 const TITLE = "Tower of Legends · Legend II";
@@ -125,6 +127,15 @@ function savesPanel(): HTMLElement {
         const r = await exportSave();
         msg.textContent = r === "saved" ? "Save exported." : r === "empty" ? "No save to export yet." : "Export cancelled.";
       }),
+      button("Restore previous save", async () => {
+        const prev = await loadSramBackup().catch(() => undefined);
+        if (!prev) { msg.textContent = "No earlier save kept yet (one is kept when a play session first saves)."; return; }
+        if (!confirm("Go back to the save as it was before the last play session? The current save becomes the backup, so you can switch back.")) return;
+        const cur = await loadSram().catch(() => undefined);
+        await saveSram(prev);
+        if (cur) await saveSramBackup(cur);
+        msg.textContent = "Previous save restored. Continue from the title screen.";
+      }),
       button("Import save", async () => {
         const f = await pickFile(["sav"]);
         if (!f) return;
@@ -161,10 +172,11 @@ function showSummary(pkg: DataPackage) {
     el("h1", {}, TITLE),
     el("p", { class: "lead" }, verified ? "Game data is ready on this device." : pkg.mods?.length ? `Game data is ready on this device — MODDED (${pkg.mods.join(", ")}).` : "Game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showPlayer(pkg), "primary"),
-      el("span", { class: "muted" }, "Arrows + Z (A) / X (B), or WASD + K (A) / J (B); Enter or Space = Start, Shift = Select; hold Tab = fast-forward; Esc = options; F11 = fullscreen, M = mute. Xbox and other gamepads and touch work too."))),
+      el("span", { class: "muted" }, "Arrows + X (A) / Z (B), or WASD + K (A) / J (B); Enter or Space = Start, Shift = Select; hold Tab = fast-forward; Esc = options; F11 = fullscreen, M = mute. Gamepads use the Game Boy layout (A on the right: Xbox B = A, Xbox A = B; switchable in Options); touch works too."))),
     savesPanel(),
     optionsPanel(),
     modsPanel(pkg, (p) => showSummary(p)),
+    aboutPanel(),
     el("section", { class: "panel" }, dl),
     el("section", { class: "panel" }, el("div", { class: "row" }, "Monster graphic #", pick), view),
     el("section", { class: "panel" }, button("Remove game data from this device", async () => {
@@ -190,18 +202,39 @@ function showPlayer(pkg: DataPackage) {
     document.body.append(overlay);
     player.setPaused(true);
   };
+  const sound = button("", () => player.toggleMute());
+  const showSound = (s: Settings) => {
+    sound.textContent = s.muted ? "Sound: off" : "Sound: on";
+    sound.setAttribute("aria-pressed", String(s.muted));
+    sound.title = "Mute or unmute (M)";
+  };
+  showSound(settings());
+  onSettings(showSound);
   const bar = el("div", { class: "row bar" },
     button("Back", () => location.reload()),
     button("Options", toggleOptions),
     button("Fullscreen", () => toggleFullscreen()),
     button("Touch controls", () => { setTouch(touch.el.hidden); applyDisplay(); }),
+    sound,
     status);
   app.replaceChildren(el("div", { class: "player" }, canvas), touch.el, bar);
   window.addEventListener("keydown", (e) => {
     if (e.code === "F11") { e.preventDefault(); void toggleFullscreen(); }
     if (e.code === "Escape" && !e.repeat) { e.preventDefault(); toggleOptions(); }
   });
-  const player = new Player(pkg, { canvas, onStatus: (msg) => { status.textContent = msg; }, inputs: [() => touch.buttons()] });
+  const onError = (message: string, details: string) => {
+    const pre = el("pre", { class: "details" }, details);
+    const box = el("div", { class: "overlay" }, el("section", { class: "panel" },
+      el("h2", {}, "The game stopped"),
+      el("p", {}, message),
+      el("p", { class: "muted" }, "Your save is safe: it was written before this point, and the save from before this session is kept too (Saves → Restore previous save). The details below help find the cause; they contain no save or ROM data."),
+      pre,
+      el("div", { class: "row" },
+        button("Copy details", async () => { await navigator.clipboard?.writeText(details).catch(() => {}); }),
+        button("Back to the menu", () => location.reload(), "primary"))));
+    document.body.append(box);
+  };
+  const player = new Player(pkg, { canvas, onStatus: (msg) => { status.textContent = msg; }, onError, inputs: [() => touch.buttons()] });
   applyDisplay();
   // ?debug: expose the player for inspection in the console (development convenience)
   if (new URLSearchParams(location.search).has("debug")) (globalThis as { fftolPlayer?: Player }).fftolPlayer = player;

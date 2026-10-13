@@ -40,3 +40,8 @@ export interface Mod { name: string; bytes: Uint8Array; enabled: boolean }
 export const saveMods = (m: Mod[]) => tx("readwrite", (s) => s.put(m, "mods"));
 export const loadMods = async () => (await tx<Mod[] | undefined>("readonly", (s) => s.get("mods"))) ?? [];
 export const clearBase = () => tx("readwrite", (s) => s.delete("base"));
+
+/** The save as it was before the last play session (kept on the first write of a session), so
+ *  one bad session or write never loses everything. */
+export const saveSramBackup = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, "sram.prev"));
+export const loadSramBackup = () => tx<Uint8Array | undefined>("readonly", (s) => s.get("sram.prev"));

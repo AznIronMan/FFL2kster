@@ -1,6 +1,6 @@
 /** The Options panel (P5 extras): game options (off = the original), speed, display and
  *  accessibility, and control bindings. Changes apply at once and are kept on this device. */
-import { settings, update, resetSettings, onSettings, PALETTES, BUTTON_NAMES, DEFAULT_KEYS, DEFAULT_PAD, type Settings, type PaletteId } from "./settings";
+import { settings, update, resetSettings, onSettings, layoutBindings, PALETTES, BUTTON_NAMES, DEFAULT_KEYS, DEFAULT_PAD, type Settings, type PaletteId } from "./settings";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, ...kids: (Node | string)[]) {
   const e = document.createElement(tag);
@@ -51,6 +51,11 @@ function capture(onDone: (what: string | null) => void): () => void {
 
 function bindings(): HTMLElement {
   const grid = el("div", { class: "bindings" });
+  const layout = el("select") as HTMLSelectElement;
+  layout.append(el("option", { value: "gameboy" }, "Game Boy: A is the right button (pad B / X key), B the left (pad A / Z key)"),
+    el("option", { value: "xbox" }, "Xbox: A is the bottom button (pad A / Z key), B the right (pad B / X key)"));
+  layout.value = settings().layout;
+  layout.onchange = () => { update(layoutBindings(settings(), layout.value as "gameboy" | "xbox")); draw(); };
   const draw = () => {
     const s = settings();
     grid.replaceChildren();
@@ -84,8 +89,8 @@ function bindings(): HTMLElement {
   };
   draw();
   const reset = el("button", {}, "Reset controls") as HTMLButtonElement;
-  reset.onclick = () => { update({ keys: { ...DEFAULT_KEYS }, pad: { ...DEFAULT_PAD } }); draw(); };
-  return el("div", {}, grid, el("p", { class: "muted" }, "Hold Tab or the right shoulder button to fast-forward. The left stick always moves."), reset);
+  reset.onclick = () => { update({ layout: "gameboy", keys: { ...DEFAULT_KEYS }, pad: { ...DEFAULT_PAD } }); layout.value = "gameboy"; draw(); };
+  return el("div", {}, el("label", {}, "A/B layout", layout), grid, el("p", { class: "muted" }, "Hold Tab or the right shoulder button to fast-forward. The left stick always moves."), reset);
 }
 
 export function optionsPanel(onClose?: () => void): HTMLElement {
@@ -106,6 +111,9 @@ export function optionsPanel(onClose?: () => void): HTMLElement {
     ...check("integerScale", "Integer scaling", "Sharp pixels: the screen grows in whole steps."),
     ...check("largeTouch", "Larger touch buttons"),
     ...check("widescreen", "Widescreen field (experimental)", "Shows more of the map on the sides while walking (background only; characters appear in the original view)."),
+    el("h3", {}, "Sound"),
+    ...check("muted", "Mute", "Also on the play screen (Sound button) and the M key."),
+    ...choose("audioLatency", "Audio latency", [["low", "Low (fast machines)"], ["normal", "Normal"], ["safe", "Safe (if sound crackles)"]]),
     el("h3", {}, "Controls"),
     bindings(),
     el("div", { class: "row" }, reset, ...(onClose ? [Object.assign(el("button", { class: "primary" }, "Close"), { onclick: onClose })] : [])),

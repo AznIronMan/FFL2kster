@@ -353,3 +353,39 @@ Architecture guidance for the importer and the web app; not new feature work.
 - The port stays private for now: no App Store, Play Store, Microsoft Store or Steam submissions.
   P6 keeps the hardening work and replaces store submissions with private distribution to the
   owner's own devices (PORT_PLAN updated).
+- Targets for the private release (Geon): web (PWA), Windows 10/11+, macOS and Linux. Android
+  and iOS are deferred: their Capacitor projects and CI builds stay, but P6 does not test or
+  harden them.
+
+## 2026-10-12 — P6 decisions (hardening, private release)
+
+- Game Boy A/B layout by default (Geon: "for us old heads that played on the gameboy"): A is the
+  right-hand button on the keyboard (X, K) and the gamepad (east face button: Xbox B, PlayStation
+  circle), B the left/bottom one. Options → Controls → A/B layout switches to the Xbox layout. The
+  settings key moved to v2 so earlier per-device settings (with the Xbox layout) are not carried
+  over; nothing else was stored there.
+- Mute is a remembered setting (M, the Sound button in the player bar, Options → Sound), added on
+  request; it gates the audio output only, the sound driver keeps running so unmuting is in time.
+- Audio latency presets (low 35-120 ms, normal 60-200 ms, safe 120-350 ms of buffered output) and
+  a wake-up on the next input when the system suspends the audio device. Presentation only.
+- Save safety: the battery RAM as it was when a session started is kept as a backup (once per
+  session, before the first write) and can be swapped back from the Saves panel. Saves are still
+  flushed before the page hides and before an error is shown.
+- An engine error stops the game with a screen that offers copyable details for a bug report:
+  version, browser, ROM hash, verified/mod flags, frame, bank, view position, options and the
+  stack. No save or ROM bytes are included. Nothing is sent anywhere.
+- Soak test (assumption, recorded): random input from field states across the game (a new sw_m
+  start every 10 game minutes) for 10 game hours, heap measured after a forced collection. The
+  first run, from one town only and without a collection, read the garbage collector's sawtooth
+  as growth and stayed in one place; both were test faults, fixed by making the measurement and
+  the walk stricter (it now also requires at least one battle).
+- Release flow: pushing a `v*` tag builds every target with the Platforms workflow and creates a
+  **draft** GitHub release with the web zip and the desktop installers. Drafts are visible only
+  to repository collaborators; publishing is the owner's step after a smoke test on their own
+  machines (docs/RELEASE.md). Builds stay unsigned (SmartScreen / Gatekeeper prompts are
+  documented in docs/INSTALL.md).
+- Packaging check: every installer (msi, exe, dmg/app, deb, rpm, AppImage) is listed in CI and
+  fails on any ROM, save or state file; the web build passes the existing no-content check.
+- Licence: none chosen. NOTICE.md says all rights are reserved until the owner adds one; the
+  repository is public, so this is the owner's decision. Third-party notices are in
+  THIRD_PARTY.md and the About page.

@@ -7,9 +7,9 @@
 import { Engine, NotPorted, SoftReset, BTN } from "@ffl2k/core";
 import { Ppu, regsFromIo, SCREEN_W, SCREEN_H } from "@ffl2k/render";
 import type { DataPackage } from "@ffl2k/importer";
-import { loadSram, saveSram } from "./storage";
+import { loadSram, saveSram, saveSramBackup } from "./storage";
 import { AudioOut } from "./audio";
-import { settings, onSettings, PALETTES, FAST_FORWARD_KEY, FAST_FORWARD_PAD, type Settings } from "./settings";
+import { settings, onSettings, update, PALETTES, FAST_FORWARD_KEY, FAST_FORWARD_PAD, type Settings } from "./settings";
 import { WideView } from "./wide";
 
 const FRAME_MS = 1000 / 59.7275;
@@ -21,6 +21,8 @@ const MAX_STEPS = 16;
 export interface PlayerUi {
   canvas: HTMLCanvasElement;
   onStatus(msg: string): void;
+  /** The engine stopped with an error: show it (details for a bug report). */
+  onError?(message: string, details: string): void;
   /** Extra button sources read once per frame (e.g. the touch pad), ORed with keys and pads. */
   inputs?: (() => number)[];
 }
@@ -49,6 +51,8 @@ export class Player {
   private shown: Float32Array | null = null;
   private wide: WideView | null = null;
   private lastBadge = "";
+  /** The save at the start of this session, kept as the backup on the session's first write. */
+  private sessionStart: Uint8Array | null = null;
 
   constructor(readonly pkg: DataPackage, readonly ui: PlayerUi) {
     this.ctx = ui.canvas.getContext("2d")!;
@@ -59,9 +63,10 @@ export class Player {
     window.addEventListener("touchend", gesture, { once: true });
     window.addEventListener("keydown", (e) => {
       if (e.code !== "KeyM" || e.repeat || isTyping(e)) return;
-      const muted = this.audio.toggleMute();
-      if (this.running) this.ui.onStatus(muted ? "Sound muted (M)" : "Sound on (M)");
+      this.toggleMute();
     });
+    window.addEventListener("keydown", () => this.audio.wake());
+    window.addEventListener("pointerdown", () => this.audio.wake());
     window.addEventListener("keydown", (e) => this.key(e, true));
     window.addEventListener("keyup", (e) => this.key(e, false));
     document.addEventListener("visibilitychange", () => this.setPaused(document.hidden));
@@ -77,11 +82,21 @@ export class Player {
     return this.ctx.createImageData(w, SCREEN_H);
   }
 
-  /** Apply settings (live): engine options, widescreen. */
+  /** Mute or unmute (M key, Sound button); remembered on this device. */
+  toggleMute(): boolean {
+    const muted = !settings().muted;
+    update({ muted });
+    if (this.running) this.ui.onStatus(muted ? "Sound muted (M)" : "Sound on (M)");
+    return muted;
+  }
+
+  /** Apply settings (live): engine options, widescreen, sound. */
   private apply(s: Settings): void {
     this.s = s;
     if (!this.engine) return;
     this.engine.setOptions({ fastText: s.fastText, capBreak: s.capBreak });
+    this.audio.setLatency(s.audioLatency);
+    this.audio.setMuted(s.muted);
     if (s.widescreen && !this.wide) {
       this.wide = new WideView(this.engine);
       this.img = this.resize(this.wide.width);
@@ -109,6 +124,7 @@ export class Player {
     if (sram) {
       m.sram.set(sram);
       this.lastSram.set(sram);
+      this.sessionStart = sram.slice();
     }
     this.ppu = new Ppu(m.vram, m.oam);
     this.engine.g.onLine = (y) => {
@@ -202,7 +218,9 @@ export class Player {
             continue;
           }
           this.running = false;
-          this.ui.onStatus(e instanceof NotPorted ? `${e.message} — this part of the game is not available in this build yet.` : `Engine error: ${(e as Error).message}`);
+          const msg = e instanceof NotPorted ? `${e.message} — this part of the game is not available in this build yet.` : `Engine error: ${(e as Error).message}`;
+          this.ui.onStatus(msg);
+          this.ui.onError?.(msg, this.details(e as Error));
           console.error(e);
           void this.persist();
           return;
@@ -276,7 +294,26 @@ export class Player {
   async persist(): Promise<void> {
     if (!this.sramDirty || !this.engine) return;
     this.sramDirty = false;
+    if (this.sessionStart) {
+      const b = this.sessionStart;
+      this.sessionStart = null;
+      await saveSramBackup(b).catch(() => {});
+    }
     await saveSram(this.engine.g.m.sram.slice());
+  }
+
+  /** Text for a bug report: the error, where the game was, and the build. No save or ROM data. */
+  private details(e: Error): string {
+    const m = this.engine.g.m;
+    const hx = (v: number, n = 2) => v.toString(16).padStart(n, "0");
+    return [
+      `FFTOL ${__APP_VERSION__} on ${navigator.userAgent}`,
+      `ROM ${this.pkg.sourceSha256.slice(0, 16)}${this.pkg.verified === false ? " (unverified)" : ""}${this.pkg.mods?.length ? ` mods: ${this.pkg.mods.join(", ")}` : ""}`,
+      `frame ${this.engine.g.frame}, bank ${hx(m.bank)}, tileset ${hx(m.rd(0xc450))}, view cell ${m.rd(0xc42c)},${m.rd(0xc42d)}, battle ${m.hram[0x0b] === 0xff}`,
+      `options ${JSON.stringify(this.engine.g.options)}`,
+      `${e.name}: ${e.message}`,
+      e.stack ?? "",
+    ].join("\n");
   }
 }
 
@@ -291,9 +328,9 @@ function padButton(i: number): boolean {
 }
 
 /** Every connected gamepad (any can play), through the button map (default: the W3C "standard"
- *  mapping, which Xbox, PlayStation and Switch Pro controllers report: south face button = A,
- *  east = B, back/view = Select, start/menu = Start, D-pad 12-15). The left stick always moves
- *  (dead zone 0.5). */
+ *  mapping, which Xbox, PlayStation and Switch Pro controllers report; Game Boy layout by
+ *  default: east face button = A, south = B, back/view = Select, start/menu = Start, D-pad
+ *  12-15). The left stick always moves (dead zone 0.5). */
 export function gamepads(map: Record<number, number>): number {
   let v = 0;
   for (const p of navigator.getGamepads?.() ?? []) {

@@ -19,7 +19,8 @@ the player); mods are kept per device too.
 | Integer scaling | display | whole-number screen scale | no |
 | Larger touch buttons | display | on-screen pad 1.2× | no |
 | Widescreen field (experimental) | display | 256×144 (16:9) while on the field: 48 extra columns per side drawn from the field map in WRAM, the tileset in VRAM and each line's scroll/palette registers, with the game's own metatile rules; background only (the game places characters for its 160-pixel view); outside the field the margins keep their last picture or stay blank | no: reads memory only |
-| Rebinding | input | keys and gamepad buttons per Game Boy button; Reset controls restores arrows+Z/X, WASD+K/J and the standard gamepad map | no |
+| Sound | player | mute (M, the Sound button in the player bar, Options → Sound; remembered per device); audio latency low / normal / safe (output buffer 35-120, 60-200, 120-350 ms) | no |
+| Rebinding | input | keys and gamepad buttons per Game Boy button; A/B layout: Game Boy (default; A is the right-hand button: X, K, Xbox B) or Xbox (A is the bottom face button); Reset controls restores the defaults | no |
 | Mods | data | IPS/BPS patches applied on the device to the player's ROM in order, then the game data rebuilt; turning every mod off re-imports the original (verified again) | yes, as the mod says; modded games are labelled and carry no parity claim |
 
 `Game.ui` holds hints the player shell reads (`battleCommand`, `fieldFrame`); game logic never

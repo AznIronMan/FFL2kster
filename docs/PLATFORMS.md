@@ -33,11 +33,15 @@ Android/iOS web view's app storage. Removing the app removes them; export saves 
 
 ## Input
 
-Keyboard, two layouts at once by physical key: arrows + Z (A) / X (B), or WASD + K (A) / J (B);
-Enter or Space = Start, Shift or Backspace = Select, F11 = fullscreen, M = mute. Every connected
-gamepad (W3C "standard" mapping, which Xbox, PlayStation and Switch Pro controllers report: south
-face button / Xbox A = A, east / Xbox B = B, View/Back = Select, Menu/Start = Start, D-pad or left
-stick), and on-screen touch controls (shown by default on touch devices and
+Keyboard, two layouts at once by physical key, with B on the left key and A on the right as on the
+Game Boy: arrows + X (A) / Z (B), or WASD + K (A) / J (B); Enter or Space = Start, Shift or
+Backspace = Select, F11 = fullscreen, M = mute (also the Sound button in the player bar and
+Options → Sound; remembered per device). Every connected gamepad (W3C "standard" mapping, which
+Xbox, PlayStation and Switch Pro controllers report) uses the **Game Boy layout** by default: east
+face button / Xbox B = A, south / Xbox A = B (A sits right of B, as on the Game Boy); Options →
+Controls → A/B layout switches to the Xbox layout (south = A). View/Back = Select, Menu/Start =
+Start, D-pad or left stick; verified with an Xbox Wireless Controller over USB-C on macOS. And
+on-screen touch controls (shown by default on touch devices and
 in the mobile shells; toggle in the player bar). A press is held at least 4 frames, so taps never
 get lost. The game pauses while the app or tab is hidden and saves are flushed first.
 

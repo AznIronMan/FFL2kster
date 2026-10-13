@@ -6,13 +6,15 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `0.7.0`
-Status: **Port P5 (extras) complete.** The port plays from the title through
+Version: `1.0.0`
+Status: **1.0.0 — the port is complete for private use (P6 hardening done).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
 the web (PWA), Windows, macOS, Linux, Android and iOS (P4, docs/PLATFORMS.md), with opt-in
-extras and mods that leave the original untouched when off (P5, docs/EXTRAS.md). Data
+extras and mods that leave the original untouched when off (P5, docs/EXTRAS.md), and is hardened
+for private release on web, Windows, macOS and Linux (P6: 10-hour soak, browser matrix, save
+backup, error reports, packaging check, docs/INSTALL.md and docs/RELEASE.md). Data
 gathering (milestones 1–7) is complete. See `docs/PORT_PLAN.md` (the active course),
 `docs/PROGRESS.md` and `docs/END_GOAL.md` (the long-term destination, not current scope).
 
@@ -96,6 +98,12 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.0.0` — Port P6 hardening for private use (web, Windows 10/11+, macOS, Linux; Android and iOS
+  deferred; no store submissions): performance bench and 10-hour soak test, Firefox and WebKit
+  checks, Game Boy A/B layout by default (Xbox layout in Options), Sound (mute) button, audio
+  latency presets and wake-up, previous-save backup and restore, error screen with copyable
+  details, About page, NOTICE and third-party notices, packaging check (no game content in any
+  installer), tag-driven draft releases, install and release docs.
 - `0.7.0` — Port P5 extras, all opt-in: fast text, battle speed, fast-forward, auto-battle, control
   rebinding, palettes, reduced flashing, integer scaling, larger touch buttons, widescreen field
   (experimental), cap break (experimental); run-time mods (IPS/BPS applied on device;

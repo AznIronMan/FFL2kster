@@ -1,13 +1,16 @@
 /** Sound output for the player: the engine's sound-register writes (Memory.onSoundWrite) feed a
  *  DMG APU model (@ffl2k/audio); after every video frame the PCM made for that frame is posted to
  *  an AudioWorklet that plays it from a small ring buffer. Audio starts on the first user gesture
- *  (browser autoplay rules); 'M' toggles mute. */
+ *  (browser autoplay rules); 'M' or the Sound button toggles mute (kept in settings). */
 import { Apu, FRAME_CYCLES } from "@ffl2k/audio";
 import type { Game } from "@ffl2k/core";
 
 const LINE_CYCLES = 456;
-/** Ring buffer: target and maximum queued audio (seconds). */
-const TARGET_S = 0.08, MAX_S = 0.25;
+/** Ring buffer: audio queued before playback starts (and again after an underrun), and the most
+ *  kept (older audio is dropped beyond it), in seconds, per latency setting. "normal" holds
+ *  about 4 frames: low enough that sounds follow button presses, enough for a busy main thread. */
+export const LATENCY: Record<string, [number, number]> = { low: [0.035, 0.12], normal: [0.06, 0.2], safe: [0.12, 0.35] };
+const [TARGET_S, MAX_S] = LATENCY.normal!;
 
 const WORKLET = `
 class FflOut extends AudioWorkletProcessor {
@@ -17,6 +20,7 @@ class FflOut extends AudioWorkletProcessor {
     this.target = Math.round(${TARGET_S} * sampleRate); this.max = Math.round(${MAX_S} * sampleRate);
     this.port.onmessage = (e) => {
       if (e.data === "clear") { this.q = []; this.off = 0; this.n = 0; this.started = false; return; }
+      if (e.data && e.data.latency) { this.target = Math.round(e.data.latency[0] * sampleRate); this.max = Math.round(e.data.latency[1] * sampleRate); return; }
       this.q.push(e.data); this.n += e.data.length / 2;
       while (this.n > this.max && this.q.length > 1) { const d = this.q.shift(); this.n -= (d.length - this.off) / 2; this.off = 0; }
     };
@@ -106,6 +110,7 @@ export class AudioOut {
       URL.revokeObjectURL(url);
       this.node = new AudioWorkletNode(ctx, "ffl-out", { numberOfInputs: 0, outputChannelCount: [2] });
       this.node.connect(ctx.destination);
+      this.node.port.postMessage({ latency: this.latency });
       await ctx.resume();
     } catch (e) {
       console.warn("audio start failed", e);
@@ -116,17 +121,33 @@ export class AudioOut {
 
   /** Pause the audio device while the app is hidden (mobile lifecycle); resume on return. */
   async suspend(): Promise<void> {
+    this.paused = true;
     await this.ctx?.suspend().catch(() => {});
     this.node?.port.postMessage("clear");
   }
 
   async resume(): Promise<void> {
+    this.paused = false;
     await this.ctx?.resume().catch(() => {});
   }
 
-  toggleMute(): boolean {
-    this.muted = !this.muted;
-    if (this.muted) this.node?.port.postMessage("clear");
-    return this.muted;
+  private latency: [number, number] = LATENCY.normal!;
+
+  /** Change the buffering (setting "Audio latency"). */
+  setLatency(name: string): void {
+    this.latency = LATENCY[name] ?? LATENCY.normal!;
+    this.node?.port.postMessage({ latency: this.latency });
+  }
+
+  /** The audio device may be suspended by the system (another app takes it, a device change,
+   *  the window loses audio focus); resume on the next input while the game runs. */
+  wake(): void {
+    if (this.ctx && this.ctx.state !== "running" && !this.paused) void this.ctx.resume().catch(() => {});
+  }
+  private paused = false;
+
+  setMuted(on: boolean): void {
+    if (on && !this.muted) this.node?.port.postMessage("clear");
+    this.muted = on;
   }
 }

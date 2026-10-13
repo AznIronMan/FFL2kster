@@ -18,25 +18,42 @@ export interface Settings {
   integerScale: boolean;
   largeTouch: boolean;
   widescreen: boolean;
-  // input: keyboard code → buttons, gamepad button index → buttons
+  // sound: "low" | "normal" | "safe" buffering (audio.ts LATENCY)
+  audioLatency: string;
+  muted: boolean; // M key or the Sound button on the play screen
+  // input: "gameboy" (A is the right-hand button, as on the Game Boy) or "xbox" (A is the bottom
+  // face button, as printed on Xbox pads); keyboard code → buttons, gamepad button index → buttons
+  layout: "gameboy" | "xbox";
   keys: Record<string, number>;
   pad: Record<number, number>;
 }
 
-/** Two keyboard layouts at once (physical keys): arrows + Z/X and WASD + K/J. */
+/** Two keyboard layouts at once (physical keys): arrows + Z/X and WASD + J/K, with B on the left
+ *  key and A on the right one, as on the Game Boy (Z = B, X = A; J = B, K = A). */
 export const DEFAULT_KEYS: Record<string, number> = {
   ArrowUp: BTN.UP, ArrowDown: BTN.DOWN, ArrowLeft: BTN.LEFT, ArrowRight: BTN.RIGHT,
   KeyW: BTN.UP, KeyS: BTN.DOWN, KeyA: BTN.LEFT, KeyD: BTN.RIGHT,
-  KeyZ: BTN.A, KeyX: BTN.B, KeyK: BTN.A, KeyJ: BTN.B,
+  KeyX: BTN.A, KeyZ: BTN.B, KeyK: BTN.A, KeyJ: BTN.B,
   Enter: BTN.START, NumpadEnter: BTN.START, Space: BTN.START,
   ShiftRight: BTN.SELECT, ShiftLeft: BTN.SELECT, Backspace: BTN.SELECT,
 };
 
-/** W3C standard gamepad mapping (Xbox, PlayStation, Switch Pro): south = A, east = B,
- *  View/Back = Select, Menu/Start = Start, D-pad 12-15. The left stick always moves too. */
+/** W3C standard gamepad mapping (Xbox, PlayStation, Switch Pro), Game Boy layout: the right face
+ *  button (east: Xbox B) = A, the bottom one (south: Xbox A) = B, as A sits right of B on the Game
+ *  Boy. View/Back = Select, Menu/Start = Start, D-pad 12-15; the left stick always moves too. */
 export const DEFAULT_PAD: Record<number, number> = {
-  0: BTN.A, 1: BTN.B, 8: BTN.SELECT, 9: BTN.START, 12: BTN.UP, 13: BTN.DOWN, 14: BTN.LEFT, 15: BTN.RIGHT,
+  1: BTN.A, 0: BTN.B, 8: BTN.SELECT, 9: BTN.START, 12: BTN.UP, 13: BTN.DOWN, 14: BTN.LEFT, 15: BTN.RIGHT,
 };
+
+/** Switch the A/B layout: rewrites the face-button and Z/X bindings, keeps everything else. */
+export function layoutBindings(s: Settings, layout: "gameboy" | "xbox"): Pick<Settings, "layout" | "keys" | "pad"> {
+  const gb = layout === "gameboy";
+  return {
+    layout,
+    keys: { ...s.keys, KeyX: gb ? BTN.A : BTN.B, KeyZ: gb ? BTN.B : BTN.A },
+    pad: { ...s.pad, 1: gb ? BTN.A : BTN.B, 0: gb ? BTN.B : BTN.A },
+  };
+}
 
 /** Fast-forward is held on Tab or the right shoulder button (gamepad 5). */
 export const FAST_FORWARD_KEY = "Tab";
@@ -46,7 +63,8 @@ export const DEFAULTS: Settings = {
   fastText: false, capBreak: false,
   battleSpeed: 1, fastForward: 3, autoBattle: false,
   palette: "grey", reduceFlash: false, integerScale: false, largeTouch: false, widescreen: false,
-  keys: DEFAULT_KEYS, pad: DEFAULT_PAD,
+  audioLatency: "normal", muted: false,
+  layout: "gameboy", keys: DEFAULT_KEYS, pad: DEFAULT_PAD,
 };
 
 /** RGB for shades 0 (lightest) to 3 (darkest). */
@@ -59,7 +77,7 @@ export const PALETTES: Record<PaletteId, { name: string; rgb: [number, number, n
   dark: { name: "Dark (inverted)", rgb: [[0x10, 0x10, 0x10], [0x6a, 0x6a, 0x6a], [0xb4, 0xb4, 0xb4], [0xff, 0xff, 0xff]] },
 };
 
-const KEY = "fftol.settings.v1";
+const KEY = "fftol.settings.v2"; // v2: Game Boy A/B layout by default
 let current: Settings = load();
 const listeners = new Set<(s: Settings) => void>();
 

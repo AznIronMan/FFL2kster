@@ -233,3 +233,25 @@ Tests: TypeScript 4,280 passed; Python 77 passed; CI and Platforms workflows gre
 | Rebinding | Options → Controls | panel lists and edits keys and pad buttons per button |
 | Mods (IPS/BPS) | Mods panel | `ffl2kster build --ips` patch applied on device: Jaguar HP 200, labelled MODDED; off again: verified original (browser pane); patch tests (TS and Python) |
 | Parity with every extra off | defaults | TypeScript 4,286 passed; field sweeps 1,637/1,637; battle sweeps 2,152/2,152; Python 81 passed |
+
+## Port P6 — Hardening, private release (2026-10-12)
+
+Targets: web (PWA), Windows 10/11+, macOS, Linux (direction note E; Android and iOS deferred, no
+store submissions).
+
+| Check | Result |
+|---|---|
+| Performance (BENCH=1, this Mac) | field engine + PPU 0.136 ms average per frame, p99 0.268 ms (16.7 ms budget); rare 2.7-5.2 ms spikes (garbage collection; probable) |
+| Soak (SOAK=10) | 10 game hours of random input from field states across the game: no engine error; 48 battles, 5 game overs/soft resets; frame p50 0.12 ms, p99 0.19-0.42 ms; heap after collection 21.5 → 23.4 MB, flat over the last 3 hours; one 109 ms frame in hour 5 (host scheduling or collection; probable) |
+| Browsers | Chromium (built-in browser pane), Firefox and WebKit (Playwright): ROM import, Continue, field running, 4 shades, AudioWorklet available, no errors |
+| Gamepad | Xbox Wireless Controller over USB-C on macOS: all 8 Game Boy buttons reach the game (standard mapping); Game Boy A/B layout default |
+| Sound | Sound (mute) button, M key and Options → Sound stay in sync and are remembered (browser pane); audio latency presets; resume after the system suspends audio |
+| Saves | session-start backup, Restore previous save; flush before hide and before the error screen |
+| Errors | error screen with copyable details (no save or ROM data) |
+| Packaging | `port/scripts/check-bundles.sh` lists every installer and fails on ROM/save/state files (caught planted files locally); runs in the Platforms workflow; web build passes check-no-content |
+| Notices | NOTICE.md (no affiliation, no game content, no licence chosen yet), THIRD_PARTY.md, About page with the version |
+| Release | `v*` tag → Platforms build → draft GitHub release (web zip + desktop installers); docs/INSTALL.md, docs/RELEASE.md |
+| Parity with defaults | TypeScript 4,286 passed (13 opt-in skipped); Python 81 passed; the engine packages are unchanged since 0.7.0, so the field (1,637/1,637) and battle (2,152/2,152) sweeps stand |
+
+Not verified here: running the Windows and Linux installers on those systems (built and
+content-checked in CI); the owner's smoke test of the draft release.
