@@ -47,6 +47,7 @@ both ROMs; differences are listed first because they are the valuable part.
 | Items | one id space for spells (00-2F), weapons, armor, items; four record tables of 6/7/5/5 bytes chosen by id range; names icon + 5 (spells) or icon + 7 | split by kind, unlike Legend I's single 8-byte table |
 | Encounters | per-map rate (rand < rate per step) and zone; zone = 7 formation slots chosen by six thresholds; formation = 3 ids + flags + fixed-count byte | Legend I's zone → area → formation chain, flatter |
 | Growth | EXP and levels (EXP per battle = sum of the enemies' class byte / 4); equipment totals stored in the party record when equipped | neither (no EXP in I or II) |
+| Graphics | maps and monster pictures compressed (fill byte + bit mask per block); pictures bitplane-separated in sheets of up to 8 slots; map tilesets as four 512-byte blocks | Legend I: uncompressed tiles and pictures |
 | Monster abilities | a separate skill id space (00-6D, 6-byte records, own names) selected by a mode flag (CE25) | neither (I and II share the item ids) |
 
 ## Transferred unchanged (method and generic code)

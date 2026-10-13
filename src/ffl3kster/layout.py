@@ -31,10 +31,14 @@ def location(n: int) -> tuple[int, int]:
 
 
 def decompress(rom: bytes, bank: int, start: int, end: int) -> bytes:
-    o, stop, out = romlib.bank_to_file(bank, start), romlib.bank_to_file(bank, end - 1) + 1, bytearray()
-    size = 4 << (rom[o] + 1)
+    """00:3D76: the loop tests the end after each block, so at least one block is decoded."""
+    o, out = romlib.bank_to_file(bank, start), bytearray()
+    stop = romlib.bank_to_file(bank, end - 1) + 1 if end > 0x4000 else 0
+    size = (4 << ((rom[o] + 1) & 0xFF)) & 0xFF if rom[o] < 0xFF else 0
+    if size not in (8, 16, 32, 64):
+        raise ValueError(f"block size byte {rom[o]:02X} at {romlib.fmt_loc(o)}: the game copies stale RAM")
     o += 1
-    while o < stop:
+    while True:
         fill, mask, lit = rom[o], rom[o + 1:o + 1 + size // 8], o + 1 + size // 8
         for mb in mask:
             for bit in range(8):
@@ -44,7 +48,8 @@ def decompress(rom: bytes, bank: int, start: int, end: int) -> bytes:
                 else:
                     out.append(fill)
         o = lit
-    return bytes(out)
+        if o >= stop:
+            return bytes(out)
 
 
 def info(rom: bytes, n: int) -> dict:

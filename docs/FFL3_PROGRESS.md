@@ -55,7 +55,7 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 | M3 text | done (1.24.0) | one script interpreter, 80-entry dictionary, 1,639 scripts in 7 spans, all references/pointers on script starts, byte and semantic round trips 1,639/1,639, reinsertion visible in PyBoy; `text-export` |
 | M4 encounters/drops | done (1.25.0); GP source open | rate/zone/threshold/formation chain 14/14; EXP = floor(sum of class byte 1 / 4), 14/14 |
 | M5 maps/events | done (1.26.0-1.27.0); shop prices and in-game shop use open | 171 records framed exactly; 8/8 emulator changes (header, object, doors); layout decoder equal to D000 at 10/10 map loads |
-| M6 graphics | open | — |
+| M6 graphics | done (1.28.0); per-map tile overrides and Xagor's picture open | tilesets = VRAM at 8 map loads; font; monster pictures = VRAM for 6 monsters (sizes 0-4); `gfx-export` |
 | M7 music | open | — |
 
 ## Port P0–P5 (Legend III import target)
@@ -66,6 +66,7 @@ Not started.
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
 - 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).
+- 2026-10-13 (1.28.0): M6 graphics; tests/ffl3 56 passed (19 emulator).
 - 2026-10-13 (1.27.0): M5 layouts — decoder equal to the game's tile buffer; tests/ffl3 48 passed (12 emulator).
 - 2026-10-13 (1.26.0): M5 first part — maps, objects, doors, warps, shops; tests/ffl3 45 passed (11 emulator).
 - 2026-10-13 (1.25.0): M4 — encounters and EXP corrected; talon.state; tests/ffl3 41 passed (10 emulator).

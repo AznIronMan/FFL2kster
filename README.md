@@ -6,10 +6,10 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.27.0`
+Version: `1.28.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
-milestones 1-5 done (data, items, equipment, EXP, text, encounters, maps) (docs/FFL3_PROGRESS.md).** The port plays from the title through
+milestones 1-6 done (data, items, equipment, EXP, text, encounters, maps, graphics) (docs/FFL3_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -100,6 +100,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.28.0` — Legend III milestone 6: graphics. Map tilesets and the font equal VRAM at every map
+  load of the intro; compressed, bitplane-separated monster picture sheets decoded and equal to
+  VRAM in battle for six monsters of five sizes; `ffl3kster gfx-export`.
 - `1.27.0` — Legend III milestone 5 completed: the map layout decoder (31 compressed metatile maps
   in banks 07/08 plus flag patches) equals the game's tile buffer at all 10 map loads of the intro.
 - `1.26.0` — Legend III milestone 5, first part: 192 map records (171 framed exactly), objects,

@@ -195,6 +195,15 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--rom", default=ROM)
     s.set_defaults(fn=cmd_encounters)
 
+    def cmd_gfx_export(a):
+        from .gfx import export
+        print(json.dumps(export(romlib.load_rom(a.rom), a.out)))
+        return 0
+    s = sub.add_parser("gfx-export", help="draw every map, monster picture and the font to PNG")
+    s.add_argument("--rom", default=ROM)
+    s.add_argument("--out", default="ffl3/build/gfx")
+    s.set_defaults(fn=cmd_gfx_export)
+
     def cmd_text_export(a):
         from pathlib import Path
         from . import script_text as T

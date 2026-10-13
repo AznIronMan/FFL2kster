@@ -291,3 +291,26 @@ Result (`src/ffl3kster/layout.py`): all 31 layouts decompress to exactly L/4 met
 spans are contiguous per bank; the decoder equals the game's D000 buffer at all 10 map loads of
 the intro (maps 17, 1A, 55, 1A, 16, 02, 0A, 0B, 10, 0B), 1,024-4,096 tiles each, 0 differences
 (`tests/ffl3/test_layout_emu.py`).
+
+## 2026-10-13 — Graphics (M6)
+
+Map tilesets (07:7F5B): the header's layout byte indexes 03:731C (pointers to 6-byte records);
+bytes 1-4 name four 512-byte blocks of bank 05 (05:hh00) copied to 9000-97FF (BG tiles 00-7F).
+The font and window tiles are 03:4000-47FF → 8800 (07:7F4F). A hook right after the tileset copy
+(00:053B) at all 8 map loads of the intro: VRAM equals the four blocks and the font exactly. After
+that copy some maps change tiles (01:5501 animates maps 0A/0B; 01:6092/6082 draw the Talon into
+the hangar; 07:7FBC map 5D; map 01): the exported hangar shows the base tileset.
+
+Monster pictures (0B:417D): code c = 0B:4301 + id (195 bytes, ending at the size table 0B:43C4);
+sheet c >> 3, slot c & 7; 0B:43CC + sheet = bank << 4 | size code; tiles n = 0B:43C4[size]
+(16, 32, 32, 48, 62, 124); three pointers at 0B:43E4 + 4·sheet bound two spans in that bank,
+each compressed like the layouts; span 1 is bitplane 0 and span 2 bitplane 1 of the sheet's tiles,
+and the picture is n tiles from slot·n. First reading "the last n tiles of 96" fitted Diviner and
+Sprite but not F-Drake (tiles 32-47); the slot rule fits all six monsters checked in VRAM
+(Diviner, Sprite in the prologue; Turtle, F-Drake, Maitreya, Fenrir in forced battles: sizes 0-4).
+Xagor's sheet (19) starts with a block-size byte FF: 00:3D76 would loop to a size of 0 and copy
+stale C800 RAM, so it is left out (its picture must come from elsewhere). On-screen arrangement by
+size: 4, 8, 4, 6, 8, 16 tiles across (probable: the pictures are coherent).
+
+`ffl3kster gfx-export` draws the 171 distinct maps (layout + patches + base tileset), 194 monster
+pictures and the font (ffl3/build/gfx, local).

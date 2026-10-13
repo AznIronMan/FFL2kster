@@ -52,6 +52,15 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 06:6308 | position warps: 192 pointers, 4-byte entries | probable (code) |
 | 01:7804 / 01:780C-794F | shop group pointers / 4 groups of 6-item shops | probable (code) |
 
+## Graphics
+
+| Location | What | Status |
+|---|---|---|
+| 07:7F5B / 05:hh00 | map tileset: four 512-byte blocks named by the 03:731C record → 9000 | verified (8 loads) |
+| 03:4000 | font and window tiles → 8800 | verified |
+| 0B:4301 / 43C4 / 43CC / 43E4 | picture code per monster / tiles per size / sheet bank+size / sheet spans | verified (6 monsters) |
+| banks 0D/0E/0F | compressed picture sheets (bitplane 0, bitplane 1) | verified |
+
 ## Text
 
 | Location | What | Status |
@@ -105,6 +114,15 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 06:6BA4 | doors: 3 bytes × 60 (map, x, y) | verified |
 | 06:6308 | position warps: 192 pointers, 4-byte entries | probable (code) |
 | 01:7804 / 01:780C-794F | shop group pointers / 4 groups of 6-item shops | probable (code) |
+
+## Graphics
+
+| Location | What | Status |
+|---|---|---|
+| 07:7F5B / 05:hh00 | map tileset: four 512-byte blocks named by the 03:731C record → 9000 | verified (8 loads) |
+| 03:4000 | font and window tiles → 8800 | verified |
+| 0B:4301 / 43C4 / 43CC / 43E4 | picture code per monster / tiles per size / sheet bank+size / sheet spans | verified (6 monsters) |
+| banks 0D/0E/0F | compressed picture sheets (bitplane 0, bitplane 1) | verified |
 
 ## Text
 
