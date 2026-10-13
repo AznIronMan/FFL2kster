@@ -17,6 +17,8 @@ FIELD = (0, 0x1243)   # 00:1243, the top of the field loop
 # come after the one that saves it.
 SCENARIOS = {
     "title1": ("boot", TITLE, "none:400"),
+    # power-on from the start code 00:0224 (the port's cold start), the title, a new game begun
+    "power1": ("boot", (0, 0x0224), "none:300,a:3,none:20,a:300,none:100"),
     "probe1": ("boot", TITLE, "none:60,a:3,none:20,a:1500,none:200"),
     "newgame1": ("boot", TITLE, "none:60,a:3,none:20,a:330,none:100,down:2,none:10,a:2,none:60,a:2,none:8,right:2,"
                                 "none:8,a:2,none:8,right:2,none:8,a:2,none:8,start:2,none:600", "town0"),

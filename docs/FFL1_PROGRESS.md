@@ -14,7 +14,8 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 - [x] A1. FFL1kster no-op build byte-identical with a zero-change diff (M1)
 - [x] A2. Tables evidenced to the milestone-1 standard (boundaries on ≥2 records, controlled
       changes with neighbour controls, emulator acceptance tests) — M1–M7, see FINDINGS
-- [ ] A3. Web player loads the FFL1 data package and plays the vertical slice
+- [~] A3. Web player loads the FFL1 data package and plays the vertical slice — done in the browser
+      (1.15.0, see the log); silent until the sound driver is ported
 - [ ] A4. Field and battle parity sweeps recorded with counts against the original ROM
 - [ ] A5. All suites green (FFL2kster suite and its byte-identical no-op build included), CI green
 
@@ -252,3 +253,23 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   start; C427 inverted: 446; LCDC 81 instead of 80: 12 frames + 30 waits. (The last 16 bytes of the
   font copy are not checked by this trace: VRAM keeps the same data from power-on.)
 - Suites: port 4,342 passed, 17 skipped; slice 16/16; sweep 24/24 unchanged.
+
+### 2026-10-12 — Legend I in the web player (A3)
+- `apps/web`: a ROM that is not Legend II's verified dump and is the Legend I dump (or a 128 KiB
+  "SAGA" image, offered in the unverified mode) goes to `ffl1.ts`: `importFfl1Rom` builds the
+  package on the device, stored under its own IndexedDB keys with its battery RAM (`ffl1`,
+  `ffl1.sram`, `ffl1.sram.prev`); `player1.ts` runs `@ffl1k/core` from `Engine.boot()` through
+  `Engine.run` (restart after a defeat; A+B+Select+Start restarts too), with the same key, pad and
+  touch bindings, fast text and fast-forward. Legend II's flow is unchanged; with both games on a
+  device the summary pages link to each other (`?game=1`).
+- power1 (PyBoy from power-on, hooked at 00:0224; the title, a new game begun): 688 waits, 0
+  differences, 1 seed: the cold start the player uses is the original's. Slice 17/17.
+- Checked in the built app (vite build, served locally with the ROM file on the same machine; the
+  in-app browser): import (verified), the summary, Play: power-on to the title, a new game (class,
+  name), the first town, the main menu, Save (512 cells written, persisted), page reload, Continue
+  back to the saved spot, a battle (started with the trace fixture poke C3A9 = 08, C3AA = 10: no
+  battle is reachable in the first town without the world map's encounters) fought to victory
+  (64 GP) and the map back. No errors in the console (the service worker cannot register in that
+  browser pane, as for Legend II).
+- Not yet: music and sound effects (07:4003 driver), the world map encounters (00:2266), the
+  extras beyond fast text and fast-forward. `check:no-content`: no game content in the build.

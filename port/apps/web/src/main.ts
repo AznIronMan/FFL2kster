@@ -13,9 +13,13 @@ import { exportSave, importSave, SAV_NAME } from "./saves";
 import { TouchPad, touchByDefault } from "./touch";
 import { optionsPanel, applyDisplay } from "./options";
 import { settings, onSettings, type Settings } from "./settings";
+import { isFfl1, handleFfl1, showFfl1Summary, ffl1PackageUsable } from "./ffl1";
+import { loadFfl1Package } from "./storage";
 
 /** Displayed title: the project (FFTOL, Tower of Legends) and the game this port plays. */
 const TITLE = "Tower of Legends · Legend II";
+/** Legend I data is on this device too (set at start-up and after a Legend I import). */
+let hasFfl1 = false;
 const app = document.getElementById("app")!;
 const SHADES = [[255, 255, 255], [170, 170, 170], [85, 85, 85], [0, 0, 0]] as const;
 
@@ -67,13 +71,16 @@ function showImporter(message?: string) {
   };
   app.replaceChildren(
     el("h1", {}, TITLE),
-    el("p", { class: "lead" }, "This engine ships with no game content. Choose your own copy of the game ROM; it is read only on this device to build the game data."),
+    el("p", { class: "lead" }, "This engine ships with no game content. Choose your own copy of the game ROM (Legend II, or Legend I in progress); it is read only on this device to build the game data."),
     el("section", { class: "panel" }, drop, status),
   );
 }
 
 async function handle(bytes: Uint8Array, status: HTMLElement) {
   const check = await checkRom(bytes);
+  // Legend I (FFL1kster): its verified dump, or a "SAGA" image that is not Legend II's
+  const c1 = check.ok ? null : await isFfl1(bytes);
+  if (c1) return handleFfl1(app, bytes, c1, status);
   if (!check.ok) {
     status.className = "err";
     if (!check.canOverride) {
@@ -172,6 +179,7 @@ function showSummary(pkg: DataPackage) {
     el("h1", {}, TITLE),
     el("p", { class: "lead" }, verified ? "Game data is ready on this device." : pkg.mods?.length ? `Game data is ready on this device — MODDED (${pkg.mods.join(", ")}).` : "Game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showPlayer(pkg), "primary"),
+      button(hasFfl1 ? "Legend I" : "Add Legend I", () => { if (hasFfl1) location.search = "?game=1"; else showImporter(); }),
       el("span", { class: "muted" }, "Arrows + X (A) / Z (B), or WASD + K (A) / J (B); Enter or Space = Start, Shift = Select; hold Tab = fast-forward; Esc = options; F11 = fullscreen, M = mute. Gamepads use the Game Boy layout (A on the right: Xbox B = A, Xbox A = B; switchable in Options); touch works too."))),
     savesPanel(),
     optionsPanel(),
@@ -256,6 +264,12 @@ if (romUrl) {
   await handle(new Uint8Array(await r.arrayBuffer()), status); // shows the summary, a prompt or an error
 } else {
   const existing = await loadPackage().catch(() => undefined);
-  if (existing && existing.format === PACKAGE_FORMAT) showSummary(existing);
+  const ffl1 = await loadFfl1Package().catch(() => undefined);
+  const legend2 = existing && existing.format === PACKAGE_FORMAT ? existing : undefined;
+  // Legend I's data alone, or chosen with ?game=1 when both games are on this device
+  hasFfl1 = ffl1PackageUsable(ffl1);
+  if (ffl1PackageUsable(ffl1) && (!legend2 || new URLSearchParams(location.search).get("game") === "1"))
+    showFfl1Summary(app, ffl1, legend2 ? { label: "Legend II", run: () => { location.search = ""; } } : { label: "Add Legend II", run: () => showImporter() });
+  else if (legend2) showSummary(legend2);
   else showImporter(existing ? "The game data format changed; please choose your ROM again to rebuild it." : undefined);
 }

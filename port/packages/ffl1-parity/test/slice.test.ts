@@ -21,6 +21,7 @@ const TRACES: [string, string][] = [
   ["battle1", "a battle (event 8, area 16): intro slide, menus, SABER, the lizards' bites, hit shakes"],
   ["battle2", "the same battle to victory: gold, the map back"],
   ["flee1", "Run until the escape succeeds (one failed try), the map back"],
+  ["power1", "power-on from the start code 00:0224 (DIV seed from the trace), the title, a new game begun"],
   ["defeat1", "a party at 1 HP wiped out: game over, a button, the restart (00:0224) and the title"],
 ];
 

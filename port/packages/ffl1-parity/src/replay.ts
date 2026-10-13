@@ -117,6 +117,7 @@ export function lateWrite(got: Uint8Array, exp: Uint8Array, prev: Uint8Array): b
 /** The port's entry point for a trace hook. */
 export function startFor(rig: Rig, hook: string): Co {
   switch (hook) {
+    case "00:0224": return rig.engine.run(rig.engine.boot());
     case "03:7D50": return rig.engine.run(rig.engine.fromTitle());
     case "00:1243": return rig.engine.run(rig.engine.field.loop());
     default: throw new Error(`no port entry point for hook ${hook}`);

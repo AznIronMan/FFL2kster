@@ -45,3 +45,13 @@ export const clearBase = () => tx("readwrite", (s) => s.delete("base"));
  *  one bad session or write never loses everything. */
 export const saveSramBackup = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, "sram.prev"));
 export const loadSramBackup = () => tx<Uint8Array | undefined>("readonly", (s) => s.get("sram.prev"));
+
+/** Legend I (FFL1kster): its own data package and battery RAM (MBC2, 512 cells), kept beside
+ *  Legend II's under separate keys. */
+export const saveFfl1Package = (p: unknown) => tx("readwrite", (s) => s.put(p, "ffl1"));
+export const loadFfl1Package = () => tx<unknown>("readonly", (s) => s.get("ffl1"));
+export const clearFfl1Package = () => tx("readwrite", (s) => s.delete("ffl1"));
+export const saveFfl1Sram = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, "ffl1.sram"));
+export const loadFfl1Sram = () => tx<Uint8Array | undefined>("readonly", (s) => s.get("ffl1.sram"));
+export const saveFfl1SramBackup = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, "ffl1.sram.prev"));
+export const loadFfl1SramBackup = () => tx<Uint8Array | undefined>("readonly", (s) => s.get("ffl1.sram.prev"));
