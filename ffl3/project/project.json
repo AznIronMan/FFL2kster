@@ -1,0 +1,22 @@
+{
+  "name": "FFL3kster",
+  "schema_version": 1,
+  "supported_rom": {
+    "game": "FFL3",
+    "title": "SAGA3",
+    "region": "USA",
+    "size": 262144,
+    "sha256": "5ed87f65225b72a74c3c04a4e5d67683fb5cc33e5f1266157350828ab973fc1d"
+  },
+  "database": "ffl3/project/ffl3kster.sqlite",
+  "settings": {},
+  "edits": [
+    {
+      "domain": "monster",
+      "id": 75,
+      "field": "hp",
+      "value": 900,
+      "reason": "milestone-1 proof edit: prologue battle Sprite (0x4B, two in the group) HP 45 -> 900"
+    }
+  ]
+}

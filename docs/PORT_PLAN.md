@@ -156,3 +156,18 @@ modified except to factor genuinely shared harness code; the FFL2kster suite and
 byte-identical no-op build stay green (CI guard against v1.0.0). Stop and report if a blocker
 survives three different approaches, a tool or permission is missing, or continuing needs scope
 expansion. Out of scope: Legend II P6, TOLkster.
+
+## Legend III course (FFL3kster), started 2026-10-13
+
+The same pipeline on *Final Fantasy Legend III* (USA, `ffl3/input/original.gb`, SHA-256
+`5ed87f65…73fc1d`), with the same rules: nothing is assumed from Legend I or II; shared structure
+is shown with evidence (docs/CROSS_GAME.md). Checklist: docs/FFL3_PROGRESS.md.
+
+| Phase | Goal | Exit criteria |
+|---|---|---|
+| **M1** | One verified monster-data slice | As for Legend I |
+| **M2–M7** | Items/abilities and growth, text, encounters/drops, maps/events, graphics, music | Each domain evidenced to the M1 standard; `export-all` reproduces the Legend III data package |
+| **P0–P5** | Importer, vertical slice, full field, full battle, platforms, extras (`@ffl3k/*`) | As for Legend I, with Legend III's own scenarios |
+
+Rules as for Legend I; in addition `src/ffl1kster`, its tests and the `@ffl1k/*` packages are not
+modified by the Legend III work (only `ffl1kster.__version__` follows the repository version).

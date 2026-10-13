@@ -1,4 +1,4 @@
-# Cross-game comparison (Legend I vs Legend II)
+# Cross-game comparison (Legend I, II and III)
 
 Running note of what transferred from the Legend II method to Legend I and what differed. It is
 the design input for TOLkster later (not designed or built now). "Same" claims need evidence from
@@ -30,6 +30,19 @@ both ROMs; differences are listed first because they are the valuable part.
 | Graphics | uncompressed 2bpp; BG sets pick 128 tiles from 1 KiB blocks of bank 01; metatile m = tiles 0x80+4m; 1bpp font; monster pictures in 5 size classes (bank 04) indexed by the same family byte the meat code uses | monster art in banks 05/06 by family; tilesets via 00:1F55 (docs/ROM_MAP.md) |
 | Music | 3 channels (pulse, pulse, wave), 18 songs; tempo accumulator ticks at 60; note byte = pitch nibble + duration index | sequence driver in bank 0E with envelopes, vibrato, wave tables, SFX table (docs/MUSIC.md) |
 | Party creation | one hero created and named; the rest recruited later | the whole party chosen at the start |
+
+## Legend III (first notes, milestone 1; evidence in docs/ffl3/)
+
+| Topic | Legend III (USA) | Closest to |
+|---|---|---|
+| Cartridge | MBC1+RAM+BATTERY, 256 KiB, 8 KiB SRAM, DMG only | Legend II (same type and sizes) |
+| Bank switch | `rst $20` pushes a bank on a RAM stack (C0A0, depth C0B0, current C0B1), `rst $28` pops; `rst $18` far call with an inline byte (bank-0 routine or table entry) | neither (a bank stack instead of save/return) |
+| Interrupts | vblank / STAT through RAM vectors C0B9 / C0BC | Legend I's STAT jp in RAM (C39D) |
+| Alphabet | `A` = 0xBA, `a` = 0xD4, `0` = 0xB0 (punctuation AF . F0 : F1 / F2 - F3 ! F4 ?) | Legend II (identical letters and digits) |
+| Monster data | three tables in bank 0B, 195 ids: battle record 12 bytes (4A19), class record 4 bytes (470D), ability list 9 bytes (533D); names 0E:7533 | split, unlike both (one record per id in I and II) |
+| Monster HP | 12-bit value (byte + low nibble of the next), × 16 for the eight last ids (bosses) | Legend II (stored value), not Legend I (class + random) |
+| Battle entity | 0x80 bytes per enemy, built in a staging slot (D680) and copied once per group member (D280, D300, ...); name copied into it | Legend II (name in WRAM); Legend I keeps 32-byte slots |
+| Ability list | a mask byte + 8 fixed slots (set bit: battle ability) | neither (count + list in I and II) |
 
 ## Transferred unchanged (method and generic code)
 

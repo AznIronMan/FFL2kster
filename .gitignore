@@ -78,3 +78,7 @@ dist/
 # FFL1kster local outputs
 ffl1/build/
 ffl1/scratch/
+
+# Legend III (FFL3kster) local outputs (ROM-derived)
+ffl3/build/
+ffl3/scratch/

@@ -6,9 +6,10 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.20.0`
+Version: `1.21.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
-data milestones 1–7 done (docs/FFL1_PROGRESS.md).** The port plays from the title through
+data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
+milestone 1 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -26,7 +27,7 @@ gathering (milestones 1–7) is complete. See `docs/PORT_PLAN.md` (the active co
 | **FFTOL** | The project (this folder and the GitHub repository `fftol`). |
 | **Tower of Legends** (short **TOL**) | Full title. Private working title: an unrelated Steam game already uses it, so a public or store release needs a distinguisher (see `docs/END_GOAL.md`). |
 | **F²** | Logo mark (visual glyph only). |
-| **FFL1kster**, **FFL2kster**, **FFL3kster** | Per-game toolkits for Legend I, II and III. Only **FFL2kster** exists (the Python package `ffl2kster`, its CLI and the Legend II port); the other two are reserved names. |
+| **FFL1kster**, **FFL2kster**, **FFL3kster** | Per-game toolkits for Legend I, II and III. **FFL2kster** is complete (the Python package `ffl2kster`, its CLI and the Legend II port); **FFL1kster** (`ffl1kster`, `@ffl1k/*`) and **FFL3kster** (`ffl3kster`) are in progress. |
 | **TOLkster** | The future master engine of `docs/END_GOAL.md`. Name reserved; nothing is built. |
 
 ## Bring your own ROM
@@ -99,6 +100,12 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.21.0` — Legend III course started (FFL3kster: `src/ffl3kster`, `ffl3/`, docs/ffl3/): ROM
+  identity and a byte-identical no-op build; a disassembler for its bank-stack far calls; cold-boot
+  save states through the name screens to the prologue battle; the monster data (three tables in
+  bank 0B, 195 ids, names 0E:7533) with 28/28 controlled changes, boundaries and neighbour
+  controls; patch compiler and SQLite store; proof edit Sprite HP 45 → 900 with an emulator
+  acceptance test.
 - `1.20.0` — Legend I: every battle effect handler (49 of 49) reached and frame-exact — a
   monster that runs out of abilities flees (06:5098), the {EC} slayer swords, and the asleep /
   paralysed / "nothing" turns that were reached all along but not counted; battles started from

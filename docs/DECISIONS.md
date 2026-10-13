@@ -494,3 +494,32 @@ Decisions and assumptions for the Legend I work:
 - objOrder: a frame equal to the port's picture redrawn with PyBoy's object order is accepted
   and counted. This is a difference of the reference emulator from the DMG, not of the port; the
   player keeps the DMG behaviour (@ffl2k/render is unchanged).
+
+## 2026-10-13 — Legend III course (FFL3kster) and direction notes A–D restated (Geon)
+
+Scope: repeat the method on *Final Fantasy Legend III* (USA) — data milestones 1–7, then port
+phases P1–P5 (docs/PORT_PLAN.md, "Legend III course"), started once the Legend I course had
+reached its last listed step.
+
+Direction notes carried into this course unchanged (destination, not current scope):
+- **A.** docs/END_GOAL.md is the destination, docs/PORT_PLAN.md the active course.
+- **B.** Variant registry, never a single-SHA assumption; the FFL3 USA dump (No-Intro hashes) is
+  the Legend III reference; support is claimed per variant after full verification.
+- **C.** Unverified import stays possible (manual game choice, labelled best-effort).
+- **D.** Authoring model seams kept open where free: data-driven tables, IDs namespaced per game
+  (`game = FFL3` in the SQLite store), conflicts recorded in docs/FINDINGS.md.
+
+Decisions and assumptions:
+- Layout mirrors Legend I: `src/ffl3kster` (own CLI), `ffl3/project/` (project.json + SQLite),
+  `ffl3/input/original.gb` (read-only, gitignored), `ffl3/build/` and `ffl3/scratch/`
+  (gitignored), `docs/ffl3/`, `docs/FFL3_PROGRESS.md`, `tests/ffl3/`, `tools/ffl3/`; port
+  packages will be `@ffl3k/*`.
+- Shared code: ffl2kster's game-independent modules are imported unchanged, as for Legend I.
+  Nothing is imported from ffl1kster (Legend I specifics would leak); the few generic helpers
+  that FFL1kster also re-wraps (project, build) are re-wrapped again.
+- The Legend III monster data is three tables per id; each is its own edit domain (`monster`,
+  `monster_class`, `monster_ability`) over one generic `Table` class, so the SQLite store stays one
+  layout for every domain.
+- Raw ROM bytes stay out of the repository: the SQLite store keeps decoded field values with
+  provenance, not record hex dumps (the extractor's `raw` column is dropped on import).
+- Version: one repository version; each Legend III milestone is a minor bump (1.21.0 = M1).
