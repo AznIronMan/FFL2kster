@@ -235,6 +235,7 @@ class Recorder:
         finally:
             pb.hook_deregister(0, 0x3A6D)
             pb.hook_deregister(0, 0x3A77)
+            pb.hook_deregister(0, 0x0040)
             pb.hook_deregister(0, 0x1E35)
             pb.hook_deregister(0, 0x1D9E)
             pb.hook_deregister(0, 0x39D5)

@@ -628,3 +628,14 @@ Falsification (ffl3/scratch/mut7.sh): the step frames' order, the pending events
 taken as left, and the last-frame wait counted each fail a field trace. The leader's sprite reset
 on foot survives its mutation (the traces never change it): unverified. Talking to a person (A
 facing an object) is not in a trace yet: unverified.
+
+## 2026-10-13 — Field traces from a saved state (1.40.0)
+
+`field0` plays the opening to the field and saves `field_start.state` (local, ROM-derived, never
+committed: `python tools/ffl3/traces.py field0` makes it); `field1` / `field2` start from it at
+the field loop 00:0265 (580 and 812 frames instead of ~30,000) and replay wait-exact
+(580/580, 754/754). The replay starts the port at 00:0265 with `fieldLoop`. A trace whose hook is
+past the frame's vblank (line 153) starts with that vblank counted as taken (else its first wait
+waited for a vblank already past). The recorder now also removes its vblank hook after a trace
+(chained, non-boot scenarios reuse the emulator). The field mutations (mut7.sh) give the same
+results on the short traces.

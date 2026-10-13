@@ -11,6 +11,7 @@ from trace_lib import Recorder, plan_steps  # noqa: E402
 
 TITLE = (1, 0x7C79)   # 01:7C79, the title (called by the start code 00:0200 at 00:023C)
 START = (0, 0x0200)   # 00:0200, the start code (power-on: 00:0100 jp 0200)
+FIELD = (0, 0x0265)   # 00:0265, the field loop (each iteration)
 
 # name: (state, hook, plan[, state saved at the end])
 SCENARIOS = {
@@ -57,15 +58,16 @@ SCENARIOS = {
     "opening3": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
                                 "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
                                 + "a:3,none:37," * 700 + "none:40"),
-    # the field after the opening: idle (the field loop 00:0265 with no input)
-    "field1": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+    # the opening played to the field (the field loop 00:0265 reached at 29,606), 100 frames idle
+    # there: saved as field_start.state for the field traces
+    "field0": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
                               "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
-                              + "a:3,none:37," * 705 + "none:600"),
+                              + "a:3,none:37," * 705 + "none:100", "field_start"),
+    # from field_start (at the field loop 00:0265): idle, A facing nothing
+    "field1": ("field_start", FIELD, "none:60," + "a:3,none:37," * 3 + "none:400"),
     # walking in the field: down through the door into the ship, then steps in each direction
-    "field2": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
-                              "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
-                              + "a:3,none:37," * 705 + "none:200,down:64,none:20,right:64,none:20,down:64,"
-                              "none:20,left:96,none:20,down:48,none:20,right:120,none:20,up:16,none:120"),
+    "field2": ("field_start", FIELD, "none:100,down:64,none:20,right:64,none:20,down:64,"
+                                     "none:20,left:96,none:20,down:48,none:20,right:120,none:20,up:16,none:120"),
 }
 
 

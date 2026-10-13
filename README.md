@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.39.0`
+Version: `1.40.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,8 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.40.0` — Legend III parity: field traces start from a saved state at the field loop (made
+  locally by `tools/ffl3/traces.py field0`), so they replay in seconds.
 - `1.39.0` — Legend III port: the field loop after the opening — standing, walking in each
   direction, a door into the ship and A — replays wait-exact (`field1`, `field2`).
 - `1.38.0` — Legend III port: the whole opening replays wait-exact up to the field loop

@@ -600,3 +600,6 @@ Decisions and assumptions:
 - 1.39.0: the field loop is ported routine by routine from the field step; branches no trace
   reaches stop with NotPorted rather than being guessed. Field traces start from the boot and play
   the whole opening (~30,000 frames each); faster starts from save states can come later.
+- 1.40.0: traces past the opening start from saved states made by a chained scenario (`field0`
+  -> `field_start.state`), at a port entry point the replay knows (00:0265 the field loop); the
+  opening itself stays covered from the boot by `opening3`.

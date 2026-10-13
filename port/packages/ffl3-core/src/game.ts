@@ -129,6 +129,7 @@ export class Game {
   runFrame(from = 0): void {
     const m = this.m, io = m.io;
     if (from === 0) { this.vblankTaken = false; this.scxAlt.length = 0; this.lateLines.clear(); }
+    else if (from > 144) this.vblankTaken = true; // started after this frame's vblank interrupt
     for (let ly = from; ly < 154; ly++) {
       this.ly = ly;
       io[0x44] = ly;

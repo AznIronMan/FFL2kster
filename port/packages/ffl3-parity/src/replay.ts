@@ -8,7 +8,7 @@
  *  (`Game.onPollStart`, the frame and line of the original's 00:1D9E / 00:1DFD, whose di holds
  *  the interrupts of the poll back until its reti), so the interrupts' work in a busy stretch
  *  sees the code's state of that stretch. */
-import { BUSY, LINE, type Co } from "@ffl3k/core";
+import { BUSY, LINE, fieldLoop, type Co } from "@ffl3k/core";
 import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, type Trace } from "./index.js";
 
 export interface WaitDiff {
@@ -82,6 +82,7 @@ export interface ReplayResult {
 export function startFor(rig: Rig, hook: string): Co<unknown> {
   switch (hook) {
     case "01:7C79": return rig.engine.fromTitle();
+    case "00:0265": return fieldLoop(rig.g);
     default: throw new Error(`no port entry point for hook ${hook}`);
   }
 }
