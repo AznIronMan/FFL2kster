@@ -293,3 +293,30 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
 
 - Open (hypothesis): map b0, b1, b7 and flag bits 0–3; event commands 7 and 9–D; the zone slot
   index from the metatile attribute (probable from code 00:2266's caller).
+
+## 2026-10-12 — Graphics (M6)
+
+- **BG tilesets** (00:3F97, graphics set = map record b2): set record 02:4000 + 0x82 × set — two
+  bytes naming four 1 KiB blocks of bank 01 (staged as 256 tiles), then 128 tile indexes →
+  VRAM 8800–8FFF. Decoded sets equal VRAM for the first town (128/128) and the world map (124/128;
+  tiles 0–3 are the animated water). The 16 sets end at 02:4820, followed by their pointer table
+  (16 × 2) and the 40 attribute sets (02:4840–523F) — contiguous.
+- **Metatiles**: metatile m in the map buffer is drawn as BG tiles 0x80 + 4m … +3 (TL, TR, BL, BR).
+  All 90 visible metatiles match in the town and in the world map (the 32 × 32 BG ring is
+  addressed with a camera-dependent offset).
+- **Sprite sets** (00:24F8, map record sprite byte): 02:5240 + 6 × set, six 256-byte blocks of
+  01:6000 + 0x100 × n → 8100–86FF, plus 01:7F00 → 8700; equal to VRAM in both states. 23 sets
+  (02:5240–52C9) precede the warp table.
+- **Font**: 03:7100, 1bpp, 119 characters (codes 0x80–0xF6); equal to the battle screen's font
+  tiles at 9000+ (0xF7–0xFF there are window frame tiles).
+- **Monster pictures** (07:72C2; found by watching the picture pointer appear in the battle
+  struct D81F and the multiply helpers' callers): the monster's family byte 02:7900 + id (the same
+  byte the meat code uses) gives class g = bits 4–6 and index i = low nibble; picture = 04:base[g]
+  + i × tiles[g] × 16 with bases 02:79D2 (4000, 4700, 5D80, 7400, 7D00) and tiles 02:79EA
+  (16, 24, 36, 48, 48); class 4 ends exactly at the end of bank 04. Widths 4, 4, 6, 6, 8 tiles
+  (class 1 seen on screen as 4 × 6; the others give coherent pictures). VRAM 8800 equals the
+  prediction for ASIGARU, for SKELETON (area swap) and after a controlled change of ASIGARU's
+  family byte (index 13 → 2) (`tools/ffl1/picture_change.py`). One slip on the way: the tile counts
+  were first read three bytes too late (02:79ED), which only showed up as out-of-bank pictures.
+- `python -m ffl1kster gfx-export` writes font, tilesets, sprite sets, the 200 monster pictures
+  and renders of all 200 maps (processed data).

@@ -27,6 +27,7 @@ both ROMs; differences are listed first because they are the valuable part.
 | Maps | 200 records (variable length), 64 × 62 metatile buffer, layout command stream with 4 command forms (bank 03) | 212 maps; layout command format at 00:2253 (banks 08/09) |
 | Events | per-map object lists with presence ranges on story flags; commands 0–2 dialogue, 3 chest, 4 facility, 5/6 warp, 8 battle | event kinds incl. F0–FF (docs/EVENTS.md) |
 | Shops | 25 inventories × 10, 3-byte BCD prices per item (bank 05) | shop events + item price table (docs/ROM_MAP.md) |
+| Graphics | uncompressed 2bpp; BG sets pick 128 tiles from 1 KiB blocks of bank 01; metatile m = tiles 0x80+4m; 1bpp font; monster pictures in 5 size classes (bank 04) indexed by the same family byte the meat code uses | monster art in banks 05/06 by family; tilesets via 00:1F55 (docs/ROM_MAP.md) |
 | Party creation | one hero created and named; the rest recruited later | the whole party chosen at the start |
 
 ## Transferred unchanged (method and generic code)

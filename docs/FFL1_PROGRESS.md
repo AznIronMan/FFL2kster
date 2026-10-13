@@ -51,7 +51,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | M3 text | done | 386 strings in 3 tables; control codes from both interpreters; contiguous parse 383/383 boundaries; semantic round trip 386/386; reinsertion visible for dialogue, battle and UI |
 | M4 encounters/drops | done | zone table 06:6400 + roll 00:2266; areas, formations; 8 controlled changes; drops = meat + GP (M2) |
 | M5 maps/events | done | 200 map records, 110 layouts (decoder = ROM routine), 99 event lists, warps, shops, prices; 6 controlled changes |
-| M6 graphics | not started | |
+| M6 graphics | done | tilesets, metatiles, sprite sets, font, monster pictures equal to VRAM; picture controlled change; `gfx-export` |
 | M7 music | not started | |
 | Data package (`export-all`) | not started | |
 
@@ -106,3 +106,8 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   event lists (99, 498 entries), warps (474), shops and prices, collision rule.
 - Controlled changes: zone slot, event parameter, price, inventory (+ controls).
 - Tests: `tests/ffl1` 47 (12 emulator); full suite 128.
+
+### 2026-10-12 — Milestone 6
+- BG tilesets, metatile drawing rule, sprite sets, font and monster pictures, each compared with
+  PyBoy's VRAM; picture class/index from the family byte by controlled change.
+- Tests: `tests/ffl1` 53 (15 emulator).

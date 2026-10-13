@@ -89,6 +89,17 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `05:7D10` | 25 × 10 | Shop inventories | verified |
 | `05:7E10` | 165 × 3 | Prices, BCD | verified |
 
+## Graphics
+
+| Address | Content | Status |
+|---|---|---|
+| `02:4000` | 16 BG tileset records (0x82 each: 4 block nibbles + 128 tile indexes into bank 01) | verified (VRAM) |
+| `01:4000`+ | graphics blocks (1 KiB BG blocks; sprite blocks from 01:6000; 01:7F00 shared) | verified |
+| `02:5240` | 23 sprite sets (6 block numbers) | verified (VRAM) |
+| `03:7100` | font, 1bpp, codes 0x80–0xF6 | verified |
+| `02:79D2` / `02:79EA` | monster picture class bases (bank 04) / tiles per class | verified |
+| `04:4000`–`7FFF` | monster pictures, 2bpp | verified |
+
 ## Code
 
 | Address | Role | Status |
@@ -108,6 +119,9 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `00:153C` | layout decoder | verified |
 | `00:2586` | event list loader | verified |
 | `00:13FA` | passability | probable |
+| `00:3F97` | BG tileset loader | verified |
+| `00:24F8` | sprite set loader | verified |
+| `07:72C2` | battle picture loader | verified |
 | `00:300E` | facility dispatch (shop, inn, house of life, guild) | verified (shop) |
 | `00:16E0` | event command executor (C3A9 command, C3AA parameter; 8 = battle → 00:1BBE) | probable |
 | `00:0EBA` | dialogue interpreter | verified |
