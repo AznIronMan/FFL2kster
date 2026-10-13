@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.7.0`
+Version: `1.8.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
@@ -99,6 +99,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.8.0` — Legend I port P0: `@ffl1k/importer` (TypeScript) reproduces the Python Legend I data
+  package (tables, text, maps/layouts, music, graphics) and builds the device-local FFL1 data package;
+  CI guard extended to the Legend II port packages.
 - `1.7.0` — FFL1kster milestone 7: Legend I music (18 songs, loop timing frame-exact in PyBoy) and the
   processed data package `ffl1/data/` (`ffl1kster export-all`, golden-tested).
 - `1.6.0` — FFL1kster milestone 6: Legend I graphics (tilesets, metatiles, sprites, font, monster

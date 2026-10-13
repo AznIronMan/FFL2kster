@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "packages/importer" },
+    { "path": "packages/ffl1-importer" },
     { "path": "packages/core" },
     { "path": "packages/render" },
     { "path": "packages/audio" },

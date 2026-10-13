@@ -37,7 +37,7 @@ jobs:
       - run: pip install pytest numpy pillow
       - run: python -m pytest -q -m "not emu"
       - name: Guard - FFL2kster unchanged since 1.0.0 (Legend I work must not touch it)
-        run: git diff --stat --exit-code v1.0.0 -- src/ffl2kster tests/conftest.py 'tests/test_*.py' data project
+        run: git diff --stat --exit-code v1.0.0 -- src/ffl2kster tests/conftest.py 'tests/test_*.py' data project port/packages/importer port/packages/core port/packages/parity port/packages/render port/packages/audio
       - name: Guard - no ROM or save files tracked
         run: |
           if git ls-files | grep -Ei '\.(gb|gbc|sgb|sav|srm|state)$'; then echo "ROM/save file tracked"; exit 1; fi

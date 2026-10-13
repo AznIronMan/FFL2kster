@@ -59,7 +59,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 
 | Phase | Status | Evidence |
 |---|---|---|
-| P0 importer + scaffold | not started | |
+| P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
 | P1 vertical slice | not started | |
 | P2 full field | not started | |
 | P3 full battle | not started | |
@@ -116,3 +116,12 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 - Music: song table 07:462F, sequence commands, loop timing frame-exact in PyBoy.
 - `export-all` → `ffl1/data/` (248 files), golden test.
 - Tests: `tests/ffl1` 56; full suite 137.
+
+### 2026-10-12 — Port P0 (importer)
+- `port/packages/ffl1-importer` (`@ffl1k/importer`): hash gate `checkFfl1Rom` (verified USA path,
+  labelled unverified mode for other 128 KiB files), text, tables, layout decoder, maps, music,
+  graphics, `importFfl1Rom` → `Ffl1DataPackage` (game "FFL1", 8 bank segments, device-local).
+- Golden test vs the Python package: 9 ROM tests + 2 ROM-free tests pass; falsified by two
+  mutations (layout default metatile, ability-count mask), each failing exactly its domain test.
+- Port suite: 4,297 passed, 13 skipped; `tsc -b` clean. CI guard now also pins
+  `port/packages/{importer,core,parity,render,audio}` to v1.0.0.
