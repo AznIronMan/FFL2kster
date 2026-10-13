@@ -29,7 +29,8 @@ RECORD_SIZE, RECORD_COUNT = 9, 200
 NAMES = romlib.bank_to_file(0x05, 0x4000)
 NAME_SIZE = 8
 HP_CLASSES = romlib.bank_to_file(BANK, 0x7254)   # u16le base HP per class
-HP_CLASS_COUNT = 56                               # 06:7254-72C3 (formation table follows)
+HP_CLASS_COUNT = 40                               # 06:7254-72A3 (the GP table follows)
+GP_TABLE = romlib.bank_to_file(BANK, 0x72A4)      # 16 x BCD (hi, lo) GP rewards, 06:72A4-72C3
 NIBBLES = romlib.bank_to_file(BANK, 0x71F0)       # one nibble per id, high nibble = even id
 
 
@@ -53,8 +54,9 @@ FIELDS = [
     FieldDef("ability_count_minus1", 0, 1, "bits:3-5", "number of ability list entries minus 1", "verified",
              "Code 06:5713: (b0>>3)&7 + 1 loop count. ASIGARU b0 0x00->0x08 adds the 2nd list entry to "
              "slot +0F/+17; lists contiguous for 199/199 pairs.", True, 0, 7),
-    FieldDef("low_bits", 0, 1, "bits:0-2", "unknown (3 for 149 ids, 0 for 44, 7 for 7)", "hypothesis",
-             "Copied to slot +0 with the rest of b0; meaning not tested."),
+    FieldDef("meat_chance", 0, 1, "bits:0-2", "meat drop chance in eighths (one meat per battle)", "verified",
+             "Code 06:517A: meat if rand(0..7) < b0&7. ASIGARU with the same random value 4: b0=7 shows "
+             "'you found meat of ASIGARU', 4 and 1 do not, 0 skips the roll.", True, 0, 7),
     FieldDef("hp_class", 1, 1, "u8", "index into the base-HP table 06:7254; HP = base - rand(0..base>>4)",
              "verified",
              "Code 06:57FA. ASIGARU 0->3 gives HP 79 (82-3), 0->0x15 gives 769 (795-26); SKELETON 0->5 gives "
@@ -72,7 +74,9 @@ FIELDS = [
              "probable",
              "ASIGARU 0xA1->0x11 sets slot +0D to the first ability id (36). What +0D is used for is not "
              "known yet.", False, 0, 15),
-    FieldDef("unknown_6lo", 6, 1, "nibble:lo", "unknown", "hypothesis", "Not referenced by 06:5713."),
+    FieldDef("gp_class", 6, 1, "nibble:lo", "GP reward class (06:72A4, BCD: 0, 40, 120, 240, ... 9999)", "verified",
+             "Code 06:517A sums 06:72A4 + 2*class for each enemy. ASIGARU class 1/3/0/7 gives 'you got' "
+             "40/240/0/1200 GP.", True, 0, 15),
     FieldDef("ability_ptr", 7, 2, "u16le", "pointer (bank 06) to the ability id list", "verified",
              "Code 06:5713; ASIGARU ptr 7625->7321 loads FLY's first ability (149); contiguous lists."),
 ]
@@ -125,6 +129,11 @@ def base_hp(rom: bytes, cls: int) -> int:
     return rom[HP_CLASSES + 2 * cls] | rom[HP_CLASSES + 2 * cls + 1] << 8
 
 
+def gp(rom: bytes, cls: int) -> int:
+    hi, lo = rom[GP_TABLE + 2 * cls], rom[GP_TABLE + 2 * cls + 1]
+    return int(f"{hi:02x}{lo:02x}")
+
+
 def nibble(rom: bytes, mid: int) -> int:
     b = rom[NIBBLES + mid // 2]
     return b >> 4 if mid % 2 == 0 else b & 0x0F
@@ -140,7 +149,8 @@ def extract(rom: bytes) -> list[dict]:
         rows.append({
             "id": mid, "name": name(rom, mid), "name_offset": NAMES + NAME_SIZE * mid,
             "record_offset": off, "bank": bank, "address": addr,
-            "fields": vals, "base_hp": base_hp(rom, vals["hp_class"]), "nibble": nibble(rom, mid),
+            "fields": vals, "base_hp": base_hp(rom, vals["hp_class"]), "gp": gp(rom, vals["gp_class"]),
+            "nibble": nibble(rom, mid),
             "ability_offset": aoff,
             "abilities": list(rom[aoff:aoff + vals["ability_count_minus1"] + 1]),
         })

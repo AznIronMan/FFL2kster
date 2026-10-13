@@ -47,8 +47,8 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 
 | Milestone | Status | Evidence |
 |---|---|---|
-| M2 items/abilities, growth | not started | |
-| M3 text | not started | |
+| M2 items/abilities, growth | done (prices with the shops in M5) | item table 06:7700 (uses, power, handler); stat items; meat drop + GP rewards in the monster record; meat transformation tables (6/6 predictions); mutant growth tables; RNG model |
+| M3 text | started | dictionary encoding verified on the intro text; dialogue table 05:7B30 and battle messages 02:7860 found |
 | M4 encounters/drops | not started | |
 | M5 maps/events | not started | |
 | M6 graphics | not started | |
@@ -78,3 +78,13 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   battle continues (749 HP).
 - Tests: `tests/ffl1` 22 passed (3 emulator); full suite 103 passed (FFL2kster 81 unchanged);
   FFL2kster no-op build byte-identical.
+
+### 2026-10-12 — Milestone 2
+- Item table 06:7700 (256 × 8): uses (monster ability), power (weapon damage, stat-item gain),
+  handler (06:403A, 49 entries) by controlled change; default uses in the name entry.
+- Monster record: b0 bits 0–2 = meat chance, b6 low = GP class (06:72A4), both verified.
+- Meat: drop at 06:517A; transformation 00:0D9C with tables 02:7900 / 6FD3 / 72A8 / 7438; six
+  controlled changes match the predictions.
+- Mutant growth 06:539E with tables 06:7F00 / 53DE / 7F0F; ability learning verified.
+- RNG 00:07D3: per-call-site counters into a 256-byte table (differs from Legend II).
+- Tests: `tests/ffl1` 30 passed.

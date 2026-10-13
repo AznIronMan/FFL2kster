@@ -88,3 +88,104 @@ the global checksum low byte 0x14F 66→7B — both reasoned; the database build
 with one ASIGARU; WRAM differs only at D083..D086 (19 vs 769). After 50 identical A presses the
 original's ASIGARU fell and the game is back on the field; the patched ASIGARU has 749 HP and the
 battle continues. Screenshots in `ffl1/build/test-artifacts/`.
+
+## 2026-10-12 — Item/ability table (M2)
+
+- Code 06:5BF2 returns byte E of item D from **06:7700 + 8×D** (bank 06); 256 records end at 06:7EFF,
+  just before the bank's jump stubs at 06:7F62.
+- The battle dispatcher 06:448F reads byte 2 and jumps through **06:403A** (49 pointers, sorted,
+  06:44B0–50B7; entry 49 is not code). Legend II has 50 handlers.
+- Names: item id N uses name entry 200+N of the shared table 05:4000 — 7 characters plus a byte
+  that is the item's **default uses** when it is given to a hero.
+- Controlled changes (`python tools/ffl1/item_change.py`):
+
+| Change | Result |
+|---|---|
+| KATANA (0x24) byte 3 50→9 | ASIGARU's ability uses (slot D096) 50→9 |
+| CONTROL KATANA name byte 8 50→9 | D096 stays 50 |
+| LONG (0x21) byte 4 3→30 | the hero's first hit kills ASIGARU (19→0; was 19→9) |
+| CONTROL AXE (0x22) byte 4 4→40 | no change |
+| KATANA byte 4 6→30 | ASIGARU's hit on the hero 12→43 |
+| KATANA byte 2 6→3 | ASIGARU's KATANA hit does no damage |
+| LONG name byte 8 50→7 | a new HUMAN M starts with LONG ×7 (party record CC10) |
+| CONTROL LONG byte 3 50→9 | starting LONG uses stay 50 |
+| STRONG (0x0C) used from Abil | Str 8→11; byte 4 2→9 gives 8→18; byte 5 0x14→0x50 gives 8→14 |
+| STRONG byte 2 0→5 | no change (field use ignores the handler) |
+| AGILITY (0x0D) / HP200 (0x0E) | Agl 4→8 / max HP 60→76 |
+
+- Not yet derived: the exact stat-item formula (the gain is byte 4 plus a random part that grows
+  with byte 5); bytes 0 (beyond bits 6/7, which code 06:57B6 uses for passive attribute masks),
+  1, 6, 7.
+- Prices are not in this table; they are expected with the shop data (M5).
+- Two "uses" bytes differ for 7 items (e.g. XCLBR and MASMUNE: monster table FE, hero default 50).
+
+## 2026-10-12 — Dialogue text encoding (M3 groundwork)
+
+- The intro text was located by a pattern search for its literal letters with unknown dictionary
+  codes (`I`, `b`, `e`, `a` at fixed distances): 05:7758. It decodes completely with:
+  0x50–0x7F → dictionary pairs 0–47 and **0xC0–0xE7 → pairs 48–87** (two blocks around the
+  letters), the 88 pairs stored after the name table at 05:4E40 (name index 456); 0xF0 `.`,
+  0xBF `,`, 0xBE `'`; 0x00 end, 0x0A / 0x0D line breaks; other 0x01–0x4F codes take arguments.
+- Battle messages: strings at 02:7503–7858, pointer table **02:7860** indexed by the message
+  number passed to 06:5A71 (0x0C "No damage", 0x11 "… defeated", 0x2E "you found meat of", 0x2F
+  "… changed to"); probable (index alignment checked on three messages).
+
+## 2026-10-12 — Meat drop, rewards and meat transformation (M2)
+
+- Battle end (06:5240 → loop 06:5272 over the 27 enemy indexes) calls **06:517A** per enemy:
+  skip empty slots (slot +2 = FF); if `rand(0..7) < b0 & 7` show the meat once per battle (D4B2,
+  06:5155 → 06:5F31); then add the GP of the record's b6 low nibble from **06:72A4** (16 × BCD
+  hi/lo). This revises two monster-record fields from hypothesis to verified:
+  - b0 bits 0–2 = **meat chance in eighths**. With the same random value (4) from the same state:
+    b0 = 7 → "you found meat of ASIGARU" (the HUMAN hero cannot eat: "Nothing happened"), 4 and 1 →
+    no meat, 0 → no roll. 149 monsters have 3, 44 (humans, robots …) 0, 7 ids 7.
+  - b6 low nibble = **GP class**: ASIGARU 1/3/0/7 → "you got 40/240/0/1200GP".
+  - The "HP class" table therefore has 40 entries (06:7254–72A3); the GP table follows.
+- RNG (00:07D3, via the 00:016B entry): the caller's return address (low + high byte, & 0x7F) picks
+  one of 128 counters at C300–C37F; the counter is incremented and indexes a 256-byte random table
+  at CB00; 00:07EC scales it to the requested range. Each call site therefore has its own stream —
+  different from Legend II's RNG model (docs/ROM_MAP.md).
+- Meat transformation **00:0D9C** (called through 00:01C8 from the meat screen; result message
+  0x2F "… changed to", or 0x22 "Nothing happened"): the eater must have party byte 0x0A bit 6 (set
+  for the monster types). meat family(id) = [0, 7, 18, 27][(b>>4)&7] + (b&15) with b = 02:7900+id
+  (group starts at 00:0E16); result row = 02:6FD3[29 × eater family + meat family] (25 × 29, FF =
+  nothing); level = max of the low nibbles of 02:7438+eater and 02:7438+meat; new monster =
+  02:72A8[16 × row + level] (25 × 16); the new monster's record is copied in (00:061F).
+  The three tables are contiguous: 6FD3 + 25×29 = 72A8, 72A8 + 25×16 = 7438.
+- Controlled changes (`python tools/ffl1/meat_change.py`; CLIPPER hero, ASIGARU b0 = 7):
+
+| Change | Became | Predicted |
+|---|---|---|
+| none | LIZARD (66) | 66 |
+| result [0][20] 11→5 | WOLF (30) | 30 |
+| family-level [11][0] LIZARD→WOLF | WOLF | 30 |
+| CONTROL result [0][21] →5 | LIZARD | 66 |
+| ASIGARU level 0→9 | DINOSAUR (69) | 69 |
+| ASIGARU family byte 0x1D→0x13 (family 20→10) | WERERAT (72) | 72 |
+
+- Falsified on the way: *"the meat family index is the result-row index"* — FLY's meat family is 15
+  but FLY is in result row 0; the two numberings differ.
+- Human growth: stat items (STRONG, AGILITY, HP200/400/600) raise the stat when used (M2 item
+  section). Mutant growth: not yet located (a hunt of MUTANT battles is running; see progress).
+
+## 2026-10-12 — Mutant growth (M2)
+
+- A MUTANT M hero learned BARRIER (0xF2, 5 uses) after the 5th battle of the make-states route
+  (party record +0x11/+0x12). Frame search plus function-entry hooks: the write follows 06:539E.
+- **06:539E** (per party member, after a won battle): skipped unless the member is alive (slot +2
+  bits 0–1 clear) and slot +0 bits 6–7 are `01` (the hero slot's class bits; how they are filled
+  for each hero type is not checked yet — the party record's +0x0A is 0x23 for MUTANT M, 0x43 for
+  CLIPPER, 0x83 for HUMAN M). rand(0..255) is compared with the cumulative thresholds **06:7F00**
+  (23 45 63 75 87 8F 93 FF): the first threshold above it selects one of eight handlers
+  (**06:53DE**: 53EE, 542F, 546F, 5468, 545A, 5461, 549A, 5504). Handler 0 picks an ability from the
+  32 (id, uses) pairs at **06:7F0F** (index = number of consecutive rand(0..100) < 90 draws, wraps
+  at 32) into one of the four ability slots (rand(0..3)). Handler 1 adds to max HP (range from the
+  nibbles at 06:7F0A, capped at 999); the others are stat changes (probable, from code).
+- Controlled changes (`python tools/ffl1/mutant_change.py`):
+
+| Change | After battle 5 |
+|---|---|
+| none | slot 2 = BARRIER (F2) ×5 |
+| 06:7F0F entry 1 F2→86 | slot 2 = TELEPOR (86) ×5 |
+| CONTROL entry 5 B9→86 | slot 2 = BARRIER ×5 |
+| threshold[0] 0x23→0x00 | no ability learned within 8 battles |

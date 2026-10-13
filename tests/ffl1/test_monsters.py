@@ -14,7 +14,7 @@ from ffl1kster.schema import monsters as M
 def test_layout_constants():
     assert M.TABLE == 0x1AAE8 and M.NAMES == 0x14000
     assert M.TABLE + M.RECORD_SIZE * M.RECORD_COUNT == M.NIBBLES  # ends where the nibble table starts
-    assert M.HP_CLASSES == M.NIBBLES + 100
+    assert M.HP_CLASSES == M.NIBBLES + 100 and M.GP_TABLE == M.HP_CLASSES + 2 * M.HP_CLASS_COUNT
 
 
 def test_known_records(ffl1_rom):
@@ -62,7 +62,13 @@ def test_bit_field_edit_keeps_other_bits(ffl1_rom_path, ffl1_project, tmp_path):
     assert (c["old"], c["new"]) == (0x93, 0x8B)
 
 
-@pytest.mark.parametrize("field,value", [("hp_class", 56), ("str", 256), ("ability_ptr", 1), ("name", 1)])
+def test_gp_table(ffl1_rom):
+    assert [M.gp(ffl1_rom, i) for i in range(16)] == [0, 40, 120, 240, 400, 600, 900, 1200, 1600, 2000, 2400,
+                                                       4000, 4800, 5500, 6500, 9999]
+    assert {r["id"]: r for r in M.extract(ffl1_rom)}[155]["gp"] == 40
+
+
+@pytest.mark.parametrize("field,value", [("hp_class", 40), ("str", 256), ("ability_ptr", 1), ("name", 1)])
 def test_rejects_bad_edits(ffl1_rom_path, ffl1_project, tmp_path, field, value):
     with pytest.raises(ValueError):
         build(ffl1_rom_path, load_project(ffl1_project), tmp_path / "o.gb", edits=[Edit("monster", 1, field, value)])

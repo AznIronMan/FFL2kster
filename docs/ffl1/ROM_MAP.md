@@ -40,9 +40,22 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `06:6868` | 128 × 5 | Encounter areas: 3 monster ids (groups 1–3), formation index (byte 3), alternate formation (byte 4, used when FFBD bit 7 is set); bit 7 of the formation byte increments D3E6 | probable (code 06:56AD; area 19 swap changes the battle's monster) |
 | `06:6AE8` | 200 × 9 | **Monster records** (below) | **verified** |
 | `06:71F0` | 100 | One nibble per monster id (high nibble = even id), copied to combatant +1 | probable (code) |
-| `06:7254` | 56 × 2 | Base HP per HP class, u16 LE (20, 40, 60, 82, …) | verified (controlled change) |
+| `06:7254` | 40 × 2 | Base HP per HP class, u16 LE (20, 40, 60, 82, …) | verified (controlled change) |
+| `06:72A4` | 16 × 2 | GP rewards per class, BCD hi/lo (0, 40, 120, 240 … 9999) | verified |
 | `06:72C4` | 31 × 3 | Formations: per group one byte, high nibble = minimum count, low = maximum | probable (code; 1 ASIGARU = formation 2 `00 00 11`) |
 | `06:7321`–`76E1` | 960 | Monster ability id lists (contiguous, in monster id order) | verified |
+| `06:7700` | 256 × 8 | **Item/ability records**: kind, flags, handler, uses (as a monster ability), power, param, ?, ? | verified (uses, power), probable (handler, param) |
+| `06:403A` | 49 × 2 | Battle effect handlers (06:44B0–50B7), indexed by item byte 2 | probable |
+| `06:7F00` | 8 | Mutant growth category thresholds (cumulative, vs rand 0..255) | verified (category 0) |
+| `06:53DE` | 8 × 2 | Mutant growth handlers | probable |
+| `06:7F0F` | 32 × 2 | Mutant "new ability" list: (id, uses) | verified |
+| `02:7900` | 200 | Meat family byte per monster: group (bits 4–6) + index (low nibble); group starts 00:0E16 | verified |
+| `02:6FD3` | 25 × 29 | Meat result row [eater family][meat family], FF = nothing | verified |
+| `02:72A8` | 25 × 16 | Monster per result row and level | verified |
+| `02:7438` | 200 | Monster level (low nibble) | verified |
+| `05:4E40` | 88 × 2 | Text dictionary pairs (codes 0x50–0x7F, 0xC0–0xE7) | verified |
+| `05:7B30` | 255 × 2 | Dialogue pointers (05:4EF0–7B09) | probable |
+| `02:7860` | 80 × 2 | Battle message pointers (02:7500–784F), message number of 06:5A71 | probable |
 
 ### Monster record — `06:6AE8 + 9 × id` (file 0x1AAE8) — **verified**
 
@@ -50,13 +63,13 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 |---|---|---|---|
 | 0 | class flags | bits 6–7 | hypothesis |
 | 0 | ability count − 1 | bits 3–5 | verified |
-| 0 | unknown | bits 0–2 | hypothesis |
+| 0 | meat drop chance (eighths) | bits 0–2 | verified |
 | 1 | HP class | index into 06:7254; HP = base − rand(0..base>>4) | verified |
 | 2 | Str | u8 | verified (status screen) |
 | 3 | Def | u8 | verified (status screen) |
 | 4 | Agl | u8 | verified (status screen) |
 | 5 | Mana | u8 | verified (status screen) |
-| 6 | high nibble: picks combatant +0D = the n-th ability; low nibble unknown (often 11 − high) | nibbles | probable / hypothesis |
+| 6 | high nibble: picks combatant +0D = the n-th ability (probable); low nibble: GP class (06:72A4, verified) | nibbles | probable / verified |
 | 7–8 | ability list pointer (bank 06) | u16 LE | verified |
 
 ## Code
@@ -66,14 +79,19 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `06:56AD` | build an encounter from area FFBD: area record, formation, three groups | probable |
 | `06:5713` | load one monster into the next combatant slot (D3E7 = slot number) | verified |
 | `06:57FA` | HP from the HP class (base − random) | verified |
-| `06:5BF2` | read field E of item/ability D (attributes, uses) | hypothesis |
+| `06:5BF2` | read byte E of item D (06:7700 + 8D + E) | verified |
+| `06:448F` | battle effect dispatch through 06:403A | probable |
+| `06:5240` / `06:517A` | battle won: meat roll and GP per enemy | verified |
+| `06:539E` | mutant growth after a won battle | verified |
+| `00:07D3` | random(a..e): per-call-site counter (C300+) into the table at CB00 | probable |
+| `00:0D9C` | meat transformation | verified |
 
 ## RAM
 
 | Address | Content | Status |
 |---|---|---|
 | `D000 + 32k` | combatant slots (heroes 0–3, enemies 4–7): +0 b0, +1 nibble, +3/+4 HP LE, +5/+6 max HP, +7..+0A Str/Def/Agl/Mana, +0B/+0C ability attribute masks, +0D see byte 6, +0E..+15 ability ids, +16..+1D uses, +1F monster id (FF = empty) | verified (enemy slots) |
-| `CC00` | party record of the hero: +1 name (4), +5 type, +6/+7 HP, +8/+9 max HP, +0B..+0E Str/Def/Agl/Mana, +0F.. items | probable (one member observed; status screen) |
+| `CC00 + 31i` | party records (4 × 31 bytes): +1 name (4), +5 type (monster id), +6/+7 HP, +8/+9 max HP, +0A class flags (0x83 HUMAN M, 0x23 MUTANT M, 0x43 CLIPPER; bit 6 = can eat meat, verified by 00:0D9C), +0B..+0E Str/Def/Agl/Mana, +0F..+1E eight (item, uses) slots | probable (stride from 00:0551; status screen; meat and growth tests) |
 | `CCC9` / `CCC8` | field x / y tile | probable (moves with the D-pad) |
 | `FFBD` | encounter area index (bit 7: alternate formation) | probable |
 | `D3E6` / `D3E7` | encounter flag count / next combatant slot | probable |
