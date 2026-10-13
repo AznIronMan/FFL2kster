@@ -272,3 +272,22 @@ Shops (code, probable): shop n < 40 is 6 item ids at 01:7804[n >> 4] + 6·(n & F
 00-0E (01:780C), armor 10-1E, items 20-28, magic 30-3E, contiguous to 01:794F; every id in each
 group is of that kind (Cure1 … Elixir in shop 20). Prices and the layouts (03:731C) are not
 decoded yet; using a shop in the emulator needs a town state.
+
+## 2026-10-13 — Map layouts (M5, second part)
+
+The header byte 0 (low 7 bits, CA15) is the layout data index 1-31 (not the 03:731C index,
+which is byte 1). 00:0F42: row width W = 07:7EA0[n], tile count L = word 07:7EC0 + 2n; the data
+lives in bank 07 (n < 10, entry n − 1) or 08 (entry n − 10) between consecutive pointers at
+B:4000 + 2k; 00:3D76 decompresses it (a block-size byte s, blocks of 4 << (s + 1) bytes, each a
+fill byte, an MSB-first bit mask, then the literals for the set bits) and each resulting byte is a
+metatile: 4 tiles at B:4022[k] + 4m, written top-left, bottom-left, top-right, bottom-right into
+the W-wide buffer at D000. 0B:78F5 then applies flag patches: 47 entries (0B:7982 map id,
+0B:79B1 story flag or FF, 0B:79E0 pointer → x, y, one rectangle w << 4 | h and its rows).
+
+Falsified on the way: "a patch is a list of rectangles until 00" — that drew 157 wrong tiles in
+the hangar; the code ends after one rectangle (0B:797E falls through to 7980).
+
+Result (`src/ffl3kster/layout.py`): all 31 layouts decompress to exactly L/4 metatiles, the data
+spans are contiguous per bank; the decoder equals the game's D000 buffer at all 10 map loads of
+the intro (maps 17, 1A, 55, 1A, 16, 02, 0A, 0B, 10, 0B), 1,024-4,096 tiles each, 0 differences
+(`tests/ffl3/test_layout_emu.py`).

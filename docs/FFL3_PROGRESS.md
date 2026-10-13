@@ -54,7 +54,7 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 | M2 items/abilities, growth | M2a (1.22.0) and M2b (1.23.0) done; item use and spells in the field wait for shops (M5); level-up open | names (00:1E8F), five record tables in bank 09 (09:5D87), 17/17 controlled changes (loads, boundaries, controls, power → damage); armor via the Equip menu 11/11 (every nibble named from the status screen); stats = Attack/Defence/Agility/Magic, value 2 = MP; EXP = mean of class byte 1, 9/9 |
 | M3 text | done (1.24.0) | one script interpreter, 80-entry dictionary, 1,639 scripts in 7 spans, all references/pointers on script starts, byte and semantic round trips 1,639/1,639, reinsertion visible in PyBoy; `text-export` |
 | M4 encounters/drops | done (1.25.0); GP source open | rate/zone/threshold/formation chain 14/14; EXP = floor(sum of class byte 1 / 4), 14/14 |
-| M5 maps/events | first part (1.26.0): map records, objects, doors, warps, shops; layouts, prices and in-game shop use open | 171 records framed exactly; 8/8 emulator changes (header, object, doors) |
+| M5 maps/events | done (1.26.0-1.27.0); shop prices and in-game shop use open | 171 records framed exactly; 8/8 emulator changes (header, object, doors); layout decoder equal to D000 at 10/10 map loads |
 | M6 graphics | open | — |
 | M7 music | open | — |
 
@@ -66,6 +66,7 @@ Not started.
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
 - 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).
+- 2026-10-13 (1.27.0): M5 layouts — decoder equal to the game's tile buffer; tests/ffl3 48 passed (12 emulator).
 - 2026-10-13 (1.26.0): M5 first part — maps, objects, doors, warps, shops; tests/ffl3 45 passed (11 emulator).
 - 2026-10-13 (1.25.0): M4 — encounters and EXP corrected; talon.state; tests/ffl3 41 passed (10 emulator).
 - 2026-10-13 (1.24.0): M3 — text; tests/ffl3 37 passed (8 emulator).

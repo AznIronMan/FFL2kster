@@ -43,7 +43,10 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | Location | What | Status |
 |---|---|---|
 | 06:6C58 | 192 map pointers → 06:6DD8-7F68: 6-byte header + 6-byte objects + FF | verified |
-| 03:731C | layout table (2 × layout index): size, CA19-CA1C, CA17 | probable (code) |
+| 03:731C | per-map table (2 × header byte 1): size nibbles, CA19-CA1C, CA17 | probable (code) |
+| 07:7EA0 / 07:7EC0 | layout row width / tile count by layout index 1-31 | verified |
+| 07:4000 / 08:4000 | layout data pointers (compressed, 00:3D76), 07:4022 / 08:4022 metatile tables | verified (D000 equal) |
+| 0B:7982 / 79B1 / 79E0 | flag patches: map id / flag / pointer (one rectangle) | verified |
 | 00:1236 | script events by type (CA29 & 3F), parameter CA28 | verified (types 0E, 1B) |
 | 06:6BA4 | doors: 3 bytes × 60 (map, x, y) | verified |
 | 06:6308 | position warps: 192 pointers, 4-byte entries | probable (code) |
@@ -94,7 +97,10 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | Location | What | Status |
 |---|---|---|
 | 06:6C58 | 192 map pointers → 06:6DD8-7F68: 6-byte header + 6-byte objects + FF | verified |
-| 03:731C | layout table (2 × layout index): size, CA19-CA1C, CA17 | probable (code) |
+| 03:731C | per-map table (2 × header byte 1): size nibbles, CA19-CA1C, CA17 | probable (code) |
+| 07:7EA0 / 07:7EC0 | layout row width / tile count by layout index 1-31 | verified |
+| 07:4000 / 08:4000 | layout data pointers (compressed, 00:3D76), 07:4022 / 08:4022 metatile tables | verified (D000 equal) |
+| 0B:7982 / 79B1 / 79E0 | flag patches: map id / flag / pointer (one rectangle) | verified |
 | 00:1236 | script events by type (CA29 & 3F), parameter CA28 | verified (types 0E, 1B) |
 | 06:6BA4 | doors: 3 bytes × 60 (map, x, y) | verified |
 | 06:6308 | position warps: 192 pointers, 4-byte entries | probable (code) |
