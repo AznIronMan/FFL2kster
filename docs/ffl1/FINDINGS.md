@@ -245,3 +245,51 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
 
 - Drops: Legend I enemies leave meat (record b0 bits 0–2) and GP (record b6 low nibble); both were
   verified in M2. No item drops were found in the battle-end code (06:5240).
+
+## 2026-10-12 — Maps, events, warps, shops (M5)
+
+- **Map table 02:58D0**, 200 pointers; the warp routine 00:22CC → 00:231B reads a variable-length
+  record: b0 → FFF8, b1 → FFF9, b2 graphics set (00:3F97 via 02:4820), b3 attribute set
+  (00:2403: 02:4840 + 64 × b3 → DF80, 32 metatiles × (e, d)), b4–b5 layout pointer (bank 03),
+  b6 flags B, b7 → FFE0, then — if B bit 7 is clear — the sprite set (FFFA, 00:24F8 via 02:5240)
+  and the event list pointer (FFFB/FFFC), then the three zone slots C5C3–C5C5 (each absent when
+  B bit 6/5/4 is set). Parsing all 200 records this way consumes 02:5A60–62E3 exactly (every
+  record ends where the next stored one starts). Map ids below 0x18 update the floor counters
+  (CCC6 position, CCC5 maximum: "Position 1F / Maximum 1F").
+- **Layouts** (00:153C, bank 03 command stream into the 64-wide buffer at D000): the routine was
+  run on the SM83 oracle (ffl2kster.sm83, used unchanged) and matched PyBoy's buffer for the first
+  town and the world map; the Python port `ffl1kster.layout` matches the oracle for all 110 distinct
+  layouts (`tools/ffl1/layout_verify.py`). One reading was falsified on the way: the 0x80
+  rectangle does not restart its tile at each row — the tile keeps counting (87 layouts differed
+  by 1–4 cells until that was fixed). Two more details come from the code: some additions are
+  low-byte only (`add l / ld l,a`), and the buffer starts filled with metatile 0x1E.
+- **Event lists** (00:2586): count byte, then 7-byte object entries (flag, presence range, x, y,
+  command, parameter, sprite), 3-byte copies of the previous object (0x80–0xFE), 7-byte bit-flag
+  entries (0xFF), ending with 0x81. All 99 lists parse (498 entries); they are stored back to back
+  (two before the map table at 02:585E/58B8, the rest from 02:62F0). RAM keeps 16 objects at C55C
+  (5 bytes: y, x, command, parameter, sprite).
+- **Event commands** (00:16E0, C3A9/C3AA): 0–2 dialogue with message number N = command × 256 +
+  parameter (05:7B10 + 2N, so N = 0x109 is dialogue entry 249); 3 chest; 4 facility (F0 inn,
+  F1 house of life, F2+ guild and others, other values = shop index); 5/6 warp to index parameter
+  or 256 + parameter (FF = back to the previous map, CCC2–CCC4); 8 battle (M4).
+- **Warps 02:52D0**: (map, x, y) × 474 — the table ends exactly where the first event list begins;
+  warp 0 = (map 1, 18, 36), the first town's start.
+- **Collision** (00:13FA): metatile attribute e bit 6 = blocked event tile, e & 0xB0 = free,
+  otherwise blocked when d has the movement-mode bit (00:1538: 01 02 04 08; on foot = bit 0).
+  A breadth-first navigator using this rule (`ffl1kster.navigate`) reaches the weapon shop at
+  (29,18) from the town start; probable (all planned routes walked, no failed step).
+- **Shops**: 05:7D10 + 10 × shop (item ids, FF empty); **prices** 05:7E10 + 3 × item, BCD
+  (165 items have a price: the table runs to the end of bank 05).
+- Controlled changes:
+
+| Change | Result |
+|---|---|
+| map 88 record byte 8 (zone slot 1) 00→08, re-entered from the town | zones 9C 08 01 04; step 68 battle in area 0x1E: GARGOYLE ×2 |
+| CONTROL map 87 record byte 8 | unchanged (ASIGARU) |
+| town object (x 0x15, y 0x21) parameter 9→8 / 9→0 (town loaded fresh) | the NPC says dialogue 248 / 240 |
+| LONG price 000132→000177 | paid 177 (was 132) |
+| CONTROL AXE price | paid 132 |
+| shop 0x16 slot 0 LONG→KATANA | "You get KATANA", paid 2060 |
+
+- Open (hypothesis): map b0, b1, b7 and flag bits 0–3; event commands 7 and 9–D; the zone slot
+  index from the metatile attribute (probable from code 00:2266's caller).

@@ -24,6 +24,9 @@ both ROMs; differences are listed first because they are the valuable part.
 | Items | one 8-byte record per id at 06:7700; names share the monster name table; default uses kept in the name entry | separate item name and stats tables |
 | Meat | drop chance in the monster record (b0 bits 0–2); result = family × family table, then level → monster | measured matrix / formula (docs/ROM_MAP.md) |
 | GP rewards | class nibble in the monster record → 16-entry BCD table | per-enemy reward data (docs/ROM_MAP.md) |
+| Maps | 200 records (variable length), 64 × 62 metatile buffer, layout command stream with 4 command forms (bank 03) | 212 maps; layout command format at 00:2253 (banks 08/09) |
+| Events | per-map object lists with presence ranges on story flags; commands 0–2 dialogue, 3 chest, 4 facility, 5/6 warp, 8 battle | event kinds incl. F0–FF (docs/EVENTS.md) |
+| Shops | 25 inventories × 10, 3-byte BCD prices per item (bank 05) | shop events + item price table (docs/ROM_MAP.md) |
 | Party creation | one hero created and named; the rest recruited later | the whole party chosen at the start |
 
 ## Transferred unchanged (method and generic code)

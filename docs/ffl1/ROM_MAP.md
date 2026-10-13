@@ -75,6 +75,20 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | 6 | high nibble: picks combatant +0D = the n-th ability (probable); low nibble: GP class (06:72A4, verified) | nibbles | probable / verified |
 | 7–8 | ability list pointer (bank 06) | u16 LE | verified |
 
+## Maps and events
+
+| Address | Size | Content | Status |
+|---|---|---|---|
+| `02:58D0` | 200 × 2 | Map record pointers (records 02:5A60–62E3, variable length, see FINDINGS M5) | verified (structure, zone slot change) |
+| `03:xxxx` | — | Layout command streams (pointer in the map record; 00:153C) | verified (110/110 vs the ROM routine) |
+| `02:4840` | 64 per set | Metatile attributes (e, d) × 32 → DF80 | probable |
+| `02:4820` | 2 per set | Graphics set pointers (00:3F97) | probable |
+| `02:5240` | 6 per set | Sprite sets (00:24F8) | probable |
+| `02:52D0` | 474 × 3 | Warps (map, x, y) | verified (structure; warp 0 = town start) |
+| `02:585E`, `02:62F0`–`6FA5` | 99 lists | Event lists (objects with command/parameter) | verified (parse; parameter change) |
+| `05:7D10` | 25 × 10 | Shop inventories | verified |
+| `05:7E10` | 165 × 3 | Prices, BCD | verified |
+
 ## Code
 
 | Address | Role | Status |
@@ -90,6 +104,11 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `00:0D9C` | meat transformation | verified |
 | `00:0911` | engine text interpreter (battle, UI) | verified |
 | `00:2266` | random encounter roll per step (zone, rate, area slot) | verified |
+| `00:22CC` / `00:231B` | warp / map load | verified |
+| `00:153C` | layout decoder | verified |
+| `00:2586` | event list loader | verified |
+| `00:13FA` | passability | probable |
+| `00:300E` | facility dispatch (shop, inn, house of life, guild) | verified (shop) |
 | `00:16E0` | event command executor (C3A9 command, C3AA parameter; 8 = battle → 00:1BBE) | probable |
 | `00:0EBA` | dialogue interpreter | verified |
 
@@ -99,7 +118,12 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 |---|---|---|
 | `D000 + 32k` | combatant slots (heroes 0–3, enemies 4–7): +0 b0, +1 nibble, +3/+4 HP LE, +5/+6 max HP, +7..+0A Str/Def/Agl/Mana, +0B/+0C ability attribute masks, +0D see byte 6, +0E..+15 ability ids, +16..+1D uses, +1F monster id (FF = empty) | verified (enemy slots) |
 | `CC00 + 31i` | party records (4 × 31 bytes): +1 name (4), +5 type (monster id), +6/+7 HP, +8/+9 max HP, +0A class flags (0x83 HUMAN M, 0x23 MUTANT M, 0x43 CLIPPER; bit 6 = can eat meat, verified by 00:0D9C), +0B..+0E Str/Def/Agl/Mana, +0F..+1E eight (item, uses) slots | probable (stride from 00:0551; status screen; meat and growth tests) |
-| `CCC9` / `CCC8` | field x / y tile | probable (moves with the D-pad) |
+| `CCC9` / `CCC8` | field x / y tile | verified (navigation) |
+| `CCC7` | current map id | verified |
+| `D000` | map buffer 64 × 62 (shared with the battle slots) | verified |
+| `DF80` | metatile attributes of the current map | probable |
+| `C55C` | 16 event objects × 5 | probable |
+| `CC8D`–`CC8F` | GP, BCD | verified (battle reward, shop) |
 | `FFBD` | encounter area index (bit 7: alternate formation) | verified |
 | `C5C2`–`C5C5` | the current map's four encounter zone slots | probable |
 | `D3E6` / `D3E7` | encounter flag count / next combatant slot | probable |
