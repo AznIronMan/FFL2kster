@@ -6,11 +6,12 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `0.5.0`
-Status: **Port P3 (full battle) complete.** The web port plays from the title through
+Version: `0.6.0`
+Status: **Port P4 (platforms) complete.** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
-field (P2, 1,643 sweep traces) and the battle system (P3, 2,152 battle traces). Data
+field (P2, 1,643 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
+the web (PWA), Windows, macOS, Linux, Android and iOS (P4, docs/PLATFORMS.md). Data
 gathering (milestones 1–7) is complete. See `docs/PORT_PLAN.md` (the active course),
 `docs/PROGRESS.md` and `docs/END_GOAL.md` (the long-term destination, not current scope).
 
@@ -77,7 +78,7 @@ src/ffl2kster rom/header, build engine, schemas (enemies, items, text, encounter
 tools/        reverse-engineering helpers (text decoder, scans, explorer, controlled changes)
 tests/        pytest suite incl. PyBoy acceptance test (marker: emu)
 docs/         ROM_MAP.md, FINDINGS.md, DECISIONS.md, PROGRESS.md, BATTLE_RULES.md,
-              EVENTS.md, MUSIC.md, PORT_READINESS.md, CAPS.md
+              EVENTS.md, MUSIC.md, PORT_READINESS.md, CAPS.md, PLATFORMS.md
 data/         processed data package (see data/README.md)
 port/         web port (TypeScript): importer, engine, renderer, sound, web app — see port/README.md
 build/        generated output only (ROMs, states, analysis, test-artifacts/)
@@ -92,6 +93,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `0.6.0` — Port P4 platforms: installable builds for web (PWA), Windows, macOS, Linux (Tauri 2),
+  Android and iOS (Capacitor 8) from CI; touch controls, all gamepads, portable `.sav` saves,
+  unverified ROM import; original app icon.
 - `0.5.0` — Port P3 full battle: 2,152 battle parity traces pass (every item and ability,
   every enemy, all party types, random seeds, bosses); all 50 effect handlers entered; mutant
   growth settled by controlled change; growth penalties modelled with one-byte stores.

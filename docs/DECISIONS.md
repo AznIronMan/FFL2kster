@@ -293,3 +293,32 @@ Architecture guidance for the importer and the web app; not new feature work.
   belongs to the remaster data model. Map: docs/CAPS.md.
 - Findings that serve either (e.g. where the 999/99 caps and the number displays are checked)
   are recorded as they come up; no feature work for them ahead of the port.
+
+## 2026-10-12 — P4 decisions (platforms)
+
+- One web build, thin shells: Tauri 2 for Windows/macOS/Linux (`port/apps/desktop`, dialog + fs
+  plugins, `withGlobalTauri`), Capacitor 8 for Android/iOS (`port/apps/mobile`, native projects
+  committed, iOS on Swift Package Manager), and the web build itself as an installable PWA.
+  `platform.ts` holds the only differences (file save/open, fullscreen); app identifier
+  `llc.cnb.fftol`.
+- Storage stays in IndexedDB on every target (the shells keep it in the app data directory); no
+  native storage layer. The portable unit is the save: the raw 8 KiB battery RAM as `.sav`, the
+  same bytes everywhere and the format Game Boy emulators use for this cartridge, so saves move
+  between all six targets and to and from emulators. Export: download / save dialog / share sheet;
+  import: the system picker, size-checked, then confirmed before replacing the device's save.
+- Unverified import (direction note C) is implemented in the importer: a hash mismatch with at
+  least 16 whole banks may be imported on request; size, internal name and cartridge RAM warn;
+  the package records `verified: false` and the UI labels it. Smaller files are refused.
+- Input: keyboard, every connected gamepad (W3C standard mapping), on-screen touch controls
+  (multi-touch, sliding D-pad, shown by default on coarse pointers and in the mobile shells). All
+  sources go through one per-frame sampler that holds a new press for 4 frames, so short taps
+  are never lost. The game pauses while hidden (mobile lifecycle) and flushes saves first.
+- The service worker caches only same-origin app files (shell + hashed assets); never ROMs or game
+  data. The no-content check now allows only the app's own small icons among images.
+- The app icon is original (`port/assets/make_icons.py`, simple shapes, no game content).
+- Builds for all targets come from CI (`.github/workflows/platforms.yml`), which also covers what
+  this Mac cannot build locally (no Rust toolchain; the iOS platform is not installed in Xcode).
+  Signing needs the owner's credentials: macOS sign + notarize switch on with repository secrets;
+  Windows signing, Android release signing and iOS device signing are documented, not configured
+  (docs/PLATFORMS.md). Without them: unsigned desktop installers, a debug-signed APK, an iOS
+  simulator build and an unsigned device app.

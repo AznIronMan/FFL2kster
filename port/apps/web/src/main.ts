@@ -199,9 +199,9 @@ if (romUrl) {
   const r = await fetch(romUrl);
   const status = el("p", {});
   app.replaceChildren(el("h1", {}, TITLE), status);
-  await handle(new Uint8Array(await r.arrayBuffer()), status);
+  await handle(new Uint8Array(await r.arrayBuffer()), status); // shows the summary, a prompt or an error
+} else {
+  const existing = await loadPackage().catch(() => undefined);
+  if (existing && existing.format === PACKAGE_FORMAT) showSummary(existing);
+  else showImporter(existing ? "The game data format changed; please choose your ROM again to rebuild it." : undefined);
 }
-
-const existing = romUrl ? await loadPackage() : await loadPackage().catch(() => undefined);
-if (existing && existing.format === PACKAGE_FORMAT) showSummary(existing);
-else showImporter(existing ? "The game data format changed; please choose your ROM again to rebuild it." : undefined);

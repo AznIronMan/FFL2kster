@@ -200,3 +200,21 @@ paths with an empty purse, some explode/multiply messages, growth's full-slot re
 
 Tests: TypeScript 4,278 passed (dedicated traces); battle sweeps 2,152 traces passed (run with
 BSWEEP=bs_); Python 77 passed.
+
+## Port P4 — Platforms (2026-10-12)
+
+| Target | Build | Verified |
+|---|---|---|
+| Web / PWA | CI `fftol-web-pwa` | ROM import, title → Continue → load, touch pad and layout at phone size, unverified import, save export (built-in browser pane); service worker registers, caches the shell and serves it offline, manifest valid (headless Chromium) |
+| Windows | CI `.msi` + setup `.exe` (unsigned) | built |
+| macOS | CI universal `.dmg` (unsigned) | launched on this Mac: the web app runs in the shell (its IndexedDB is created) |
+| Linux | CI `.deb`, `.rpm`, `.AppImage` | built |
+| Android | CI and local debug-signed `.apk` | built; APK contents pass the no-content check |
+| iOS | CI simulator app + unsigned device `.ipa` | built; bundle passes the no-content check |
+| Saves portable | `.sav` = 8 KiB battery RAM on every target | a PyBoy save imports and loads; export equals the stored bytes; loading clears 0600-077F exactly as the original does (ld_continue SRAM) |
+
+Not verified here: running the Windows/Linux builds, the Android app on a device or emulator (no
+emulator image on this Mac) and the iOS app (needs the iOS platform in Xcode or signing); store
+signing (owner's credentials, docs/PLATFORMS.md).
+
+Tests: TypeScript 4,280 passed; Python 77 passed; CI and Platforms workflows green.

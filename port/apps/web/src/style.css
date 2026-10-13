@@ -30,18 +30,18 @@ body.playing .player { margin-bottom: 8px; }
 body.playing canvas.screen { width: min(100%, 640px, calc((100dvh - 120px) * 160 / 144)); }
 body.playing.touch canvas.screen { width: min(100%, 640px, calc((100dvh - 300px) * 160 / 144)); }
 .bar { justify-content: center; }
-.touchpad { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; max-width: 520px; margin: 0 auto 8px;
+.touchpad { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; max-width: 520px; margin: 0 auto 8px; padding: 0 4px;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .touchpad[hidden] { display: none; }
-.dpad { position: relative; width: 150px; height: 150px; justify-self: start; }
-.dpad .tbtn { position: absolute; width: 50px; height: 50px; border-radius: 8px; }
-.dpad .up { left: 50px; top: 0; } .dpad .down { left: 50px; bottom: 0; }
-.dpad .left { left: 0; top: 50px; } .dpad .right { right: 0; top: 50px; }
-.dpad::after { content: ""; position: absolute; left: 50px; top: 50px; width: 50px; height: 50px; background: var(--line); }
-.ab { display: flex; gap: 14px; justify-self: end; transform: rotate(-20deg); }
-.ab .tbtn { width: 64px; height: 64px; border-radius: 50%; font-weight: 600; }
+.dpad { position: relative; width: 132px; height: 132px; justify-self: start; }
+.dpad .tbtn { position: absolute; width: 44px; height: 44px; border-radius: 8px; }
+.dpad .up { left: 44px; top: 0; } .dpad .down { left: 44px; bottom: 0; }
+.dpad .left { left: 0; top: 44px; } .dpad .right { right: 0; top: 44px; }
+.dpad::after { content: ""; position: absolute; left: 44px; top: 44px; width: 44px; height: 44px; background: var(--line); }
+.ab { display: flex; gap: 10px; justify-self: end; transform: rotate(-20deg); margin-right: 6px; }
+.ab .tbtn { width: 56px; height: 56px; border-radius: 50%; font-weight: 600; }
 .startsel { display: flex; flex-direction: column; gap: 10px; align-self: end; }
-.startsel .tbtn { width: 72px; height: 26px; border-radius: 13px; font-size: 11px; }
+.startsel .tbtn { width: 64px; height: 26px; border-radius: 13px; font-size: 10px; }
 .tbtn { display: flex; align-items: center; justify-content: center; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
 .tbtn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 @media (orientation: landscape) and (pointer: coarse) {
