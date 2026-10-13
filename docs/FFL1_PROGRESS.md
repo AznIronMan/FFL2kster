@@ -166,3 +166,21 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   still catch a stale state (the mutated CARE run: 227 wait differences).
 - Suites: port 4,315 passed, 15 skipped (FFL1 slice 12/12, tear 6, importer 11); pytest 111 passed;
   FFL2 guard clean.
+
+### 2026-10-12 — Port P1 (battle, first checkpoint)
+- `@ffl1k/core` battle: `battle/core.ts` (06:4000-5E24: the loop, entities D000, the action list
+  D3EF, the 49 effect handlers of 06:403A, monster AI and targets, turn order, poison, victory
+  with gold, meat and growth, defeat, escape, the party order) over `battle/regs.ts` (the
+  original passes results in registers and flags between these routines); `battle/ui.ts`
+  (06:5E27-63F7 menus and windows, bank 07: the battle screen with the per-line WX slide, attack
+  sprite scripts, the hit shake, picture erasing). The field side 00:1BBE (tile dissolve, map
+  reload). Disassembly entries added for the handler, growth and screen-effect jump tables and the
+  rst $30/$38 RAM vectors (06:4296, 06:7F60).
+- battle1 (event 8, area 16; SABER against lizards, their bites): 1,887 waits, 0 differences,
+  every screen identical (no counted rule needed).
+- Fixed by the trace: text code 3B prints four new lines (00:0A05 calls 0A08 and falls into it);
+  the per-line WX values of the slide land one line early (the poll writes line l + 1's value as
+  line l starts) and the first 00:041B after a frame wait returns at once. 00:0736 (h * l) drops
+  the carry of its 8-bit accumulator: ported as such (exact only for l < 129).
+- Not yet ported (raise NotPortedBattle): the boss death effects (07:7510, 07:75C6), the screen
+  effects of 07:7AD5, moving sprite scripts (07:6F1E), eating meat in battle (00:0D9C).

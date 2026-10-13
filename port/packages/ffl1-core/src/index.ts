@@ -16,3 +16,4 @@ export * from "./field/menumain.js";
 export * from "./field/items.js";
 export * from "./field/facilities.js";
 export * from "./bcd.js";
+export * from "./battle/index.js";

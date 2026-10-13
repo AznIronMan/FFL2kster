@@ -116,7 +116,8 @@ export class TextEngine {
     switch (c) {
       case 0x0a: return yield* this.newline();
       case 0x0d: yield* this.newline(); return yield* this.newline();
-      case 0x3b: yield* this.newline(); yield* this.newline(); return yield* this.newline();
+      // 3B -> 00:0A05: call 0A08 (call 0A0B, fall into 0A0B), then fall into 0A08 again: 4 new lines
+      case 0x3b: for (let i = 0; i < 4; i++) yield* this.newline(); return;
       case 0x13: yield* waitButton(this.g); return;
       case 0x1c: setH(m, 0xff97, H(m, 0xff97) + 1); setW16(m, 0xff9b, w16(m, 0xff9b) + 1); return;
       case 0x1d: setH(m, 0xff97, H(m, 0xff97) - 1); setW16(m, 0xff9b, w16(m, 0xff9b) - 1); return;

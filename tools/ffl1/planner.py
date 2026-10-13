@@ -19,8 +19,9 @@ from ffl1kster.emu import Emulator
 from ffl1kster.navigate import passable, DIRS
 
 
-# joypad reads: 00:034F (FF8E repeat, called through 00:0174/019B) and 00:209D (field movement)
-READS = (0x034F, 0x209D)
+# joypad reads: 00:034F (FF8E repeat, called through 00:0174/019B), 00:209D (field movement) and
+# 00:0CCD (the text delay's first look at A held, after a character is drawn)
+READS = (0x034F, 0x209D, 0x0CCD)
 
 
 class Planner:

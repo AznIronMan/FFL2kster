@@ -18,6 +18,7 @@ const TRACES: [string, string][] = [
   ["shop1", "a shop: buy and sell"],
   ["guild1", "the guild: recruit a member (class, name), back to the field"],
   ["care1", "field use of the ability CARE (00:39AA: h never loaded, MBC2 bank selects; HP unchanged)"],
+  ["battle1", "a battle (event 8, area 16): intro slide, menus, SABER, the lizards' bites, hit shakes"],
 ];
 
 describe.skipIf(!haveRom())("FFL1 scenario parity", () => {

@@ -51,11 +51,14 @@ PLANNED = {
     # its writes are MBC2 bank selects, so the HP stays 10.
     "care1": ("town0", FIELD, [P("start", 60), P("a"), P("a", 40), P("a", 60), P("a", 60), P("b"), P("b"), P("b"),
                                P("b", 60), ("wait", 30)]),
+    # a battle started as event 8 (area 16, the first world zone); A to every prompt
+    "battle1": ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * 40 + [("wait", 120)]),
 }
 
 # Fixture pokes applied at the hook (address, value[, mask]), by the planner and the recorder alike.
 POKES = {
     "care1": [(0xCC0F, 0x84), (0xCC10, 0x05), (0xCC06, 0x0A), (0xCC07, 0x00)],
+    "battle1": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
 }
 
 

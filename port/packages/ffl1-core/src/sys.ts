@@ -260,8 +260,22 @@ export function* waitLy90(g: Game): Co {
 
 // ---------------------------------------------------------------- arithmetic
 
-/** 00:0736 — h * l (8 x 8 -> 16). */
-export const mul8 = (h: number, l: number): number => (h & 0xff) * (l & 0xff);
+/** 00:0736 — h * l -> hl by shift-and-add with an 8-bit accumulator: `add l` then `srl a`
+ *  drops the add's carry, so the result is the exact product only while the partial sums fit
+ *  (always for l < 129). af and bc are preserved. */
+export function mul8(h: number, l: number): number {
+  h &= 0xff; l &= 0xff;
+  let a = 0, c = 0;
+  for (let b = 8; b; b--) {
+    const cy = h & 1;
+    h >>= 1;
+    if (cy) a = (a + l) & 0xff;
+    const lo = a & 1;
+    a >>= 1;
+    c = (c >> 1) | (lo << 7);
+  }
+  return (a << 8) | c;
+}
 
 /** 00:074D — hl * de (16 x 16 -> 32): returns [high16 (hl), low16 (de)]. Leaves SP in C381/C382
  *  (stack data, not compared). */
