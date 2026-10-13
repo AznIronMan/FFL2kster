@@ -550,3 +550,39 @@ swap tile, the 00:2F0B or 00:12CA point removed, and the last-wait VRAM taken ou
 each fail `opening1`; before the recorder change the replay stopped a frame late at wait 7656.
 A port of the late resume (the code resuming at the original's line) was tried and dropped: its
 mutation passed.
+
+## 2026-10-13 — Port: the wave fades of a map change (1.37.0)
+
+`opening2` (as `opening1` with 450 A presses, then 300 idle frames; 19,818 frames) is
+wait-exact: 16914/16914 waits, 15432 frame works, 1201 bracket polls matched. It reaches a map
+change whose load fades with a wave (CA6B = 1: 00:03CD out, 00:03E9 in; bank 0F 7E18-7F07), an
+event 11 screen shake and the scene after it. Found:
+
+- The wave: a STAT handler at every line (0F:7EC2; LYC + 1 up to CDB3 = 8F, then CDB2 = 0) sets
+  SCX = CDB0 + t, t = 0F:7E54[(LY + FF93) & 1F] (a signed sine, twice at C880) moved toward 0 by
+  CDB1 (|t| < CDB1: 0). Fade out: CDB1 from 0F down to 1, six frames each at palette level 0,
+  then levels 1-3 six frames each; fade in the reverse. Frames are counted by polling LY for line
+  0, not by the frame wait.
+- With a handler at every line the code is slow: the 3-byte palette copy takes 3-5 lines and a
+  long sound tick runs past the next line 0, so the poll waits a frame more (amplitude steps 8
+  frames apart instead of 6). Sync points 0F:7EB9 (the poll ended), 0F:7E89 / 0F:7E8F (the
+  amplitude steps) and 0F:7E74 (the end) give the port the original's times; 0F:7EBF (the copy's
+  end) is recorded as a landmark only.
+- The handler's SCX write lands near the end of the line's drawing (the reference emulator draws
+  a line when mode 3 ends; objects and the fine scroll lengthen mode 3): mostly after it (the
+  value shows from the next line), before it on lines with 6 objects — but not always (it depends
+  on the handler's path and the instruction it interrupted). The port writes after the line and
+  records the other outcome per line (`Game.scxAlt`); the replay accepts rows showing either
+  ("raster tears", 401 frames).
+- FFC5 is the sound driver's loop count (0F:4802): ignored with the rest of its state.
+- A frame work or the code's own field work writes the scroll later in the frame than the port:
+  in those lines a row may show the registers as the previous frame ended, and the row being
+  drawn while they were written may be mixed (line tears).
+
+Falsification (ffl3/scratch/mut5.sh): the wave offset, its phase, the fade-out levels, each of
+the sync points 0F:7EB9 / 7E89 / 7E8F / 7E74, the raster alternative, the previous-frame
+registers, the mixed boundary row, comparing FFC5, and points as the code's landmarks each fail
+`opening2` (a first offset mutation was equivalent: |t| = CDB1 gives 0 either way).
+Tried and dropped: writing SCX on the same line when objects were on it (any number, or a
+mode-3 length threshold of 24 or 30) — each left differing frames; deferring the frame work's
+scroll writes to its end — the original writes them about 11 lines earlier.

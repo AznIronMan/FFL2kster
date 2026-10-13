@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.36.0`
+Version: `1.37.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.37.0` — Legend III port: a map change with the wave fades (a raster effect at every line)
+  and a screen shake are wait-exact (`opening2`, 19,818 frames, 16,914 waits). The replay now
+  counts a raster write that lands on either side of a line's drawing.
 - `1.36.0` — Legend III port: the opening scene after the battle is wait-exact (`opening1`, 11,118
   frames, 9,425 waits: the texts, scripted walks, the map's tile animation). The map animation is
   ported in all 36 modes. Trace waits now take the frame of the vblank that ended them, and two

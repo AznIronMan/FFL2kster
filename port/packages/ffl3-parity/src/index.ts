@@ -69,6 +69,19 @@ export class Rig {
     }
     return p.frame;
   }
+  /** The last frame drawn again from the current VRAM and OAM with each line's registers, SCX
+   *  replaced where `scx` gives one (and the palettes, when given). */
+  redrawScx(scx: (number | undefined)[], pal?: [number, number, number]): Uint8Array {
+    const p = new Ppu(this.g.m.vram, this.g.m.oam);
+    p.beginFrame();
+    for (let k = 0; k < 144; k++) {
+      let r = this.lineRegs[k]!;
+      if (pal) r = { ...r, bgp: pal[0], obp0: pal[1], obp1: pal[2] };
+      p.regs = scx[k] === undefined ? r : { ...r, scx: scx[k]! };
+      p.line(k);
+    }
+    return p.frame;
+  }
   get g() {
     return this.engine.g;
   }

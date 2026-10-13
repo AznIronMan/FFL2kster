@@ -48,6 +48,10 @@ SCENARIOS = {
     "opening1": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
                                 "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
                                 + "a:3,none:37," * 210 + "none:1200"),
+    # on through the scene: a map change with the wave fades (CA6B = 1), a screen shake, the next scene
+    "opening2": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                                "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
+                                + "a:3,none:37," * 450 + "none:300"),
 }
 
 

@@ -20,6 +20,7 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:1F27 | bracket STAT (LYC 3): sound (00:1F3A, bank 0F pushed), then 00:3549 while CD3D | verified (parity) |
 | 00:3549 / 00:3557 | once (CDC5): CDC4 or WY = 50 -> bank 01 00:3575 (field work, then di); else 00:2192 party figures + 00:1ED7; ends back at 00:3552 | verified (parity title1/title2/newgame1; hooks) |
 | 00:3A6D / 00:3A6B | frame wait: FF95 = n (1), halt until 0 (00:3A77) | verified (parity) |
+| FFBB-FFC5 | sound driver state (FFC5: a sound effect's loop count, 0F:4802) | verified (code) |
 | 00:36F1 | joypad: FF8A held (A B Sel Start low, R L U D high), FF8B new presses | verified (parity) |
 
 ## Bank switching and far calls
@@ -223,6 +224,10 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:1236 | event dispatcher (CA29 & 3F; CD3D cleared meanwhile): 0D/0E door 00:1389 (06:6BA4 + 3(n-1)), 12 special 00:16B9, 06/07 and >= 2D (but 2F, 3F) nothing | verified for 0E, 12 (parity) |
 | 00:1B64 | return point C7C9-C7CB for maps below 0A, one step back against the facing | verified (parity) |
 | 00:35AF / 00:35D2 / 00:27AB | text window open / close / toggle (code 14): slide 6B -> 51 (2 lines a frame) with STAT 00:3631 (BGP flashes, WX on/off, LYC mirrored around 6E), a sound tick and the field work per frame | verified (parity) |
+| 00:039B / 00:03A8 | before / after a map load by CA6B: 0 the palette fade (after: CD3D = FF meanwhile); 1 the wave fade out 00:03CD / in 00:03E9 (bank 0F); 2 nothing / 01:5F9D | verified for 0, 1 (parity opening2) |
+| 0F:7E18 / 0F:7E74 | wave set-up (CDB2 0, CDB3 8F, WY 50, bracket 00:1D9E, fade levels 0F:79AE, 0F:7E54 x 2 -> C880, CDB0 = SCX, CDB1 = 0F, LYC = 0, STAT -> 0F:7EC2) / end (LYC 3, STAT -> 00:1F27, ei, 00:1DFD) | verified (parity opening2) |
+| 0F:7EC2 | wave STAT handler at every line: SCX = CDB0 + 0F:7E54[(LY + FF93) & 1F] moved toward 0 by CDB1; LYC + 1 (past CDB3: CDB2) | verified (parity opening2; the write lands before or after the line's drawing) |
+| 0F:7E86 / 0F:7E8D / 0F:7E9D / 0F:7EAD | CDB1 down to 0 / up 15 times, six frames each; six frames at a palette level; a frame: poll LY = 0, palettes CDB4 + 3e -> FF47-49, sound tick 0F:4006 | verified (parity opening2) |
 | 00:3575 | field frame work: map animation 01:54A0 (CA6F guard; CA18 mode table at 01:54B4), objects 00:01A0, scroll 00:3D2B, shake 00:108F, objects under the window hidden (00:3A32) | verified (parity) |
 | 01:54A0 / 01:54B4 | map animation, 36 modes (CA18): 00/0C nothing; strip scrolls 01:5730 (a 2-tile strip a pixel right at FF93 & 0F = 6, or + 100 at 0E; hblank-paced, ends with reti; 01:5723 at 6 only) for 01-06, 09, 0A, 1C, 1F, 20, 08, 17, 0E, 23; tile rolls down 01:57A9 / up 01:57CE (pairs 01:578C, 01:5798, 01:5828, 01:5836); byte rotations 01:5847 (0D, 0E); swaps through C800 (01:6101/6107 32 bytes, 01:60F5/60FB 16) in 08, 0B, 14, 16, 17, 19, 1A, 1B (01:5964), 21, 22 (01:5993); frame tables 01:5601 (0F, 15, 1E) and 01:565F (12, 13) | verified for 1B, 22, 23 (parity); the rest from the code |
 | 00:0020 / 00:0028 | rst $20 / rst $28: di, bank push 00:38E1 / pop 00:38FC, reti (the interrupts on: in the frame work, 00:01A0's rst $20 lets a nested STAT in) | verified (parity opening1) |

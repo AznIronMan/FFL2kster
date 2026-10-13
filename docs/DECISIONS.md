@@ -586,3 +586,10 @@ Decisions and assumptions:
   few and each must fail a trace when removed (00:1B2D was dropped for that reason); every path
   into 00:1236 in the port goes through `dispatch` so the 00:12CA point is counted as in the
   original.
+- 1.37.0: where the outcome depends on CPU cycles the port does not count, the port picks one
+  and records the other, and the replay accepts either: a raster handler's mid-line SCX write
+  (`Game.scxAlt`, "raster tears"). Line tears may also show the registers as the previous frame
+  ended, and the last differing row of a tear may be mixed (the line drawn while the registers
+  were written). Sync points may be recorded as landmarks only (the port never waits on them):
+  all points count as the code's position for the line tears. Each of these fails a trace when
+  removed.

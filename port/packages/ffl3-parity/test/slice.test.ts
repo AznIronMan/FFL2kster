@@ -15,13 +15,14 @@ const TRACES: [string, string][] = [
   ["battle3", "the opening battle to its end: every round with the default commands and targets"],
   ["newgame3", "the names: letters, cursor wrapping, B, Start (empty: buzzer), back a member; fade into the opening"],
   ["opening1", "after the battle: the opening scene's texts, scripted walks (normal handlers), map animation 1B"],
+  ["opening2", "on through the scene: a map change with the wave fades (CA6B = 1, a raster at every line), a screen shake"],
 ];
 
 describe.skipIf(!haveRom())("FFL3 scenario parity", () => {
   for (const [name, what] of TRACES) {
     it.skipIf(!haveTrace(name))(`${name}: ${what}`, () => {
       const r = replay(name, { keepGoing: true });
-      const info = `waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tears ${r.tears} oamLate ${r.oamLate} oamTransient ${r.oamTransient} syncs ${r.nSyncs}/${r.trace.syncs.length} late ${r.lateSyncs} polls ${r.nPolls}/${r.trace.polls.length} late ${r.latePolls} points ${r.nPoints} late ${r.latePoints} rand ${r.nRand}/${r.trace.rand.length} works ${r.nWorks}/${r.trace.works.length} mismatch ${r.workMismatch} lineTears ${r.lineTears} (chunk ${r.chunkTears})`;
+      const info = `waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tears ${r.tears} oamLate ${r.oamLate} oamTransient ${r.oamTransient} syncs ${r.nSyncs}/${r.trace.syncs.length} late ${r.lateSyncs} polls ${r.nPolls}/${r.trace.polls.length} late ${r.latePolls} points ${r.nPoints} late ${r.latePoints} rand ${r.nRand}/${r.trace.rand.length} works ${r.nWorks}/${r.trace.works.length} mismatch ${r.workMismatch} lineTears ${r.lineTears} (chunk ${r.chunkTears}) rasterTears ${r.rasterTears}`;
       console.log(`${name}: ${info} error ${r.error?.message ?? "-"}\n${summarizeWaits(r.waits)}\n${summarize(r.diffs)}`);
       expect(r.error).toBeUndefined();
       expect(r.nWaits).toBe(r.trace.waitFrames.length);

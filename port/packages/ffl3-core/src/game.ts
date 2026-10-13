@@ -116,10 +116,15 @@ export class Game {
     return this.vblankTaken ? this.frame + 1 : this.frame;
   }
 
+  /** Per line of the current frame: the SCX the line would show had a raster handler's write
+   *  landed on the other side of the line's drawing (the port does not count the CPU cycles that
+   *  decide it); empty when no handler wrote mid-line. */
+  readonly scxAlt: (number | undefined)[] = [];
+
   /** Run lines `from`..153 of the current frame. */
   runFrame(from = 0): void {
     const m = this.m, io = m.io;
-    if (from === 0) this.vblankTaken = false;
+    if (from === 0) { this.vblankTaken = false; this.scxAlt.length = 0; }
     for (let ly = from; ly < 154; ly++) {
       this.ly = ly;
       io[0x44] = ly;

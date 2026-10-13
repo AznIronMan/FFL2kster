@@ -7,6 +7,7 @@ import { title, type TitleChoice } from "./title.js";
 import { fieldWorkBanked, slideRaster } from "./window.js";
 import { fadeIn, far0 } from "./sys.js";
 import { printText } from "./text.js";
+import { waveRaster } from "./wave.js";
 import { testFlag, setFlag } from "./objects.js";
 
 export class Engine {
@@ -16,6 +17,7 @@ export class Engine {
     this.g = new Game(segments);
     installInterrupts(this.g, (g) => this.frameWork(g));
     this.g.handlers.set(0x3631, slideRaster);
+    this.g.handlers.set(0x7ec2, waveRaster);
   }
 
   /** 00:3557 — the frame work while CD3D is set: in the field (CDC4, or the text window at WY

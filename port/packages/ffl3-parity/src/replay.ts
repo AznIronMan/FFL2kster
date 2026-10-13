@@ -56,6 +56,8 @@ export interface ReplayResult {
    *  frame, or the interrupt-time frame work 00:3557 (hblank-paced copies, e.g. the map animation
    *  01:54A0). Every differing pixel is on such a line and shows an old picture. */
   lineTears: number;
+  /** Frames equal once rows a raster handler wrote SCX on show its other value (`Game.scxAlt`). */
+  rasterTears: number;
   /** Of these, frames with a line drawn between two chunks of a copy (see `lineTear`). */
   chunkTears: number;
   /** Runs of the frame work whose start frame differs from the original's (should be 0). */
@@ -93,27 +95,51 @@ export function mixTear(exp: Uint8Array, got: Uint8Array, olds: Uint8Array[]): b
   return true;
 }
 
-/** A frame drawn while the original's code wrote VRAM over the lines `spans` (CPU time):
- *  every differing pixel lies on one of those lines and shows an old picture — except, with
+/** Each row of `got`, or of `alt` where that row of `alt` equals `exp` (within `spans` when
+ *  given). */
+function rowMix(exp: Uint8Array, got: Uint8Array, alt: Uint8Array, spans?: [number, number][]): Uint8Array {
+  const out = got.slice();
+  for (let y = 0; y < 144; y++) {
+    if (spans && !spans.some(([a, b]) => y >= a && y <= b)) continue;
+    const a = y * 160;
+    let same = true;
+    for (let x = 0; x < 160 && same; x++) if (alt[a + x] !== exp[a + x]) same = false;
+    if (same) out.set(alt.subarray(a, a + 160), a);
+  }
+  return out;
+}
+
+/** A frame drawn while the original's code wrote VRAM or registers over the lines `spans` (CPU
+ *  time): every differing pixel lies on one of those lines and shows an old picture — except, with
  *  `partial`, on at most two lines (16 pixels): the lines drawn between two chunks of one
  *  hblank-paced copy (00:20FF writes 5 bytes an hblank, so a tile row can be half written, its
- *  planes from two states). Returns "full", "partial" or false. */
+ *  planes from two states); or on one line, the last that differs right below lines showing the
+ *  old state: the line being drawn while the code wrote its registers one by one. Returns "full",
+ *  "partial" or false. */
 export function lineTear(exp: Uint8Array, got: Uint8Array, olds: Uint8Array[], spans: [number, number][],
   partial = true): "full" | "partial" | false {
   if (!spans.length) return false;
   const odd = new Set<number>();
+  const diffRows = new Set<number>();
   let nOdd = 0;
   for (let i = 0; i < exp.length; i++) {
     const v = exp[i];
     if (v === got[i]) continue;
     const y = Math.floor(i / 160);
     if (!spans.some(([a, b]) => y >= a && y <= b)) return false;
+    diffRows.add(y);
     if (olds.some((o) => o[i] === v)) continue;
     if (!partial) return false;
     odd.add(y);
-    if (++nOdd > 16 || odd.size > 2) return false;
+    nOdd++;
   }
-  return nOdd ? "partial" : "full";
+  if (!nOdd) return "full";
+  if (nOdd <= 16 && odd.size <= 2) return "partial";
+  // one row drawn while the code wrote the registers (from old to new across the line): the
+  // last row that differs, below rows showing the old state
+  const [y] = [...odd];
+  if (odd.size === 1 && y === Math.max(...diffRows) && (y === 0 || diffRows.has(y - 1))) return "partial";
+  return false;
 }
 
 export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
@@ -177,7 +203,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   let nRand = 0;
   m.onRandom = () => t.rand[nRand++]?.[2];
   // the frame work's runs end when the original's did (hblank-paced copies)
-  let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0;
+  let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0, rasterTears = 0;
   /** Where the port ran each work (in no time: its VRAM writes are all on that line). */
   const portWork: [number, number][] = [];
   g.onWork = () => {
@@ -204,11 +230,12 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     const lcd = (t.meta.frames[f - 1] as { lcd?: number[] } | undefined)?.lcd;
     return lcd ? [rig.redrawPalettes([lcd[5]!, lcd[6]!, lcd[7]!])] : [];
   };
-  /** The visible lines of frame f the original's main code ran: up to the last frame wait or
-   *  bracket entry it reached in that frame. */
+  /** The visible lines of frame f the original's main code ran: up to the last frame wait,
+   *  bracket entry or sync point it reached in that frame. */
+  const pointTimes = Object.values(t.points).flat();
   const mainLines = (f: number): [number, number][] => {
     let l = -1;
-    for (const [pf, pl] of [...t.starts, ...t.polls]) if (pf === f && pl < 144) l = Math.max(l, pl);
+    for (const [pf, pl] of [...t.starts, ...t.polls, ...pointTimes]) if (pf === f && pl < 144) l = Math.max(l, pl);
     return l < 0 ? [] : [[0, l]];
   };
   g.onWaitDone = () => {
@@ -253,6 +280,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
       // the original's CPU was still busy in this frame (its code had not reached the wait yet)
       // (or before a bracket entry / sync point it reaches later)
       const busyFrame = g.waitingFor === BUSY || g.waitingFor === LINE;
+      const prevRegs = rig.lineRegs[143];
       g.runFrame();
       const exp = t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES);
       const got = rig.ppu.frame;
@@ -270,10 +298,26 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
           while (k >= 0 && (wf[k] ?? -1) >= f) k--;
           return k >= 0 ? [rig.redrawFrom(t.waits.subarray(k * 0x8000, k * 0x8000 + 0x2000))] : [];
         };
-        if (opts.tears !== false && busyFrame && (mixTear(exp, got, olds) || mixTear(exp, got, [...olds, ...lastVram()]))) tears++;
+        // a raster handler's SCX write mid-line: each line may show the value before or after it
+        // (in the lines the original's code ran, also with the palettes of the frame before)
+        let raster = false;
+        if (opts.tears !== false && g.scxAlt.some((v) => v !== undefined)) {
+          const alts = [rig.redrawScx(g.scxAlt)];
+          const lcd = (t.meta.frames[f - 1] as { lcd?: number[] } | undefined)?.lcd;
+          const spans = mainLines(f);
+          let mixed = rowMix(exp, got, alts[0]!);
+          if (lcd && spans.length) {
+            const pal: [number, number, number] = [lcd[5]!, lcd[6]!, lcd[7]!];
+            for (const a of [rig.redrawScx([], pal), rig.redrawScx(g.scxAlt, pal)]) mixed = rowMix(exp, mixed, a, spans);
+          }
+          raster = !screenDiff(exp, mixed);
+        }
+        if (raster) rasterTears++;
+        else if (opts.tears !== false && busyFrame && (mixTear(exp, got, olds) || mixTear(exp, got, [...olds, ...lastVram()]))) tears++;
         // (in the lines the original's main code ran, also the VRAM of the last wait: its tile writes,
         // e.g. a map animation, had not been made yet)
-        else if (opts.tears !== false && (lt = lineTear(exp, got, [...olds, ...oldPalette(f), ...lastVram()], [...workLines(f), ...mainLines(f)]))) {
+        // (and the registers as the previous frame ended: the code wrote them later in the frame)
+        else if (opts.tears !== false && (lt = lineTear(exp, got, [...olds, ...oldPalette(f), ...lastVram(), ...(prevRegs ? [rig.redrawFrom(m.vram, prevRegs)] : [])], [...workLines(f), ...mainLines(f)]))) {
           lineTears++;
           if (lt === "partial") chunkTears++;
         }
@@ -290,7 +334,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   }
   waits.push(...oamPending);
   waits.sort((a, b) => a.wait - b.wait);
-  return { trace: t, diffs, waits, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, workMismatch, nWorks, error };
+  return { trace: t, diffs, waits, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, rasterTears, workMismatch, nWorks, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {
@@ -304,10 +348,10 @@ export function summarize(diffs: FrameDiff[]): string {
 // ---------------------------------------------------------------- comparison filters
 
 /** Sound driver state and APU registers (the driver 0F:4006 is not ported yet): CB00-CBFE and
- *  FFBB-FFC4 (FFBC the sound effect request, cleared by the driver when it takes it; FFC2/FFC3
- *  the wave pointer of 0F:456B). CBFF (the sprite flip switch, 00:3E26) and FFBA (the music
- *  request written by game code) are compared. */
-const SOUND = (a: number) => (a >= 0xcb00 && a < 0xcbff) || (a >= 0xffbb && a <= 0xffc4) || (a >= 0xff10 && a < 0xff40);
+ *  FFBB-FFC5 (FFBC the sound effect request, cleared by the driver when it takes it; FFC2/FFC3
+ *  the wave pointer of 0F:456B; FFC5 a sound effect's loop count, 0F:4802). CBFF (the sprite flip
+ *  switch, 00:3E26) and FFBA (the music request written by game code) are compared. */
+const SOUND = (a: number) => (a >= 0xcb00 && a < 0xcbff) || (a >= 0xffbb && a <= 0xffc5) || (a >= 0xff10 && a < 0xff40);
 /** The SM83 stack (SP starts at CFFF). */
 const STACK = (a: number) => a >= 0xcf00 && a < 0xd000;
 /** Hardware timing registers and the joypad select register. */

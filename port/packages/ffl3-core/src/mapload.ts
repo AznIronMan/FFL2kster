@@ -6,6 +6,7 @@ import type { Memory } from "./memory.js";
 import { pushBank, popBank, far0Sync, fillBC, decompress, vramCopy, fadeIn, fadeOut, windowOff,
   bracketEnter, bracketLeave } from "./sys.js";
 import { scroll } from "./irq.js";
+import { waveFadeOut, waveFadeIn } from "./wave.js";
 import { NotPorted } from "./irq.js";
 import { fa, fget, fset, slot, setSlot, testFlag, clearFlag, copySlotUp, testFlag2 } from "./objects.js";
 import { tableWord, cellArgs, leaderInit, objectSprite, blocked, cellByte, cellLook, drawObjects } from "./actors.js";
@@ -539,11 +540,11 @@ function zoneOverride(m: Memory): void {
   if (testFlag(m, 0xce)) m.wr(0xca2d, 0x43);
 }
 
-/** 00:039B — before the load, by CA6B: fade out / 00:03CD (0F fade) / nothing. */
+/** 00:039B — before the load, by CA6B: fade out / 00:03CD (the wave fade) / nothing. */
 function* beforeLoad(g: Game): Co {
   const k = g.m.rd(0xca6b);
   if (k === 0) yield* fadeOut(g);
-  else if (k === 1) throw new NotPorted("00:03CD (the load's 0F fade out)");
+  else if (k === 1) yield* waveFadeOut(g);
 }
 
 /** 00:03A8 — after the load, by CA6B: fade in (CD3D = FF meanwhile) / 00:03E9 / 01:5F9D. */
@@ -555,7 +556,7 @@ function* afterLoad(g: Game): Co {
     m.wr(0xcd3d, 0xff);
     yield* fadeIn(g);
     m.wr(0xcd3d, s);
-  } else if (k === 1) throw new NotPorted("00:03E9 (the load's 0F fade in)");
+  } else if (k === 1) yield* waveFadeIn(g);
   else throw new NotPorted("01:5F9D (the load's fade in, CA6B = 2)");
 }
 

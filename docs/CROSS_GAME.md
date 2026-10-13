@@ -109,3 +109,6 @@ both ROMs; differences are listed first because they are the valuable part.
   code resumes: Legend III's normal vblank handler (tile list, sound) can run into the next frame.
   Its rst $20 / rst $28 bank switches end with reti, so code that switches banks turns the
   interrupts on (an interrupt-time frame work can be interrupted).
+  Legend III's wave fade runs a STAT handler at every line; its SCX write lands within a few
+  dots of the end of the line's drawing (mode 3, lengthened by objects), so whether a line shows
+  the new value is a cycle-level question. The port picks one side and the replay accepts both.

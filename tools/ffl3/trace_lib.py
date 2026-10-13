@@ -273,11 +273,16 @@ class Recorder:
 # addresses (bank, address) recorded as sync points ("points" in waits.json); a few only (PyBoy
 # hooks patch the ROM): 00:1E49 the menu boxes (after the copies that set them up), 09:5014 the
 # boxes drawn (the OAM DMA held until then, CD39), 0F:7B75 the name entry's sprite tiles (0B:7DCA)
-# loaded after its record copy, 02:5278 a battle effect reading LY between paced copies, 01:7DCA after the name entry's 2 KiB background
-# fill (before WY 50, which turns the frame work to the field), 0B:5D2B the same after a battle (after its fill and 00:20CF), 00:2F0B a script
-# reference's scene event (00:1236 clears CD3D: the STAT frame work may run before) and 00:12CA its end
-# (CD3D back): the events take CPU time, e.g. between two scripted walks
-POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA))
+# loaded after its record copy, 02:5278 a battle effect reading LY between paced copies, 01:7DCA
+# after the name entry's 2 KiB background fill (before WY 50, which turns the frame work to the
+# field), 0B:5D2B the same after a battle (after its fill and 00:20CF), 00:2F0B a script
+# reference's scene event (00:1236 clears CD3D: the STAT frame work may run before) and 00:12CA its
+# end (CD3D back): the events take CPU time, e.g. between two scripted walks; the wave fade's
+# palette copy after its poll for line 0 (0F:7EB9; a STAT handler at every line slows the code, so
+# a long sound tick misses line 0) and the copy's end (0F:7EBF, a landmark only: the replay counts
+# the lines before it as the code's), its amplitude steps 0F:7E89 / 0F:7E8F and its end 0F:7E74
+# (after the sound ticks)
+POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74))
 
 
 def plan_steps(plan):

@@ -27,3 +27,4 @@ export * from "./bnative.js";
 export * from "./bmenu.js";
 export * from "./textcodes.js";
 export * from "./events2.js";
+export * from "./wave.js";
