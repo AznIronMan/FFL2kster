@@ -57,6 +57,15 @@ SCENARIOS = {
     "opening3": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
                                 "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
                                 + "a:3,none:37," * 700 + "none:40"),
+    # the field after the opening: idle (the field loop 00:0265 with no input)
+    "field1": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                              "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
+                              + "a:3,none:37," * 705 + "none:600"),
+    # walking in the field: down through the door into the ship, then steps in each direction
+    "field2": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                              "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
+                              + "a:3,none:37," * 705 + "none:200,down:64,none:20,right:64,none:20,down:64,"
+                              "none:20,left:96,none:20,down:48,none:20,right:120,none:20,up:16,none:120"),
 }
 
 

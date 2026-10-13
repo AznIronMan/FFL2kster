@@ -361,7 +361,7 @@ function scrollBy(m: Memory, y: boolean, d: number): void {
 
 /** 01:445F — a frame of the step down: the new row (00:0C5B), C210 and the scroll + C6F4, then
  *  01:4609. */
-function leaderDown(m: Memory): void {
+export function leaderDown(m: Memory): void {
   rowDown(m);
   setSlot(m, 0);
   addField(m, "c210", m.rd(0xc6f4), 0xca04);
@@ -370,7 +370,7 @@ function leaderDown(m: Memory): void {
 }
 
 /** 01:44E9 — a frame of the step up (00:0BA2, - C6F4). */
-function leaderUp(m: Memory): void {
+export function leaderUp(m: Memory): void {
   rowUp(m);
   setSlot(m, 0);
   addField(m, "c210", -m.rd(0xc6f4), 0xca04);
@@ -379,7 +379,7 @@ function leaderUp(m: Memory): void {
 }
 
 /** 01:4562 — a frame of the step right (00:0A3A, C230 + C6F4). */
-function leaderRight(m: Memory): void {
+export function leaderRight(m: Memory): void {
   columnRight(m);
   setSlot(m, 0);
   addField(m, "c230", m.rd(0xc6f4), 0xca05);
@@ -388,7 +388,7 @@ function leaderRight(m: Memory): void {
 }
 
 /** 01:45DB — a frame of the step left (00:0AEE, - C6F4). */
-function leaderLeft(m: Memory): void {
+export function leaderLeft(m: Memory): void {
   columnLeft(m);
   setSlot(m, 0);
   addField(m, "c230", -m.rd(0xc6f4), 0xca05);
@@ -398,7 +398,7 @@ function leaderLeft(m: Memory): void {
 
 /** 01:4736 / 01:4755 / 01:4774 / 01:4793 — the leader's next cell C800-C803 (its target C290 /
  *  C2B0 one cell left / up / down / right). */
-function leaderNext(m: Memory, dir: number): void {
+export function leaderNext(m: Memory, dir: number): void {
   const y = fa(m, "c290"), x = fa(m, "c2b0");
   let yl = m.rd(y), yh = m.rd(y + 1), xl = m.rd(x), xh = m.rd(x + 1);
   if (dir === 0x00) { const s = yl - 0x10; yl = s & 0xff; yh = ((yh - (s < 0 ? 1 : 0)) & 0xff) & m.rd(0xca04); }
@@ -489,13 +489,13 @@ function leaderStart(g: Game, table: number, dir: number, frame: (m: Memory) => 
 }
 
 /** 01:441D — the leader starts a step down (sprite table 01:6ABE, C6EE 80). */
-function leaderStartDown(g: Game): void { leaderStart(g, 0x6abe, 0x80, leaderDown); }
+export function leaderStartDown(g: Game): void { leaderStart(g, 0x6abe, 0x80, leaderDown); }
 /** 01:44A8 — the leader starts a step up (01:6AFE, C6EE 00). */
-function leaderStartUp(g: Game): void { leaderStart(g, 0x6afe, 0x00, leaderUp); }
+export function leaderStartUp(g: Game): void { leaderStart(g, 0x6afe, 0x00, leaderUp); }
 /** 01:4520 — the leader starts a step right (01:6B7E, C6EE 40). */
-function leaderStartRight(g: Game): void { leaderStart(g, 0x6b7e, 0x40, leaderRight); }
+export function leaderStartRight(g: Game): void { leaderStart(g, 0x6b7e, 0x40, leaderRight); }
 /** 01:4599 — the leader starts a step left (01:6B3E, C6EE C0). */
-function leaderStartLeft(g: Game): void { leaderStart(g, 0x6b3e, 0xc0, leaderLeft); }
+export function leaderStartLeft(g: Game): void { leaderStart(g, 0x6b3e, 0xc0, leaderLeft); }
 
 /** The forced leader step (01:5C02 / 5C22 / 5C43 / 5C64): C6EE = dir, C6EF = 10, the target one
  *  cell on (no check, the sprite list kept), then the first frame. */
@@ -626,7 +626,7 @@ function drawAllLayered(m: Memory): void {
 /** 01:5CD3 — the leader changes layer (C300 bit 6 != CA12): in the bracket, CA12 ^= 40, the
  *  whole view into the 9C00 map (CA2E = 1, CA2A = 4, 00:0E34), the leader alone, the outward
  *  wipe to 9800; the view with the new layer into 9C00 again, the inward wipe, all objects. */
-function* layerSwitch(g: Game): Co {
+export function* layerSwitch(g: Game): Co {
   const m = g.m;
   if ((m.rd(0xc300) & 0x40) === m.rd(0xca12)) return;
   yield* bracketEnter(g);

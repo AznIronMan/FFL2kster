@@ -605,3 +605,26 @@ scenes after it — now replays wait-exact. Found:
 
 Falsification (ffl3/scratch/mut6.sh): the turn's direction, the block placement, one turn less,
 and the late-slide alternative removed each fail `opening3`.
+
+## 2026-10-13 — Port: the field loop (1.39.0)
+
+After the opening the game runs the field loop 00:0265 (CA0E = 0; the field step 00:07BB; the
+companion 01:4F24; the objects 01:4F66 and 00:01A0; a frame; the map animation 01:54A0). Ported:
+the step going on (01:43F9: the leader's step frame by C6EE >> 6), the layer switch 01:5CD3, the
+pending events 00:08F3 (CA52 -> event 2B; after a step, a C0-type cell C2F0 -> its event), the
+map-01 vehicle check 01:6374 and moving cells 01:4BF6 (not ported past their tests), the leader's
+tile base, kind and sprite reset on foot (00:07DC), the D-pad steps (01:441D / 44A8 / 4520 /
+4599, as the scripted walks), and A (00:0945: the object faced, 01:431E / 01:4395, turns to the
+leader; its words 0A:4004[C200 - 1] in mode 08 then the window closed, or a sign 0A:791E). B in
+a vehicle, Start (the menu 09:4000), Select, encounters (00:10C2) and event 23's menu (01:7972,
+the ship's console) stop with NotPorted.
+
+`field1` (the field idle, A facing nothing; 30,318 frames) 26486/26486 waits and `field2` (down
+through the door into the ship — a map text event and the load — then steps each way; 30,630
+frames) 26742/26742 waits are wait-exact. A wait ended by the last recorded frame's vblank is not
+counted (the recording stops before the code resumes).
+
+Falsification (ffl3/scratch/mut7.sh): the step frames' order, the pending events removed, right
+taken as left, and the last-frame wait counted each fail a field trace. The leader's sprite reset
+on foot survives its mutation (the traces never change it): unverified. Talking to a person (A
+facing an object) is not in a trace yet: unverified.

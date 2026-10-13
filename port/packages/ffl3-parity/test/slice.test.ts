@@ -17,6 +17,8 @@ const TRACES: [string, string][] = [
   ["opening1", "after the battle: the opening scene's texts, scripted walks (normal handlers), map animation 1B"],
   ["opening2", "on through the scene: a map change with the wave fades (CA6B = 1, a raster at every line), a screen shake"],
   ["opening3", "the opening to its end: maps 0A/0B (tiles turned a quarter), the last scenes, up to the field loop"],
+  ["field1", "the field loop 00:0265 after the opening: idle, A facing nothing"],
+  ["field2", "walking in the field: through the door into the ship, steps each way (scroll, new rows and columns, blocked steps)"],
 ];
 
 describe.skipIf(!haveRom())("FFL3 scenario parity", () => {

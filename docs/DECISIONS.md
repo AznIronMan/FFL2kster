@@ -597,3 +597,6 @@ Decisions and assumptions:
   began) and make all its writes a line later; the port records those lines (`Game.lateLines`)
   and the replay accepts either. Traces end before the first unported routine the original
   reaches (`opening3` stops 48 frames before the field loop).
+- 1.39.0: the field loop is ported routine by routine from the field step; branches no trace
+  reaches stop with NotPorted rather than being guessed. Field traces start from the boot and play
+  the whole opening (~30,000 frames each); faster starts from save states can come later.

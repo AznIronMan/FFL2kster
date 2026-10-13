@@ -8,6 +8,7 @@ import { fieldWorkBanked, slideRaster } from "./window.js";
 import { fadeIn, far0 } from "./sys.js";
 import { printText } from "./text.js";
 import { waveRaster } from "./wave.js";
+import { fieldLoop } from "./field.js";
 import { testFlag, setFlag } from "./objects.js";
 
 export class Engine {
@@ -52,6 +53,6 @@ export class Engine {
     yield* far0(g, 0x09, () => printText(g, 0x00, 0x6015, 0x0101, 0x0612));
     setFlag(m, 0x31);
     m.wr(0xff45, 0);
-    throw new NotPorted("00:0265 (the field loop)");
+    yield* fieldLoop(g);
   }
 }

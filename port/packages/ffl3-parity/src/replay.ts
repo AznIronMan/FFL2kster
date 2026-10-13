@@ -241,6 +241,8 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     return l < 0 ? [] : [[0, l]];
   };
   g.onWaitDone = () => {
+    // a wait ended by the last frame's vblank: the recording stopped before the code resumed
+    if (nWaits >= wf.length && g.frame >= n - 1) return;
     const i = nWaits++;
     if ((i + 1) * 0x8000 > t.waits.length) return;
     const exp = t.waits.subarray(i * 0x8000, (i + 1) * 0x8000);

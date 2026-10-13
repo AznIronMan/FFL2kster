@@ -62,3 +62,28 @@
 # battle script native found at run time (not reached by tools/ffl3/bscript.py's walk) and its target
 0C:6B7F
 02:4000
+# the field loop 00:0265 / 00:07BB runs with bank 01 selected: its bank-01 callees
+01:431E
+01:43F9
+01:441D
+01:44A8
+01:4520
+01:4599
+01:463D
+01:4700
+01:47B2
+01:4BF6
+01:4E48
+01:4F24
+01:4F2B
+01:4F66
+01:5272
+01:5CD3
+01:5EA6
+01:5EB8
+01:5F9D
+01:6082
+01:6092
+01:6313
+01:6374
+01:6FD4
