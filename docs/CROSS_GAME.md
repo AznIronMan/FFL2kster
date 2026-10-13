@@ -68,3 +68,10 @@ both ROMs; differences are listed first because they are the valuable part.
   replay rules rather than a CPU model.
 - Legend I's battle screen effects are polled per-line register loops with interrupts off (bank
   07); the port renders them through line hooks, as the Legend II port does for its own rasters.
+- Sound: Legend I's driver (bank 07) is a different design from Legend II's (three music channels
+  with per-channel envelope / pitch / duty / panning table walkers, tempo accumulator CEC2, jingles
+  that save the music); the port reuses only the APU model (@ffl2k/audio) and the web audio path.
+- Parity: both games need the same counted rules for CPU time (late writes, tears, joypad
+  re-phase); Legend I adds rules for its polled rasters, PyBoy's LCD-off blanking, DIV-seeded
+  random counters at start-up, frame-tick polling loops (TICK) and late LCD register writes. The
+  field sweep design (every map through its first warp) carried over from Legend II's P2.
