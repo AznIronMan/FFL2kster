@@ -38,6 +38,17 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0B:758B | formations, 5 bytes × 127: three ids, CC5C, CC5D | verified |
 | 00:1126 | copies a formation to CC59-CC5D | verified |
 
+## Maps (bank 06), shops (bank 01)
+
+| Location | What | Status |
+|---|---|---|
+| 06:6C58 | 192 map pointers → 06:6DD8-7F68: 6-byte header + 6-byte objects + FF | verified |
+| 03:731C | layout table (2 × layout index): size, CA19-CA1C, CA17 | probable (code) |
+| 00:1236 | script events by type (CA29 & 3F), parameter CA28 | verified (types 0E, 1B) |
+| 06:6BA4 | doors: 3 bytes × 60 (map, x, y) | verified |
+| 06:6308 | position warps: 192 pointers, 4-byte entries | probable (code) |
+| 01:7804 / 01:780C-794F | shop group pointers / 4 groups of 6-item shops | probable (code) |
+
 ## Text
 
 | Location | What | Status |
@@ -77,6 +88,17 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 03:76C2 | zones, 7 slots × 76 (bit 7: fixed counts) | verified |
 | 0B:758B | formations, 5 bytes × 127: three ids, CC5C, CC5D | verified |
 | 00:1126 | copies a formation to CC59-CC5D | verified |
+
+## Maps (bank 06), shops (bank 01)
+
+| Location | What | Status |
+|---|---|---|
+| 06:6C58 | 192 map pointers → 06:6DD8-7F68: 6-byte header + 6-byte objects + FF | verified |
+| 03:731C | layout table (2 × layout index): size, CA19-CA1C, CA17 | probable (code) |
+| 00:1236 | script events by type (CA29 & 3F), parameter CA28 | verified (types 0E, 1B) |
+| 06:6BA4 | doors: 3 bytes × 60 (map, x, y) | verified |
+| 06:6308 | position warps: 192 pointers, 4-byte entries | probable (code) |
+| 01:7804 / 01:780C-794F | shop group pointers / 4 groups of 6-item shops | probable (code) |
 
 ## Text
 

@@ -243,3 +243,32 @@ A Talon battle (1 Hooligan, 2 F-Drakes, both byte 1 = 15) gives 11 EXP; Hooligan
 48 → 27, both 48 → 36: EXP = floor(sum of byte 1 over all enemies / 4). All 14 cases of
 `tools/ffl3/exp_change.py` fit; the divisor equals the party size in both battles (not separated).
 No GP was awarded in either battle (byte 2 and 3 changes have no effect on EXP; GP source open).
+
+## 2026-10-13 — Maps, objects, doors, warps, shops (M5, first part)
+
+Maps. 00:027D loads map C6E8 from 06:6C58 (192 pointers, 171 distinct records, 06:6DD8-7F68
+exactly, code at 7F69): a 6-byte header (b0 → CA15/CA6C; b1 → CA1D, the layout index into
+03:731C; b2 → CA1E; b3 → CA18, the map mode for the jump table 01:54B1; b4 bits 0-4 → FFBA music,
+bits 5-7 → the encounter rate class; b5 → CA2D zone) and 6-byte objects up to FF (b0 story flag,
+b1 script index or shop number + 1, b2 x, b3 y, b4 bits 6-7 type: 0 talk, 2 shop; b5 sprite;
+00:05CF-066C, 00:098A). 656 objects, 324 of type 0; two type-0 objects carry an index beyond the
+239 entries of 0A:4004 (unexplained).
+
+Map changes are script "events" (00:1236, type = CA29 & 3F): types 0D/0E are doors through
+06:6BA4 + 3·(n − 1) (map, x, y; 60 doors ending exactly at the map pointer table), types 00/01
+position warps through 06:6308 (192 pointers, 4-byte entries: block nibbles, map, x, y), type 16
+a shop (CA2F = n − 1, 01:6FD4), type 1B a battle with formation CA28.
+
+Falsified on the way: "the Talon's way out is its first position warp" — patching that entry
+changed nothing; a hook on 00:146B showed the door table (06:6BD7 in, 06:6C28 out).
+
+Emulator (`python tools/ffl3/map_change.py`, 8/8; field.state, walking down into the Talon
+and out again): Talon header b4/b5 → CA2B = 9 and CA2D = 5; b2 → CA1E only; b3 → CA18 only;
+object 0 b1 → C372 only; object 4 y +2 → its position bytes (+32 px); door 12 → 11 takes the
+first step into map 11; door 2D → 0A leads out to map 0A; doors 11/13/2C/2E and map 11's header
+(all 0x77) change nothing.
+
+Shops (code, probable): shop n < 40 is 6 item ids at 01:7804[n >> 4] + 6·(n & F): weapon shops
+00-0E (01:780C), armor 10-1E, items 20-28, magic 30-3E, contiguous to 01:794F; every id in each
+group is of that kind (Cure1 … Elixir in shop 20). Prices and the layouts (03:731C) are not
+decoded yet; using a shop in the emulator needs a town state.
