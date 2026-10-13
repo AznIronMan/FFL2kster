@@ -59,3 +59,33 @@ def test_meat_tables_predict_observed(ffl1_rom):
     # the meat-family index (02:7900) and the result rows (02:72A8) are different numberings:
     # FLY's meat family is 15 while FLY sits in result row 0 (falsified "same index" assumption)
     assert MT.family(ffl1_rom, 0) == 15
+
+
+@pytest.mark.parametrize("table,expected_breaks", [("battle", []), ("ui", []), ("dialogue", [])])
+def test_text_tables_parse_contiguously(ffl1_rom, table, expected_breaks):
+    """Each entry's parsed length ends exactly where the next entry starts: the control-code
+    argument counts (from the two interpreters' handlers) are consistent over every string."""
+    rows = T.table_entries(ffl1_rom, table)
+    breaks = [a["id"] for a, b in zip(rows, rows[1:]) if a["offset"] + a["length"] != b["offset"]]
+    assert breaks == expected_breaks
+
+
+def test_text_semantic_round_trip(ffl1_rom):
+    n = same = 0
+    for name, (_, _, _, kind) in T.TABLES.items():
+        for r in T.table_entries(ffl1_rom, name):
+            enc = T.encode(ffl1_rom, r["text"])
+            toks, _ = T.parse(ffl1_rom, enc + b"\x00" * 4, kind)
+            assert T.render(toks) == r["text"], (name, r["id"])
+            n += 1
+            same += enc == ffl1_rom[r["offset"]:r["offset"] + r["length"]]
+    assert n == 386 and same >= 365  # the game's pair choices are not always greedy
+
+
+def test_known_strings(ffl1_rom):
+    d = T.table_entries(ffl1_rom, "dialogue")
+    assert d[249]["text"] == "If you want to{0D}advance, choose{0D}members at the{0D}Guild.{00}"
+    assert d[175]["text"] == "{11 23 11}{12 00 10}{01 09 68}{00}"
+    ui = T.table_entries(ffl1_rom, "ui")
+    assert ui[4]["text"] == "  FIGHT{0D}  RUN{00}"
+    assert "Can't run" in T.table_entries(ffl1_rom, "battle")[70]["text"]

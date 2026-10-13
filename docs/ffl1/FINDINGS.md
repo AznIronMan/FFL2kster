@@ -189,3 +189,29 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
 | 06:7F0F entry 1 F2→86 | slot 2 = TELEPOR (86) ×5 |
 | CONTROL entry 5 B9→86 | slot 2 = BARRIER ×5 |
 | threshold[0] 0x23→0x00 | no ability learned within 8 battles |
+
+## 2026-10-12 — Text (M3)
+
+- Two interpreters share the character set and the dictionary (copied to RAM C800 at run time;
+  0x50–0x7F → C800 + 2k, 0xC0–0xE7 → C860 + 2k):
+  - **Engine text 00:0911** (battle messages via 00:088A from 02:7860, UI templates via `rst $08` /
+    00:08BE from 03:7080): bytes ≥ 0xE8 and 0x80–0xBF print; 0x40–0x4F print tile + 0x30 (icons);
+    0x00–0x3F jump through **00:0CE2** (64 entries; 00–09, 0B, 0C, 0E–12, 14–1B end the string).
+    Argument counts were read from each handler (calls to the byte fetch 00:0901, directly or via
+    00:0C4A / 0C69 / 0BCC / 0A4E): 20 22 23 25–2C 32 36 38 3A 3C take one byte, 21 and 35 two, the
+    rest none. 0x3D appears once (UI entry 11, outside the jump table) and is taken as one byte.
+  - **Dialogue text 00:0EBA** (a small stack machine at C900): 00 end, 01/02 xx yy insert, 04 return,
+    0D line break, 11 xy zz condition (x = 0–3 picks the test at 00:0FBD; each reads one more
+    byte), 12 hi lo (string 05:7B10 + 2 × index, so index 16 = table entry 0), 13 wait for a
+    button, 14/15/1A, 16 xx wait xx frames, 19 xx speaker.
+- Structural check: parsing each entry with these counts ends exactly where the next entry starts
+  for 79/79 battle messages, 50/50 UI templates and 254/254 dialogue strings (entry 76, the ending,
+  is 1,091 bytes long). Two falsified readings on the way: "0x11 takes one byte" (entries 175 and
+  203 misaligned; the sub-handlers each read another byte) and "0x0D is a glyph" (on screen it is a
+  line break).
+- Round trip: all 386 strings re-encode to the same text; 365 to the same bytes (the game does not
+  always choose dictionary pairs greedily).
+- Reinsertion in PyBoy (tests/ffl1/test_text_emu.py): dialogue 249 "Guild." → "Tower" shows in the
+  NPC's window; battle message 13 " {31} damage" with 'a' → 'A' shows "10 dAmage"; UI template 7
+  "START" → "BEGIN" shows on the title screen after a cold boot.
+- `python -m ffl1kster text-export` writes the decoded tables (processed data).

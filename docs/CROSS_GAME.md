@@ -11,6 +11,7 @@ both ROMs; differences are listed first because they are the valuable part.
 | Cartridge | MBC2+BATTERY, 128 KiB (8 banks), 512 × 4-bit built-in RAM | MBC1+RAM+BATTERY, 256 KiB (16 banks), 8 KiB SRAM |
 | Bank switch | `rst $28`, writes `$2100`, keeps the bank in FF8B, returns the old bank | `rst $28` at 00:04B1 (MBC1 `$2000` range) |
 | Alphabet | `A` = 0x8A, `a` = 0xA4, `0` = 0x80 | `A` = 0xBA, `a` = 0xD4, `0` = 0xB0 |
+| Text | two interpreters: engine (00:0911, codes 00–3F) and dialogue (00:0EBA); dictionary in two blocks 0x50–0x7F + 0xC0–0xE7, copied to RAM | one interpreter; dictionary 0x4E–0x9D (0F:6560), control codes 0x00–0x4D via 00:13BE |
 | Monster table | 06:6AE8, 200 × 9 bytes | 0D:6F80, 256 × 10 bytes |
 | Monster HP | an HP class (index into 06:7254) with a random reduction of up to base/16 | a u16 HP value |
 | Stat order | Str, Def, Agl, Mana | Str, Agl, Mana, Def |

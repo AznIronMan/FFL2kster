@@ -48,7 +48,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | Milestone | Status | Evidence |
 |---|---|---|
 | M2 items/abilities, growth | done (prices with the shops in M5) | item table 06:7700 (uses, power, handler); stat items; meat drop + GP rewards in the monster record; meat transformation tables (6/6 predictions); mutant growth tables; RNG model |
-| M3 text | started | dictionary encoding verified on the intro text; dialogue table 05:7B30 and battle messages 02:7860 found |
+| M3 text | done | 386 strings in 3 tables; control codes from both interpreters; contiguous parse 383/383 boundaries; semantic round trip 386/386; reinsertion visible for dialogue, battle and UI |
 | M4 encounters/drops | not started | |
 | M5 maps/events | not started | |
 | M6 graphics | not started | |
@@ -88,3 +88,10 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 - Mutant growth 06:539E with tables 06:7F00 / 53DE / 7F0F; ability learning verified.
 - RNG 00:07D3: per-call-site counters into a 256-byte table (differs from Legend II).
 - Tests: `tests/ffl1` 30 passed.
+
+### 2026-10-12 — Milestone 3
+- Engine text (00:0911, jump table 00:0CE2) and dialogue text (00:0EBA) control codes; tables
+  02:7860 (80), 03:7080 (51), 05:7B30 (255).
+- Contiguous parse of every entry; semantic round trip 386/386 (365 byte-identical).
+- PyBoy reinsertion: dialogue, battle message, title screen.
+- Tests: `tests/ffl1` 41 (6 emulator).

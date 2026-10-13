@@ -54,8 +54,10 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `02:72A8` | 25 × 16 | Monster per result row and level | verified |
 | `02:7438` | 200 | Monster level (low nibble) | verified |
 | `05:4E40` | 88 × 2 | Text dictionary pairs (codes 0x50–0x7F, 0xC0–0xE7) | verified |
-| `05:7B30` | 255 × 2 | Dialogue pointers (05:4EF0–7B09) | probable |
-| `02:7860` | 80 × 2 | Battle message pointers (02:7500–784F), message number of 06:5A71 | probable |
+| `05:7B30` | 255 × 2 | Dialogue pointers (05:4EF0–7B30; `12 hi lo` addresses 05:7B10 + 2 × index) | verified (parse + reinsertion) |
+| `02:7860` | 80 × 2 | Battle message pointers (02:7500–7858), message number of 06:5A71 → 00:088A | verified (parse + reinsertion) |
+| `03:7080` | 51 × 2 | UI templates (title, menus, shops) | verified (parse + reinsertion) |
+| `00:0CE2` | 64 × 2 | Engine text control-code handlers | verified (argument counts by full-table parse) |
 
 ### Monster record — `06:6AE8 + 9 × id` (file 0x1AAE8) — **verified**
 
@@ -85,6 +87,8 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `06:539E` | mutant growth after a won battle | verified |
 | `00:07D3` | random(a..e): per-call-site counter (C300+) into the table at CB00 | probable |
 | `00:0D9C` | meat transformation | verified |
+| `00:0911` | engine text interpreter (battle, UI) | verified |
+| `00:0EBA` | dialogue interpreter | verified |
 
 ## RAM
 

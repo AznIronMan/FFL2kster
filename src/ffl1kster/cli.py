@@ -206,5 +206,18 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--db", default="ffl1/project/ffl1kster.sqlite")
     s.set_defaults(fn=cmd_db_show)
 
+    def cmd_text_export(a):
+        from . import script_text as T
+        data = T.export(romlib.load_rom(a.rom))
+        from pathlib import Path
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.out).write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+        print(f"wrote {a.out}: " + ", ".join(f"{k} {len(v['entries'])}" for k, v in data["tables"].items()))
+        return 0
+    s = sub.add_parser("text-export", help="decode the text tables (battle, UI, dialogue) to JSON")
+    s.add_argument("--rom", default=ROM)
+    s.add_argument("--out", default="ffl1/build/text.json")
+    s.set_defaults(fn=cmd_text_export)
+
     a = ap.parse_args(argv)
     return a.fn(a)
