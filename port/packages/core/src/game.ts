@@ -24,8 +24,27 @@ export type LineHandler = (g: Game, ly: number) => void;
 /** Joypad bits as the game stores them in FF89/FF8A. */
 export const BTN = { A: 0x01, B: 0x02, SELECT: 0x04, START: 0x08, RIGHT: 0x10, LEFT: 0x20, UP: 0x40, DOWN: 0x80 } as const;
 
+/** Opt-in extras that change game behaviour (P5). Every one is off by default, and off means
+ *  the original's behaviour exactly (the parity suites run with the defaults). */
+export interface GameOptions {
+  /** Text appears a window at a time: no frame per character and no speed delay. */
+  fastText: boolean;
+  /** Experimental cap break (direction note D): max HP up to 9,999 and stats up to 255, with
+   *  4-digit HP and 3-digit stats on screen. Applied by Engine (bytecode constants) and the
+   *  text engine (number display). */
+  capBreak: boolean;
+}
+
+export const DEFAULT_OPTIONS: Readonly<GameOptions> = Object.freeze({ fastText: false, capBreak: false });
+
 export class Game {
   readonly m: Memory;
+  /** Opt-in extras (P5); all off by default. */
+  readonly options: GameOptions = { ...DEFAULT_OPTIONS };
+  /** Hints for the player shell, set by the port's code; never read by game logic.
+   *  battleCommand: the battle command menus (01:6AF9) are waiting for input (auto-battle);
+   *  fieldFrame: the frame the field main loop last ran (widescreen field). */
+  readonly ui = { battleCommand: false, fieldFrame: -1 };
   /** Buttons physically held this frame (BTN bits). */
   buttons = 0;
   /** Interrupt master enable (the original's di/ei); off: no vblank or STAT handlers. */

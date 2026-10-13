@@ -52,6 +52,12 @@ def cmd_build(a) -> int:
         return 2
     print(f"built {a.out}: {report['changed_bytes']} changed bytes"
           f"{' (byte-identical)' if report['identical'] else ''}")
+    if getattr(a, "ips", None):
+        from .ips import make_ips
+        from pathlib import Path
+        patch = make_ips(Path(a.rom).read_bytes(), Path(a.out).read_bytes())
+        Path(a.ips).write_bytes(patch)
+        print(f"wrote {a.ips} ({len(patch)} bytes): share this, not the ROM; the FFTOL port applies it in its Mods panel")
     for r in report["changes"]:
         print(f"  {r['offset_hex']} {r['bank']:02X}:{r['address']} "
               f"{r['old_hex']} -> {r['new_hex']}  {r['reason']}")
@@ -102,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--out", default="build/FFL2kster.gb")
     s.add_argument("--diff", default="build/diff-report.json")
     s.add_argument("--db", default=None, help="take edits from a SQLite project database")
+    s.add_argument("--ips", default=None, help="also write an IPS patch (original -> built ROM) to share as a mod")
     s.set_defaults(fn=cmd_build)
 
     s = sub.add_parser("offset", help="convert file offset <-> BB:AAAA")

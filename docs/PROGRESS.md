@@ -179,7 +179,8 @@ layout streams through the CPU view, STAT reads, far-call bookkeeping of 01:5006
 curtain raster timing. Not reached: boss transformations (battle messages 98-100, code 0x48) and
 the end of story 142 (F0 18) — the final bosses need story items; message 75 (code 0x49).
 
-Tests: TypeScript 4,278 passed (dedicated traces); sweeps 1,643 traces passed (run with
+Tests: TypeScript 4,278 passed (dedicated traces); sweeps 1,637 traces passed (1,643 cases; 6
+context cases on maps not reachable from the first town have no recording — corrected 2026-10-12, P5) (run with
 SWEEP=sw_); Python 75 passed.
 
 ## Port P3 — Full battle (2026-10-12)
@@ -218,3 +219,17 @@ emulator image on this Mac) and the iOS app (needs the iOS platform in Xcode or 
 signing (owner's credentials, docs/PLATFORMS.md).
 
 Tests: TypeScript 4,280 passed; Python 77 passed; CI and Platforms workflows green.
+
+## Port P5 — Extras (2026-10-12)
+
+| Extra | Toggle | Verified |
+|---|---|---|
+| Fast text | Options → Game | same message, same characters and finished window, under half the frames (options.test.ts) |
+| Cap break (experimental) | Options → Game | bank-0C limits patched only while on, restored when off (options.test.ts); 4-digit HP and 3-digit stats on the menu and status screens (browser pane; wide numbers can overlap a window border) |
+| Battle speed, fast-forward | Options → Speed; hold Tab / right shoulder | same frames shown faster, audio decimated (code path; no game-state change by construction) |
+| Auto-battle | Options → Speed | A injected only while the battle command menus wait |
+| Colours, reduce flashing, integer scaling, larger touch buttons | Options → Display | green palette in the browser pane |
+| Widescreen field (experimental) | Options → Display | town view 256×144 with seamless margins (browser pane) |
+| Rebinding | Options → Controls | panel lists and edits keys and pad buttons per button |
+| Mods (IPS/BPS) | Mods panel | `ffl2kster build --ips` patch applied on device: Jaguar HP 200, labelled MODDED; off again: verified original (browser pane); patch tests (TS and Python) |
+| Parity with every extra off | defaults | TypeScript 4,286 passed; field sweeps 1,637/1,637; battle sweeps 2,152/2,152; Python 81 passed |

@@ -61,10 +61,27 @@ export class AudioOut {
 
   /** After the engine ran up to (not including) video frame `frame`: synthesize to that point and
    *  hand the samples to the audio thread. */
-  endFrame(frame: number): void {
+  endFrame(frame: number, speed = 1): void {
     this.apu.runUntil(frame * FRAME_CYCLES);
-    const pcm = this.apu.take();
+    let pcm = this.apu.take();
+    if (speed > 1) pcm = this.decimate(pcm, speed);
     if (this.node && !this.muted && pcm.length) this.node.port.postMessage(pcm, [pcm.buffer]);
+  }
+
+  /** Fast-forward / battle speed: keep every n-th stereo sample frame, so sound keeps pace with
+   *  the game (faster and higher, as on emulators) instead of piling up. */
+  private phase = 0;
+  private decimate(pcm: Float32Array, n: number): Float32Array {
+    const frames = pcm.length >> 1;
+    const out = new Float32Array(2 * Math.ceil(frames / n) + 2);
+    let o = 0;
+    for (let i = 0; i < frames; i++) {
+      if (this.phase++ % n === 0) {
+        out[o++] = pcm[2 * i]!;
+        out[o++] = pcm[2 * i + 1]!;
+      }
+    }
+    return out.subarray(0, o).slice();
   }
 
   /** Create the audio graph (call from a user gesture). */

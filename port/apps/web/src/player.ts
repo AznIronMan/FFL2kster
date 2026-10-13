@@ -1,29 +1,22 @@
 /** The game player: runs the engine at the Game Boy's 59.73 Hz, draws the PPU frame on a canvas,
  *  plays the sound driver through the APU model (audio.ts; starts on the first key/click/touch,
- *  'M' mutes) and maps keyboard, gamepad and touch input. Battery RAM (saves) is persisted in
- *  IndexedDB. While the page or app is hidden the game pauses (mobile lifecycle). */
+ *  'M' mutes) and maps keyboard, gamepad and touch input (rebindable, settings.ts). Battery RAM
+ *  (saves) is persisted in IndexedDB. While the page or app is hidden the game pauses.
+ *  P5 extras, all opt-in: fast text and cap break (engine options), battle speed, fast-forward
+ *  (hold Tab / right shoulder), auto-battle, palettes, reduced flashing. */
 import { Engine, NotPorted, SoftReset, BTN } from "@ffl2k/core";
 import { Ppu, regsFromIo, SCREEN_W, SCREEN_H } from "@ffl2k/render";
 import type { DataPackage } from "@ffl2k/importer";
 import { loadSram, saveSram } from "./storage";
 import { AudioOut } from "./audio";
+import { settings, onSettings, PALETTES, FAST_FORWARD_KEY, FAST_FORWARD_PAD, type Settings } from "./settings";
+import { WideView } from "./wide";
 
 const FRAME_MS = 1000 / 59.7275;
 /** Minimum frames a key press is held for the game (taps are stretched to this). */
 const MIN_PRESS = 4;
-/** DMG-like greens are an optional extra; default is the plain 4 greys. */
-const PALETTE = [[0xff, 0xff, 0xff], [0xaa, 0xaa, 0xaa], [0x55, 0x55, 0x55], [0x00, 0x00, 0x00]];
-
-/** Two keyboard layouts, usable at the same time (physical key codes, so they work on any
- *  keyboard layout): arrows + Z (A) / X (B), or WASD + K (A) / J (B). Start: Enter or Space;
- *  Select: Shift or Backspace. */
-const KEYS: Record<string, number> = {
-  ArrowUp: BTN.UP, ArrowDown: BTN.DOWN, ArrowLeft: BTN.LEFT, ArrowRight: BTN.RIGHT,
-  KeyW: BTN.UP, KeyS: BTN.DOWN, KeyA: BTN.LEFT, KeyD: BTN.RIGHT,
-  KeyZ: BTN.A, KeyX: BTN.B, KeyK: BTN.A, KeyJ: BTN.B,
-  Enter: BTN.START, NumpadEnter: BTN.START, Space: BTN.START,
-  ShiftRight: BTN.SELECT, ShiftLeft: BTN.SELECT, Backspace: BTN.SELECT,
-};
+/** Most engine frames run per display frame (catch-up after a stall × speed). */
+const MAX_STEPS = 16;
 
 export interface PlayerUi {
   canvas: HTMLCanvasElement;
@@ -33,7 +26,7 @@ export interface PlayerUi {
 }
 
 export class Player {
-  private engine!: Engine;
+  engine!: Engine;
   private ppu!: Ppu;
   private running = false;
   private last = 0;
@@ -41,6 +34,7 @@ export class Player {
   /** Keys down now, and keys pressed since the last frame (a tap shorter than a frame counts). */
   private keys = 0;
   private taps = 0;
+  private ffKey = false;
   /** Buttons seen last frame (all sources) and the frame each one was pressed. */
   private prev = 0;
   private readonly pressedAt = new Map<number, number>();
@@ -50,18 +44,21 @@ export class Player {
   private sramDirty = false;
   private lastSram = new Uint8Array(0x2000);
   private readonly audio = new AudioOut();
+  private s: Settings = settings();
+  /** Reduced flashing: the colours last shown, per pixel (RGB). */
+  private shown: Float32Array | null = null;
+  private wide: WideView | null = null;
+  private lastBadge = "";
 
   constructor(readonly pkg: DataPackage, readonly ui: PlayerUi) {
-    ui.canvas.width = SCREEN_W;
-    ui.canvas.height = SCREEN_H;
     this.ctx = ui.canvas.getContext("2d")!;
-    this.img = this.ctx.createImageData(SCREEN_W, SCREEN_H);
+    this.img = this.resize(SCREEN_W);
     const gesture = () => void this.audio.start();
     window.addEventListener("keydown", gesture, { once: true });
     window.addEventListener("pointerdown", gesture, { once: true });
     window.addEventListener("touchend", gesture, { once: true });
     window.addEventListener("keydown", (e) => {
-      if (e.code !== "KeyM" || e.repeat) return;
+      if (e.code !== "KeyM" || e.repeat || isTyping(e)) return;
       const muted = this.audio.toggleMute();
       if (this.running) this.ui.onStatus(muted ? "Sound muted (M)" : "Sound on (M)");
     });
@@ -69,6 +66,29 @@ export class Player {
     window.addEventListener("keyup", (e) => this.key(e, false));
     document.addEventListener("visibilitychange", () => this.setPaused(document.hidden));
     window.addEventListener("pagehide", () => void this.persist());
+    onSettings((s) => this.apply(s));
+  }
+
+  private resize(w: number): ImageData {
+    this.ui.canvas.width = w;
+    this.ui.canvas.style.setProperty("--ar", String(w / SCREEN_H));
+    this.ui.canvas.height = SCREEN_H;
+    this.shown = null;
+    return this.ctx.createImageData(w, SCREEN_H);
+  }
+
+  /** Apply settings (live): engine options, widescreen. */
+  private apply(s: Settings): void {
+    this.s = s;
+    if (!this.engine) return;
+    this.engine.setOptions({ fastText: s.fastText, capBreak: s.capBreak });
+    if (s.widescreen && !this.wide) {
+      this.wide = new WideView(this.engine);
+      this.img = this.resize(this.wide.width);
+    } else if (!s.widescreen && this.wide) {
+      this.wide = null;
+      this.img = this.resize(SCREEN_W);
+    }
   }
 
   /** The ROM image the engine reads data from, rebuilt from the package's bank segments. */
@@ -80,7 +100,9 @@ export class Player {
   }
 
   async start(): Promise<void> {
-    this.engine = new Engine(this.pkg.segments, this.romBytes());
+    // a private copy of the segments: options may patch bytecode in memory (cap break)
+    const segs = Object.fromEntries(Object.entries(this.pkg.segments).map(([k, v]) => [k, v.slice()]));
+    this.engine = new Engine(segs, this.romBytes());
     this.audio.attach(this.engine.g);
     const m = this.engine.g.m;
     const sram = await loadSram().catch(() => undefined);
@@ -93,7 +115,9 @@ export class Player {
       if (y === 0) this.ppu.beginFrame();
       this.ppu.regs = regsFromIo(m.io);
       this.ppu.line(y);
+      this.wide?.line(y);
     };
+    this.apply(this.s);
     this.engine.g.start(this.engine.main());
     this.running = true;
     this.last = performance.now();
@@ -101,7 +125,13 @@ export class Player {
   }
 
   private key(e: KeyboardEvent, down: boolean): void {
-    const b = KEYS[e.code];
+    if (isTyping(e)) return;
+    if (e.code === FAST_FORWARD_KEY) {
+      e.preventDefault();
+      this.ffKey = down;
+      return;
+    }
+    const b = this.s.keys[e.code];
     if (b === undefined) return;
     e.preventDefault();
     if (down) {
@@ -126,12 +156,14 @@ export class Player {
   }
 
   /** This frame's buttons from every source. A new press is held for at least MIN_PRESS frames,
-   *  so a tap shorter than a frame (or than the game's joypad edge detection) is not lost. */
+   *  so a tap shorter than a frame (or than the game's joypad edge detection) is not lost.
+   *  Auto-battle presses A (2 frames on, 4 off) while the battle command menus wait. */
   private sample(): number {
-    const f = this.engine.g.frame;
-    let raw = this.keys | this.taps | gamepads();
+    const g = this.engine.g, f = g.frame;
+    let raw = this.keys | this.taps | gamepads(this.s.pad);
     this.taps = 0;
     for (const src of this.ui.inputs ?? []) raw |= src();
+    if (this.s.autoBattle && g.ui.battleCommand && f % 6 < 2) raw |= BTN.A;
     for (let b = 1; b < 0x100; b <<= 1) if (raw & b && !(this.prev & b)) this.pressedAt.set(b, f);
     this.prev = raw;
     let v = raw;
@@ -139,44 +171,92 @@ export class Player {
     return v;
   }
 
+  /** Engine frames per display frame: fast-forward while held, the battle speed in battle
+   *  (FF8B = FF), else 1. Speed changes only how fast frames are shown, never what they do. */
+  private speed(): number {
+    if (this.ffKey || padButton(FAST_FORWARD_PAD)) return this.s.fastForward;
+    if (this.engine.g.m.hram[0x0b] === 0xff) return this.s.battleSpeed;
+    return 1;
+  }
+
   private tick(now: number): void {
     if (!this.running || this.paused) return;
     this.acc += Math.min(now - this.last, 250);
     this.last = now;
+    const sp = this.speed();
     let n = 0;
-    while (this.acc >= FRAME_MS && n < 4) {
+    while (this.acc >= FRAME_MS && n < MAX_STEPS) {
       this.acc -= FRAME_MS;
-      n++;
-      this.engine.g.buttons = this.sample();
-      try {
-        this.engine.g.runFrame();
-        this.audio.endFrame(this.engine.g.frame);
-      } catch (e) {
-        this.audio.endFrame(this.engine.g.frame);
-        if (e instanceof SoftReset) {
+      for (let k = 0; k < sp && n < MAX_STEPS; k++) {
+        n++;
+        this.engine.g.buttons = this.sample();
+        try {
+          this.engine.g.runFrame();
+          this.audio.endFrame(this.engine.g.frame, sp);
+        } catch (e) {
+          this.audio.endFrame(this.engine.g.frame, sp);
+          if (e instanceof SoftReset) {
+            void this.persist();
+            if (this.wide) this.wide = new WideView(this.engine);
+            this.engine.g.start(this.engine.main());
+            continue;
+          }
+          this.running = false;
+          this.ui.onStatus(e instanceof NotPorted ? `${e.message} — this part of the game is not available in this build yet.` : `Engine error: ${(e as Error).message}`);
+          console.error(e);
           void this.persist();
-          this.engine.g.start(this.engine.main());
-          continue;
+          return;
         }
-        this.running = false;
-        this.ui.onStatus(e instanceof NotPorted ? `${e.message} — this part of the game is not available in this build yet.` : `Engine error: ${(e as Error).message}`);
-        console.error(e);
-        void this.persist();
-        return;
       }
     }
     if (n) this.draw();
+    const badge = [sp > 1 ? `▶▶ ×${sp}` : "", this.s.autoBattle && this.engine.g.m.hram[0x0b] === 0xff ? "AUTO" : ""].filter(Boolean).join("  ");
+    if (badge !== this.lastBadge) { this.lastBadge = badge; this.ui.onStatus(badge); }
     this.checkSram();
     requestAnimationFrame((t) => this.tick(t));
   }
 
   private draw(): void {
-    const f = this.ppu.frame, d = this.img.data;
-    for (let i = 0; i < f.length; i++) {
-      const c = PALETTE[f[i]!]!;
-      d[4 * i] = c[0]!; d[4 * i + 1] = c[1]!; d[4 * i + 2] = c[2]!; d[4 * i + 3] = 255;
-    }
+    const pal = PALETTES[this.s.palette].rgb;
+    const w = this.img.width;
+    const f = this.wide ? this.wide.compose(this.ppu.frame) : this.ppu.frame;
+    const d = this.img.data;
+    const n = w * SCREEN_H;
+    if (!this.s.reduceFlash) {
+      this.shown = null;
+      for (let i = 0; i < n; i++) {
+        const c = pal[f[i]!]!;
+        d[4 * i] = c[0]; d[4 * i + 1] = c[1]; d[4 * i + 2] = c[2]; d[4 * i + 3] = 255;
+      }
+    } else this.drawLimited(f, pal, n);
     this.ctx.putImageData(this.img, 0, 0);
+  }
+
+  /** Reduced flashing (accessibility): when most of the screen changes brightness sharply from
+   *  one frame to the next (battle flashes, palette blinks), each pixel moves at most 1/4 of
+   *  the way per frame, so flashes become gentle fades. Ordinary motion is untouched. */
+  private drawLimited(f: Uint8Array, pal: [number, number, number][], n: number): void {
+    const d = this.img.data;
+    if (!this.shown || this.shown.length !== n * 3) {
+      this.shown = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { const c = pal[f[i]!]!; this.shown.set(c, 3 * i); }
+    }
+    const sh = this.shown;
+    let big = 0;
+    for (let i = 0; i < n; i++) {
+      const c = pal[f[i]!]!;
+      if (Math.abs(c[0] + c[1] + c[2] - sh[3 * i]! - sh[3 * i + 1]! - sh[3 * i + 2]!) > 300) big++;
+    }
+    const flash = big > n / 3;
+    for (let i = 0; i < n; i++) {
+      const c = pal[f[i]!]!;
+      for (let k = 0; k < 3; k++) {
+        const v = flash ? sh[3 * i + k]! + (c[k]! - sh[3 * i + k]!) * 0.25 : c[k]!;
+        sh[3 * i + k] = v;
+        d[4 * i + k] = v;
+      }
+      d[4 * i + 3] = 255;
+    }
   }
 
   private checkSram(): void {
@@ -200,25 +280,30 @@ export class Player {
   }
 }
 
-/** Every connected gamepad (any can play). The "standard" mapping (Chrome, Edge, Safari, Firefox,
- *  the Android and iOS web views), which Xbox, PlayStation and Switch Pro controllers report:
- *  south face button (Xbox A) = A, east (Xbox B) = B, back/view = Select, start/menu = Start,
- *  D-pad 12-15 or the left stick (dead zone 0.5). Pads without that mapping use the same
- *  indexes, which most report anyway. */
-export function gamepads(): number {
+function isTyping(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null;
+  return !!t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA");
+}
+
+function padButton(i: number): boolean {
+  for (const p of navigator.getGamepads?.() ?? []) if (p?.connected && p.buttons[i]?.pressed) return true;
+  return false;
+}
+
+/** Every connected gamepad (any can play), through the button map (default: the W3C "standard"
+ *  mapping, which Xbox, PlayStation and Switch Pro controllers report: south face button = A,
+ *  east = B, back/view = Select, start/menu = Start, D-pad 12-15). The left stick always moves
+ *  (dead zone 0.5). */
+export function gamepads(map: Record<number, number>): number {
   let v = 0;
   for (const p of navigator.getGamepads?.() ?? []) {
     if (!p || !p.connected) continue;
-    const btn = (i: number) => p.buttons[i]?.pressed;
+    for (const [i, b] of Object.entries(map)) if (p.buttons[Number(i)]?.pressed) v |= b;
     const x = p.axes[0] ?? 0, y = p.axes[1] ?? 0;
-    if (btn(0)) v |= BTN.A;
-    if (btn(1)) v |= BTN.B;
-    if (btn(8)) v |= BTN.SELECT;
-    if (btn(9)) v |= BTN.START;
-    if (btn(12) || y < -0.5) v |= BTN.UP;
-    if (btn(13) || y > 0.5) v |= BTN.DOWN;
-    if (btn(14) || x < -0.5) v |= BTN.LEFT;
-    if (btn(15) || x > 0.5) v |= BTN.RIGHT;
+    if (y < -0.5) v |= BTN.UP;
+    if (y > 0.5) v |= BTN.DOWN;
+    if (x < -0.5) v |= BTN.LEFT;
+    if (x > 0.5) v |= BTN.RIGHT;
   }
   return v;
 }

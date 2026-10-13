@@ -252,6 +252,15 @@ export class BattleMenus {
    *  from the first one back to the battle screen and FIGHT/RUN. Returns FF8C (FF, or the member
    *  count 4/5 when all commands are chosen). */
   *commands(): Co<number> {
+    this.g.ui.battleCommand = true; // hint for the player's auto-battle (P5); no game effect
+    try {
+      return yield* this.commandsInner();
+    } finally {
+      this.g.ui.battleCommand = false;
+    }
+  }
+
+  private *commandsInner(): Co<number> {
     const m = this.m;
     top: for (;;) {
       this.bank1["clearMenu"](true);

@@ -262,7 +262,7 @@ export class TextEngine {
         m.wr(0xc77f, m.rd(0xc77e));
         yield* this.newline2();
       }
-      if (mode !== 5) yield* frameDma(this.g);
+      if (mode !== 5 && !this.g.options.fastText) yield* frameDma(this.g);
     }
     m.wr(0xc7a1, m.rd(0xc7a1) + 1);
     const c = this.cursor;
@@ -278,6 +278,7 @@ export class TextEngine {
    *  disable the A / B effects. */
   private *speed(): Co {
     const m = this.m;
+    if (this.g.options.fastText) return; // option (P5): no delay per character
     const e = m.rd(0xc765);
     if (!(e & 1) && m.hram[0x09]! & 1) return;
     let b = (m.rd(0xc31b) * 2) & 0xff;
@@ -716,13 +717,17 @@ export class TextEngine {
     const m = this.m;
     const hl = memberAddr(m, member, base);
     let v = m.rd(hl) | (m.rd(hl + 1) << 8);
+    if (this.g.options.capBreak && v >= 1000) { // option (P5): a 4th digit only when needed
+      if (v >= 10000) v = 9999;
+      return yield* this.number(v, 1);
+    }
     if (v >= 1000) v = 999;
     yield* this.number(v, 2);
   }
 
   /** 00:12D4 — a member's stat byte, 2 digits. */
   private *stat(base: number): Co {
-    yield* this.number2(memberAddr(this.m, this.memberArg(), base));
+    yield* this.number2(memberAddr(this.m, this.memberArg(), base), this.g.options.capBreak);
   }
 
   /** 00:0FF2 — member name (4 bytes; battle: enemies D002 + ...). */
@@ -1254,8 +1259,9 @@ export class TextEngine {
   }
 
   /** 00:12E6 — byte at hl, capped at 99, two digits. */
-  private *number2(hl: number): Co {
+  private *number2(hl: number, wide = false): Co {
     let a = this.m.rd(hl);
+    if (wide && a >= 100) return yield* this.number(a, 2); // cap break (P5): a 3rd digit only when needed
     if (a >= 0x64) a = 0x63;
     yield* this.number(a, 3);
   }

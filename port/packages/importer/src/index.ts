@@ -10,3 +10,4 @@ export * from "./music.js";
 export * from "./gfx.js";
 export * from "./ops.js";
 export * from "./package.js";
+export * from "./patch.js";

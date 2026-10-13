@@ -322,3 +322,28 @@ Architecture guidance for the importer and the web app; not new feature work.
   Windows signing, Android release signing and iOS device signing are documented, not configured
   (docs/PLATFORMS.md). Without them: unsigned desktop installers, a debug-signed APK, an iOS
   simulator build and an unsigned device app.
+
+## 2026-10-12 — P5 decisions (extras)
+
+- Two kinds of extras. Game options live in `Game.options` (fast text, cap break) and are read
+  only at the points they change; with the defaults the engine takes exactly the original paths.
+  Everything else is the player shell's (speed, auto-battle, display, input), which never writes
+  game memory except the buttons it already feeds. `Game.ui` carries read-only hints from the
+  port's code to the shell (battle command menus waiting; field loop frame).
+- Speed extras run more game frames per display frame instead of shortening any routine, so a
+  sped-up game is the same game; the audio is decimated to keep pace.
+- Cap break (direction note D) patches four bytecode constants in a copy of bank 0C while on
+  (only where the original bytes are found, so a mod that changed them keeps its own) and widens
+  numbers only when they need it. Limits are chosen so values stay inside their storage: growth
+  stops at max HP >= 9,785 (one step then stays <= 9,999), stats at 255, stat items at 253, HP
+  items at 9,960. "Ideally infinite" stays with the remaster data model.
+- Widescreen draws the margins from the game's own field state (map buffer, VRAM tiles, line
+  registers) instead of the data package, so doors, layers and swirls stay consistent with the
+  centre. Sprites are not invented in the margins.
+- Mods are patches applied on the device (IPS from FFL2kster, BPS from other tools), never
+  ROMs; the import keeps the base ROM (on the device, removed with the game data) so mods can be
+  switched without choosing the ROM again. A modded package records its mods and base hash and is
+  labelled; with no mod on it is verified again.
+- Settings are per device (localStorage, wrapped in try/catch; defaults when unavailable).
+- Correction to the P2 entry: the field sweeps are 1,643 cases but 1,637 recordings (6 context
+  cases on maps the first-town warp cannot reach were never recorded); all 1,637 pass.

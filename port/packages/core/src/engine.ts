@@ -1,7 +1,7 @@
 /** The assembled engine: subsystems wired together the way the original's code calls across
  *  banks. Routines are addressed by their original location (bank << 16 | address for banked
  *  code), which keeps the call graph auditable against the disassembly. */
-import { Game, type Co } from "./game.js";
+import { Game, type Co, type GameOptions } from "./game.js";
 import type { Segments } from "./memory.js";
 import { installInterrupts, SoftReset } from "./irq.js";
 import { FieldEngine, type FieldCalls } from "./field/loop.js";
@@ -23,6 +23,19 @@ export class NotPorted extends Error {
     super(`not ported yet: ${what}`);
   }
 }
+
+/** Cap break (P5 option, experimental, direction note D): the growth and field-item limits in
+ *  the bank-0C bytecode (docs/CAPS.md), raised so values stay inside their storage:
+ *  0C:515A max HP growth stops at >= 9,785 (the step HP/50 + rand(0..10) + 5 then stays <= 9,999);
+ *  0C:51BB stat growth +1 below 255; 0C:66E7 stat items (+3) refused at >= 253; 0C:6718 max HP
+ *  item (+40) refused at >= 9,960. [address, original bytes, patched bytes]; a byte that does
+ *  not match the original (a modded ROM) leaves that limit alone. */
+export const CAP_BREAK_PATCHES: readonly [number, readonly number[], readonly number[]][] = [
+  [0x515d, [0xe7, 0x03], [0x39, 0x26]],
+  [0x51be, [0x63], [0xff]],
+  [0x66ea, [0x63], [0xfd]],
+  [0x671b, [0xe7, 0x03], [0xe8, 0x26]],
+];
 
 const hex = (a: number) => (a > 0xffff ? `${(a >> 16).toString(16).padStart(2, "0")}:${(a & 0xffff).toString(16).padStart(4, "0")}` : `00:${a.toString(16).padStart(4, "0")}`);
 
@@ -64,6 +77,29 @@ export class Engine {
 
   /** 00:0200 — power-on / reset, then the title (01:500F) and the field (00:1900 new game,
    *  00:1903 continue). */
+  private bank0c: Uint8Array | null = null;
+
+  /** Set opt-in extras (P5). Off (the default) is the original's behaviour. */
+  setOptions(o: Partial<GameOptions>): void {
+    Object.assign(this.g.options, o);
+    const segs = this.g.m.segments;
+    if (this.g.options.capBreak) {
+      if (this.bank0c) return;
+      const orig = segs["0c"];
+      if (!orig) return;
+      const patched = orig.slice();
+      for (const [addr, from, to] of CAP_BREAK_PATCHES) {
+        const off = addr - 0x4000;
+        if (from.every((b, i) => patched[off + i] === b)) to.forEach((b, i) => { patched[off + i] = b; });
+      }
+      this.bank0c = orig;
+      segs["0c"] = patched;
+    } else if (this.bank0c) {
+      segs["0c"] = this.bank0c;
+      this.bank0c = null;
+    }
+  }
+
   *main(): Co {
     yield* this.boot();
     yield* this.fromTitle();

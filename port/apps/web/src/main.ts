@@ -3,12 +3,14 @@
  *  browsers (installable as a PWA), in the Tauri desktop shell and in the Capacitor mobile shells
  *  (platform.ts holds the differences). */
 import { checkRom, importRom, decodeTile, type DataPackage, type RomCheck } from "@ffl2k/importer";
-import { clearPackage, loadPackage, savePackage, loadSram } from "./storage";
+import { clearPackage, loadPackage, savePackage, loadSram, saveBase, clearBase } from "./storage";
+import { modsPanel } from "./mods";
 import { Player } from "./player";
 import { PACKAGE_FORMAT } from "@ffl2k/importer";
 import { pickFile, platform, platformName, toggleFullscreen } from "./platform";
 import { exportSave, importSave, SAV_NAME } from "./saves";
 import { TouchPad, touchByDefault } from "./touch";
+import { optionsPanel, applyDisplay } from "./options";
 
 /** Displayed title: the project (FFTOL, Tower of Legends) and the game this port plays. */
 const TITLE = "Tower of Legends · Legend II";
@@ -100,6 +102,7 @@ async function build(bytes: Uint8Array, status: HTMLElement, unverified: boolean
   try {
     const pkg = await importRom(bytes, (_s, done) => { bar.value = done; }, { unverified });
     await savePackage(pkg);
+    await saveBase(bytes);
     showSummary(pkg);
   } catch (e) {
     status.className = "err";
@@ -136,7 +139,8 @@ function savesPanel(): HTMLElement {
 function showSummary(pkg: DataPackage) {
   const verified = pkg.verified !== false;
   const dl = el("dl", {},
-    el("dt", {}, "Source"), el("dd", {}, `${pkg.sourceSha256.slice(0, 12)}… ${verified ? "(verified)" : "(UNVERIFIED)"}`),
+    el("dt", {}, "Source"), el("dd", {}, `${pkg.sourceSha256.slice(0, 12)}… ${verified ? "(verified)" : pkg.mods?.length ? "(modded)" : "(UNVERIFIED)"}`),
+    ...(pkg.mods?.length ? [el("dt", {}, "Mods"), el("dd", {}, pkg.mods.join(", "))] : []),
     el("dt", {}, "Monsters"), el("dd", {}, String(pkg.monsters.length)),
     el("dt", {}, "Items"), el("dd", {}, String(pkg.items.length)),
     el("dt", {}, "Text entries"), el("dd", {}, String(pkg.text.length)),
@@ -155,15 +159,18 @@ function showSummary(pkg: DataPackage) {
   draw();
   app.replaceChildren(
     el("h1", {}, TITLE),
-    el("p", { class: "lead" }, verified ? "Game data is ready on this device." : "Game data is ready on this device — imported in UNVERIFIED mode."),
+    el("p", { class: "lead" }, verified ? "Game data is ready on this device." : pkg.mods?.length ? `Game data is ready on this device — MODDED (${pkg.mods.join(", ")}).` : "Game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showPlayer(pkg), "primary"),
-      el("span", { class: "muted" }, "Arrows + Z (A) / X (B), or WASD + K (A) / J (B); Enter or Space = Start, Shift = Select; F11 = fullscreen, M = mute. Xbox and other gamepads and touch work too."))),
+      el("span", { class: "muted" }, "Arrows + Z (A) / X (B), or WASD + K (A) / J (B); Enter or Space = Start, Shift = Select; hold Tab = fast-forward; Esc = options; F11 = fullscreen, M = mute. Xbox and other gamepads and touch work too."))),
     savesPanel(),
+    optionsPanel(),
+    modsPanel(pkg, (p) => showSummary(p)),
     el("section", { class: "panel" }, dl),
     el("section", { class: "panel" }, el("div", { class: "row" }, "Monster graphic #", pick), view),
     el("section", { class: "panel" }, button("Remove game data from this device", async () => {
-      if (!confirm("Remove the game data built from your ROM? Saves stay.")) return;
+      if (!confirm("Remove the game data built from your ROM (and the ROM copy kept for mods)? Saves and mod files stay.")) return;
       await clearPackage();
+      await clearBase();
       showImporter("Game data removed.");
     })),
   );
@@ -172,18 +179,32 @@ function showSummary(pkg: DataPackage) {
 function showPlayer(pkg: DataPackage) {
   document.body.classList.add("playing");
   const canvas = el("canvas", { class: "pixel screen" }) as HTMLCanvasElement;
-  const status = el("p", { class: "muted" }, pkg.verified === false ? "Unverified ROM" : "");
+  const status = el("p", { class: "muted" }, pkg.mods?.length ? "Modded" : pkg.verified === false ? "Unverified ROM" : "");
   const touch = new TouchPad();
   const setTouch = (on: boolean) => { touch.el.hidden = !on; document.body.classList.toggle("touch", on); };
   setTouch(touchByDefault() || platform() === "capacitor");
+  let overlay: HTMLElement | null = null;
+  const toggleOptions = () => {
+    if (overlay) { overlay.remove(); overlay = null; player.setPaused(document.hidden); return; }
+    overlay = el("div", { class: "overlay" }, optionsPanel(toggleOptions));
+    document.body.append(overlay);
+    player.setPaused(true);
+  };
   const bar = el("div", { class: "row bar" },
     button("Back", () => location.reload()),
+    button("Options", toggleOptions),
     button("Fullscreen", () => toggleFullscreen()),
-    button("Touch controls", () => setTouch(touch.el.hidden)),
+    button("Touch controls", () => { setTouch(touch.el.hidden); applyDisplay(); }),
     status);
   app.replaceChildren(el("div", { class: "player" }, canvas), touch.el, bar);
-  window.addEventListener("keydown", (e) => { if (e.code === "F11") { e.preventDefault(); void toggleFullscreen(); } });
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "F11") { e.preventDefault(); void toggleFullscreen(); }
+    if (e.code === "Escape" && !e.repeat) { e.preventDefault(); toggleOptions(); }
+  });
   const player = new Player(pkg, { canvas, onStatus: (msg) => { status.textContent = msg; }, inputs: [() => touch.buttons()] });
+  applyDisplay();
+  // ?debug: expose the player for inspection in the console (development convenience)
+  if (new URLSearchParams(location.search).has("debug")) (globalThis as { fftolPlayer?: Player }).fftolPlayer = player;
   void player.start();
 }
 

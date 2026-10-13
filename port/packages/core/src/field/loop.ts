@@ -43,6 +43,7 @@ export class FieldEngine {
   *loop(): Co {
     const m = this.m;
     for (;;) {
+      this.g.ui.fieldFrame = this.g.frame; // hint for the widescreen view (P5); no game effect
       if (!m.rd(0xc43d)) {
         yield* this.stepCheck();
         const b = m.rd(0xc443);

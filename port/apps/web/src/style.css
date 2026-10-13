@@ -18,7 +18,7 @@ canvas.pixel { image-rendering: pixelated; background: #fff; border: 1px solid v
 .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .muted { color: var(--muted); }
 .player { display: flex; justify-content: center; margin-bottom: 12px; }
-canvas.screen { width: min(100%, 640px); aspect-ratio: 160 / 144; height: auto; border: 0; }
+canvas.screen { --ar: 1.1111; width: min(100%, calc(576px * var(--ar))); aspect-ratio: var(--ar); height: auto; border: 0; }
 h2 { font-size: 16px; margin: 0 0 8px; }
 .warn { border-left: 3px solid #b3261e; padding-left: 12px; color: var(--fg); }
 .warn ul { margin: 4px 0; }
@@ -27,8 +27,8 @@ h2 { font-size: 16px; margin: 0 0 8px; }
    or around it (landscape). Safe areas keep controls clear of notches and home indicators. */
 body.playing main { max-width: none; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
 body.playing .player { margin-bottom: 8px; }
-body.playing canvas.screen { width: min(100%, 640px, calc((100dvh - 120px) * 160 / 144)); }
-body.playing.touch canvas.screen { width: min(100%, 640px, calc((100dvh - 300px) * 160 / 144)); }
+body.playing canvas.screen { width: min(100%, calc(576px * var(--ar)), calc((100dvh - 120px) * var(--ar))); }
+body.playing.touch canvas.screen { width: min(100%, calc(576px * var(--ar)), calc((100dvh - 300px) * var(--ar))); }
 .bar { justify-content: center; }
 .touchpad { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; max-width: 520px; margin: 0 auto 8px; padding: 0 4px;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -46,7 +46,21 @@ body.playing.touch canvas.screen { width: min(100%, 640px, calc((100dvh - 300px)
 .tbtn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 @media (orientation: landscape) and (pointer: coarse) {
   body.playing.touch main { display: grid; grid-template-columns: 1fr; }
-  body.playing.touch canvas.screen { width: min(100%, calc((100dvh - 70px) * 160 / 144)); }
+  body.playing.touch canvas.screen { width: min(100%, calc((100dvh - 70px) * var(--ar))); }
   body.playing.touch .touchpad { position: fixed; inset: auto 0 max(12px, env(safe-area-inset-bottom)) 0; max-width: none; padding: 0 max(16px, env(safe-area-inset-left)); pointer-events: none; }
   body.playing.touch .touchpad > * { pointer-events: auto; }
 }
+
+/* Integer scaling (option): whole multiples of 144 lines; the player sets --scale. */
+body.integer canvas.screen { width: calc(144px * var(--ar) * var(--scale, 3)) !important; max-width: none; }
+body.largetouch .dpad { transform: scale(1.2); transform-origin: left center; }
+body.largetouch .ab { transform: rotate(-20deg) scale(1.2); transform-origin: right center; }
+body.largetouch .startsel .tbtn { height: 32px; }
+.options { display: grid; gap: 10px; }
+.options label { display: flex; gap: 10px; align-items: center; }
+.options .hint { color: var(--muted); font-size: 13px; margin-left: 28px; margin-top: -6px; }
+.options h3 { font-size: 14px; margin: 10px 0 0; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.bindings { display: grid; grid-template-columns: max-content 1fr auto; gap: 6px 12px; align-items: center; }
+.bindings code { font-size: 12px; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-start; justify-content: center; overflow: auto; padding: 24px 12px; z-index: 10; }
+.overlay > .panel { max-width: 640px; width: 100%; }

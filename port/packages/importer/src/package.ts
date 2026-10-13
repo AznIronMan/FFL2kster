@@ -20,6 +20,10 @@ export interface DataPackage {
   /** false: imported in the unverified mode (hash mismatch, best effort; no parity claim).
    *  Absent in packages built before this field existed, which all passed the hash check. */
   verified?: boolean;
+  /** Run-time mods (P5) applied on the device before the import, in order, and the hash of the
+   *  ROM they were applied to. */
+  mods?: string[];
+  baseSha256?: string;
   createdAt: string;
   monsters: ReturnType<typeof monsters>;
   items: ReturnType<typeof items>;
@@ -43,6 +47,9 @@ export type Progress = (step: string, done: number, total: number) => void;
 export interface ImportOptions {
   /** Import a hash mismatch anyway (unverified mode, direction note C). */
   unverified?: boolean;
+  /** Names of the patches already applied to `bytes`, and the hash of the unpatched ROM. */
+  mods?: string[];
+  baseSha256?: string;
 }
 
 export async function importRom(bytes: Uint8Array, progress: Progress = () => {}, opts: ImportOptions = {}): Promise<DataPackage> {
@@ -82,6 +89,7 @@ export async function importRom(bytes: Uint8Array, progress: Progress = () => {}
   const listings = { scripts: exportScripts(rom), calcVm: calcVmListing(rom) };
   return {
     format: PACKAGE_FORMAT, sourceSha256: check.sha256, verified: check.ok, createdAt: new Date().toISOString(),
+    ...(opts.mods?.length ? { mods: opts.mods, baseSha256: opts.baseSha256 } : {}),
     monsters: mons, items: its, encounters: enc, text, events, rules, maps, music, gfx, segments, listings,
   };
 }
