@@ -5,10 +5,11 @@ import { installInterrupts, NotPorted } from "./irq.js";
 import { frameSprites } from "./sprites.js";
 import { title, type TitleChoice } from "./title.js";
 import { fieldWorkBanked, slideRaster } from "./window.js";
-import { fadeIn, far0 } from "./sys.js";
+import { fadeIn, far0, farSync } from "./sys.js";
 import { printText } from "./text.js";
 import { waveRaster } from "./wave.js";
 import { fieldLoop } from "./field.js";
+import { menuFrameWork } from "./fieldmenu.js";
 import { testFlag, setFlag } from "./objects.js";
 
 export class Engine {
@@ -28,7 +29,7 @@ export class Engine {
     const m = g.m;
     if (m.rd(0xcdc4) || m.rd(0xff4a) === 0x50) { fieldWorkBanked(g); return; }
     frameSprites(g);
-    if (m.rd(0xcd42)) throw new NotPorted("0B:7CDD (00:1ED7)");
+    if (m.rd(0xcd42)) farSync(g, 0x0b, () => menuFrameWork(g)); // 00:1ED7
   }
 
   setOptions(o: Partial<GameOptions>): void {

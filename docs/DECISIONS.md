@@ -603,3 +603,5 @@ Decisions and assumptions:
 - 1.40.0: traces past the opening start from saved states made by a chained scenario (`field0`
   -> `field_start.state`), at a port entry point the replay knows (00:0265 the field loop); the
   opening itself stays covered from the boot by `opening3`.
+- 1.41.0: larger screens (the field menu) may be ported by a sub-agent from the listing; they
+  count as verified only where a replay reaches them and a mutation fails it.

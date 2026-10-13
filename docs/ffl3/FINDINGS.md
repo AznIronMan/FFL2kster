@@ -639,3 +639,25 @@ past the frame's vblank (line 153) starts with that vblank counted as taken (els
 waited for a vblank already past). The recorder now also removes its vblank hook after a trace
 (chained, non-boot scenarios reuse the emulator). The field mutations (mut7.sh) give the same
 results on the short traces.
+
+## 2026-10-13 — Port: the field menu screen (1.41.0)
+
+Start in the field opens the menu 09:4000 (`fieldmenu.ts`, ported by a sub-agent from the
+listing, integrated and checked by the replay): the screen (09:40D3: fade out, the bracket, the
+window at the top, sprites reset, the frame tiles 03:48A0 -> 9080 composed by 0B:7D60), the
+temporary items back (0B:6683), CD15 = 0, CD42 = 1, CD16 = 0C, the members' status words
+(09:457D), the boxes (09:427E), fade in; the menu input 00:1E51 (A: the item CD15, not ported;
+B: back; the cursor up / down wrapping 0-6, left / right between the columns); B leaves through
+01:7023 (fade out, objects hidden, window off, the bracket left, WY 50, the map's tiles reloaded
+00:0150 / 00:0427, the objects drawn, fade in) and then 01:402D (the action an item left in
+CA16; none here). While CD42 is set the STAT frame work's other branch runs 0B:7CDD (00:1ED7):
+by FF93 & 7 the frame tiles composed again (0), rotated a bit (1, 0B:7D49), or masked (2, every
+16th, 0B:7D16).
+
+`menu1` (from field_start: open, the cursor both ways, B; 271 frames) is wait-exact: 190/190.
+Found: the original sets CD42 after the screen's tile work, during the frame after the fade —
+the frame work of that frame does not rotate yet; sync point 09:40B1.
+
+Falsification (ffl3/scratch/mut8.sh): the 09:40B1 point removed, the 0B:7CDD frame work removed,
+and the rotation step removed each fail `menu1`; the rotation's carry into 90C0 taken from the
+wrong byte survives (equal bits in these tiles): unverified. The 7 menu items stop with NotPorted.

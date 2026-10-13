@@ -285,7 +285,7 @@ function mapTiles(g: Game): void {
 
 /** 00:0427 — the font (07:7F4F: 03:4000 -> 8800), the object tiles (00:0438, bank 03), the map
  *  tiles (00:0535). */
-function* loadTiles(g: Game): Co {
+export function* loadTiles(g: Game): Co {
   const m = g.m;
   pushBank(g, 0x07);
   far0Sync(g, 0x03, () => vramCopy(m, 0x4000, 0x8800, 0x800));

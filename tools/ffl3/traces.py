@@ -68,6 +68,9 @@ SCENARIOS = {
     # walking in the field: down through the door into the ship, then steps in each direction
     "field2": ("field_start", FIELD, "none:100,down:64,none:20,right:64,none:20,down:64,"
                                      "none:20,left:96,none:20,down:48,none:20,right:120,none:20,up:16,none:120"),
+    # the menu (Start, 09:4000): open, the cursor down / up (wrapping), B to close
+    "menu1": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,up:3,none:20,"
+                                    "up:3,none:20,up:3,none:20,b:3,none:60"),
 }
 
 

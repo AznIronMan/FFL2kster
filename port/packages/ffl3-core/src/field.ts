@@ -9,6 +9,7 @@ import { fget, fset, setSlot, testFlag } from "./objects.js";
 import { drawObjects, objectSprite, tableWord } from "./actors.js";
 import { mapAnimation, windowClose } from "./window.js";
 import { printText } from "./text.js";
+import { fieldMenu } from "./fieldmenu.js";
 import { dispatch } from "./events.js";
 import { companionFollow, objectsUpdate, layerSwitch, leaderStartDown, leaderStartUp, leaderStartRight,
   leaderStartLeft, leaderDown, leaderUp, leaderRight, leaderLeft, leaderNext } from "./events2.js";
@@ -149,7 +150,7 @@ function* fieldStep(g: Game): Co {
   if (pressed() & 0x01) yield* fieldA(g);
   if (pressed() & 0x02 && m.rd(0xc6e3)) throw new NotPorted("00:0861 (B in a vehicle)");
   if (m.rd(0xc6ef)) return;
-  if (pressed() & 0x08) throw new NotPorted("09:4000 (the menu)");
+  if (pressed() & 0x08) yield* fieldMenu(g);
   if (pressed() & 0x04) throw new NotPorted("00:0851 (Select: the party order)");
 }
 
