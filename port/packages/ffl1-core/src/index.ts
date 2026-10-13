@@ -6,6 +6,7 @@ export * from "./text.js";
 export * from "./save.js";
 export * from "./title.js";
 export * from "./engine.js";
+export * from "./sound.js";
 export * from "./field/map.js";
 export * from "./field/load.js";
 export * from "./field/loop.js";

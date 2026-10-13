@@ -1,7 +1,7 @@
 /** Ad-hoc: TRACE=name npx vitest run packages/ffl1-parity/test/debug.test.ts */
 import { describe, it } from "vitest";
 import { writeFileSync, mkdirSync } from "node:fs";
-import { haveRom, haveTrace, replay, summarize, summarizeWaits } from "../src/index.js";
+import { haveRom, haveTrace, replay, summarize, summarizeWaits, IGNORE_KEEP_SOUND } from "../src/index.js";
 
 const name = process.env.TRACE ?? "";
 describe.skipIf(!name || !haveRom() || !haveTrace(name))("FFL1 debug replay", () => {
@@ -10,7 +10,7 @@ describe.skipIf(!name || !haveRom() || !haveTrace(name))("FFL1 debug replay", ()
     // SHOT=f: the port's frame f (-1: the last) as a PGM in ffl1/build/png (local only)
     const shot = process.env.SHOT !== undefined ? Number(process.env.SHOT) : null;
     let last: Uint8Array | null = null;
-    const r = replay(name, { keepGoing: true, onFrame: (f, px) => { if (shot === -1 || f === shot) last = px.slice(); }, setup: (rig) => {
+    const r = replay(name, { keepGoing: true, ...(process.env.SOUND ? { ignore: IGNORE_KEEP_SOUND } : {}), onFrame: (f, px) => { if (shot === -1 || f === shot) last = px.slice(); }, setup: (rig) => {
       const b = rig.engine.battle as unknown as { coverage: Record<string, number> };
       const u = rig.engine.battleUi as unknown as { coverage: Record<string, number> };
       cov = () => `handlers ${JSON.stringify(b.coverage)} screens ${JSON.stringify(u.coverage)}`;

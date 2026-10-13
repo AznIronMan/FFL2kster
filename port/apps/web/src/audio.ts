@@ -3,7 +3,12 @@
  *  an AudioWorklet that plays it from a small ring buffer. Audio starts on the first user gesture
  *  (browser autoplay rules); 'M' or the Sound button toggles mute (kept in settings). */
 import { Apu, FRAME_CYCLES } from "@ffl2k/audio";
-import type { Game } from "@ffl2k/core";
+
+/** What attach needs from an engine (Legend II's or Legend I's Game). */
+export interface SoundSource {
+  frame: number;
+  m: { io: Uint8Array; onSoundWrite: ((reg: number, v: number) => void) | null };
+}
 
 const LINE_CYCLES = 456;
 /** Ring buffer: audio queued before playback starts (and again after an underrun), and the most
@@ -53,7 +58,7 @@ export class AudioOut {
   /** Route a Game's sound-register writes into the APU. Time stamps: the port runs a frame from
    *  vblank (LY 144) on, so a write at line LY is (LY - 144 mod 154) lines into the frame; writes
    *  within a line are spaced 16 cycles apart, in order. */
-  attach(g: Game): void {
+  attach(g: SoundSource): void {
     let lastLy = -1;
     g.m.onSoundWrite = (reg, v) => {
       const ly = g.m.io[0x44]!;

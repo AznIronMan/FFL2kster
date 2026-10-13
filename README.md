@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.15.0`
+Version: `1.16.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
@@ -99,6 +99,10 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.16.0` — Legend I sound: the bank-07 sound driver ported (music: 3 channels with envelope,
+  pitch, duty and panning tables; jingles; pulse and noise effects), run by the frame tick and
+  played in the web player through the shared APU model; its RAM equals the original's at every
+  frame wait of 11 field and title traces (8,769 waits).
 - `1.15.0` — Legend I in the web player: a Legend I ROM is recognised on import, its data
   package and battery RAM (512 cells, `legend1.sav` export/import) are kept beside Legend II's,
   and the Legend I engine plays from power-on (title, new game, town, menus and save, continue,

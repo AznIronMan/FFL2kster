@@ -1,14 +1,16 @@
 /** The Legend I player (FFL1kster): the @ffl1k/core engine from the start code (00:0224) at the
  *  Game Boy's 59.73 Hz, the PPU frame on a canvas, keyboard / gamepad / touch input through the
  *  same bindings as Legend II, and the MBC2 battery RAM (512 nibbles) persisted in IndexedDB.
- *  Sound: the Legend I driver (07:4003) is not ported yet, so the game is silent. Parts of the
- *  game not ported yet stop with a message (NotPorted*), the save stays as last written. */
+ *  Sound: the Legend I driver (07:4003, @ffl1k/core SoundDriver) writes the APU registers, played
+ *  through the same APU model and audio thread as Legend II (audio.ts). Parts of the game not
+ *  ported yet stop with a message (NotPorted*), the save stays as last written. */
 import { Engine, SoftReset } from "@ffl1k/core";
 import { Ppu, regsFromIo, SCREEN_W, SCREEN_H } from "@ffl2k/render";
 import type { Ffl1DataPackage } from "@ffl1k/importer";
 import { loadFfl1Sram, saveFfl1Sram, saveFfl1SramBackup } from "./storage";
-import { settings, onSettings, PALETTES, FAST_FORWARD_KEY, type Settings } from "./settings";
+import { settings, onSettings, update, PALETTES, FAST_FORWARD_KEY, type Settings } from "./settings";
 import { gamepads } from "./player";
+import { AudioOut } from "./audio";
 
 const FRAME_MS = 1000 / 59.7275;
 /** Minimum frames a key press is held for the game (taps are stretched to this). */
@@ -41,6 +43,7 @@ export class Player1 {
   private lastSram = new Uint8Array(0x200);
   private sramDirty = false;
   private sessionStart: Uint8Array | null = null;
+  private readonly audio = new AudioOut();
 
   constructor(readonly pkg: Ffl1DataPackage, readonly ui: Player1Ui) {
     this.ctx = ui.canvas.getContext("2d")!;
@@ -48,11 +51,37 @@ export class Player1 {
     ui.canvas.height = SCREEN_H;
     ui.canvas.style.setProperty("--ar", String(SCREEN_W / SCREEN_H));
     this.img = this.ctx.createImageData(SCREEN_W, SCREEN_H);
+    const gesture = () => void this.audio.start();
+    window.addEventListener("keydown", gesture, { once: true });
+    window.addEventListener("pointerdown", gesture, { once: true });
+    window.addEventListener("touchend", gesture, { once: true });
+    window.addEventListener("keydown", () => this.audio.wake());
+    window.addEventListener("pointerdown", () => this.audio.wake());
+    window.addEventListener("keydown", (e) => {
+      const t = e.target as HTMLElement | null;
+      if (e.code !== "KeyM" || e.repeat || (t && (t.tagName === "INPUT" || t.tagName === "SELECT"))) return;
+      this.toggleMute();
+    });
     window.addEventListener("keydown", (e) => this.key(e, true));
     window.addEventListener("keyup", (e) => this.key(e, false));
     document.addEventListener("visibilitychange", () => this.setPaused(document.hidden));
     window.addEventListener("pagehide", () => void this.persist());
-    onSettings((s) => { this.s = s; this.engine?.setOptions({ fastText: s.fastText }); });
+    onSettings((s) => this.apply(s));
+  }
+
+  private apply(s: Settings): void {
+    this.s = s;
+    this.engine?.setOptions({ fastText: s.fastText });
+    this.audio.setLatency(s.audioLatency);
+    this.audio.setMuted(s.muted);
+  }
+
+  /** Mute or unmute (M key, Sound button); remembered on this device. */
+  toggleMute(): boolean {
+    const muted = !settings().muted;
+    update({ muted });
+    if (this.running) this.ui.onStatus(muted ? "Sound muted (M)" : "Sound on (M)");
+    return muted;
   }
 
   private romBytes(): Uint8Array {
@@ -65,7 +94,8 @@ export class Player1 {
   async start(): Promise<void> {
     const segs = Object.fromEntries(Object.entries(this.pkg.segments).map(([k, v]) => [k, v.slice()]));
     this.engine = new Engine(segs, this.romBytes());
-    this.engine.setOptions({ fastText: this.s.fastText });
+    this.audio.attach(this.engine.g);
+    this.apply(this.s);
     const m = this.engine.g.m;
     const sram = await loadFfl1Sram().catch(() => undefined);
     if (sram && sram.length === 0x200) {
@@ -103,8 +133,11 @@ export class Player1 {
   setPaused(p: boolean): void {
     if (p === this.paused) return;
     this.paused = p;
-    if (p) void this.persist();
-    else {
+    if (p) {
+      void this.persist();
+      void this.audio.suspend();
+    } else {
+      void this.audio.resume();
       this.last = performance.now();
       this.acc = 0;
       if (this.running) requestAnimationFrame((t) => this.tick(t));
@@ -137,7 +170,9 @@ export class Player1 {
         this.engine.g.buttons = this.sample();
         try {
           this.engine.g.runFrame();
+          this.audio.endFrame(this.engine.g.frame, sp);
         } catch (e) {
+          this.audio.endFrame(this.engine.g.frame, sp);
           if (e instanceof SoftReset) {
             void this.persist();
             this.boot();

@@ -8,6 +8,7 @@ import { aboutPanel } from "./about";
 import { optionsPanel, applyDisplay } from "./options";
 import { pickFile, saveFile, toggleFullscreen, platformName } from "./platform";
 import { TouchPad, touchByDefault } from "./touch";
+import { settings, onSettings, type Settings } from "./settings";
 
 export const TITLE1 = "Tower of Legends · Legend I";
 /** MBC2 battery RAM as emulators store it: 512 bytes, one 4-bit cell per byte. */
@@ -108,9 +109,9 @@ export function showFfl1Summary(app: HTMLElement, pkg: Ffl1DataPackage, other?: 
     el("p", { class: "lead" }, pkg.verified ? "Legend I game data is ready on this device." : "Legend I game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showFfl1Player(app, pkg), "primary"),
       ...(other ? [button(other.label, other.run)] : []),
-      el("span", { class: "muted" }, "Legend I is in progress: the title, a new game, towns, menus, shops and battles play; the world map's random encounters and the music are not ported yet."))),
+      el("span", { class: "muted" }, "Legend I is in progress: the title, a new game, towns, menus, shops and battles play, with music; the world map's random encounters are not ported yet."))),
     savesPanel(),
-    el("p", { class: "muted" }, "Legend I uses these options: fast text, fast-forward, colours and controls. The others apply to Legend II for now."),
+    el("p", { class: "muted" }, "Legend I uses these options: fast text, fast-forward, colours, sound and controls. The others apply to Legend II for now."),
     optionsPanel(),
     aboutPanel(),
     el("section", { class: "panel" }, dl),
@@ -135,11 +136,20 @@ function showFfl1Player(app: HTMLElement, pkg: Ffl1DataPackage): void {
     document.body.append(overlay);
     player.setPaused(true);
   };
+  const sound = button("", () => player.toggleMute());
+  const showSound = (s: Settings) => {
+    sound.textContent = s.muted ? "Sound: off" : "Sound: on";
+    sound.setAttribute("aria-pressed", String(s.muted));
+    sound.title = "Mute or unmute (M)";
+  };
+  showSound(settings());
+  onSettings(showSound);
   const bar = el("div", { class: "row bar" },
     button("Back", () => location.reload()),
     button("Options", toggleOptions),
     button("Fullscreen", () => toggleFullscreen()),
     button("Touch controls", () => { setTouch(touch.el.hidden); applyDisplay(); }),
+    sound,
     status);
   app.replaceChildren(el("div", { class: "player" }, canvas), touch.el, bar);
   window.addEventListener("keydown", (e) => {

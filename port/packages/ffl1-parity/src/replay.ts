@@ -281,5 +281,8 @@ const TIMING = (a: number) => a === 0xff00 || a === 0xff04 || a === 0xff0f || a 
  *  values between texts are the callers' leftover registers. */
 const TEXT_REGS = (a: number) => a >= 0xff96 && a <= 0xff98;
 export const IGNORE = (a: number) => SOUND(a) || STACK(a) || TIMING(a) || TEXT_REGS(a);
+/** The same with the sound driver's RAM compared (07:4003 ported; CE00-CEFF, FFE1-FFEF). The
+ *  APU registers stay out: the traces read them back as 0 (PyBoy's memory view). */
+export const IGNORE_KEEP_SOUND = (a: number) => (a >= 0xff10 && a < 0xff40) || STACK(a) || TIMING(a) || TEXT_REGS(a);
 /** Joypad state: samples C3A0-C3A3, repeat counter/last C3A4/C3A5, FF8D held, FF8E repeated. */
 export const JOYPAD = (a: number) => (a >= 0xc3a0 && a <= 0xc3a5) || a === 0xff8d || a === 0xff8e;

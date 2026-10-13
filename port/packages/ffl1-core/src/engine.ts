@@ -14,6 +14,7 @@ import { Battle } from "./battle/core.js";
 import { BattleUi } from "./battle/ui.js";
 import { vramBegin, vramEnd, fill, fill16, copy, copyBank, copyBank16, mul16, div16, statNormal } from "./sys.js";
 import { GameOver } from "./battle/ui.js";
+import { SoundDriver } from "./sound.js";
 
 export class NotPorted extends Error {
   constructor(what: string) {
@@ -33,10 +34,14 @@ export class Engine {
   readonly facilities: Facilities;
   readonly battle: Battle;
   readonly battleUi: BattleUi;
+  /** The bank-07 sound driver, run by the frame tick (07:4003). */
+  readonly sound: SoundDriver;
 
   constructor(segments: Segments, readonly rom: Uint8Array) {
     this.g = new Game(segments);
     installInterrupts(this.g);
+    this.sound = new SoundDriver(this.g);
+    this.g.hooks.soundTick = () => this.sound.update();
     this.text = new TextEngine(this.g);
     this.title = new Title(this.g, this.text);
     const self = this;
@@ -151,16 +156,8 @@ export class Engine {
       m.hram[0x09] = de >> 8;
       m.wr(0xcb00 + c, (de >> 1) & 0xff);
     }
-    // 07:4000: the sound driver reset
     g.selectBank(0x07);
-    m.wr(0xff26, 0x8f);
-    for (const r of [0xff10, 0xff12, 0xff17, 0xff1c, 0xff21, 0xff25]) m.wr(r, 0);
-    m.hram[0x60] = 0;
-    m.hram[0x61] = 0;
-    m.wr(0xce00, 0xff);
-    m.wr(0xce20, 0xff);
-    m.wr(0xce40, 0xff);
-    m.hram[0x6a] = 0xff;
+    this.sound.init(); // 07:4000
     copyBank(g, 0x05, 0x4e40, 0xc800, 0);
     g.ime = false;
     m.wr(0xff45, 0);

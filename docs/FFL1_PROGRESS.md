@@ -14,8 +14,8 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 - [x] A1. FFL1kster no-op build byte-identical with a zero-change diff (M1)
 - [x] A2. Tables evidenced to the milestone-1 standard (boundaries on ≥2 records, controlled
       changes with neighbour controls, emulator acceptance tests) — M1–M7, see FINDINGS
-- [~] A3. Web player loads the FFL1 data package and plays the vertical slice — done in the browser
-      (1.15.0, see the log); silent until the sound driver is ported
+- [x] A3. Web player loads the FFL1 data package and plays the vertical slice — checked in the
+      built app (1.15.0), with music since 1.16.0 (see the log)
 - [ ] A4. Field and battle parity sweeps recorded with counts against the original ROM
 - [ ] A5. All suites green (FFL2kster suite and its byte-identical no-op build included), CI green
 
@@ -273,3 +273,28 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   browser pane, as for Legend II).
 - Not yet: music and sound effects (07:4003 driver), the world map encounters (00:2266), the
   extras beyond fast text and fast-forward. `check:no-content`: no game content in the build.
+
+### 2026-10-13 — The sound driver (07:4000 / 07:4003)
+- `@ffl1k/core` `sound.ts` (SoundDriver), from the disassembly: 4006 reset, 4030 frame update (CEC2
+  += tempo, a tick per 3C), 4059 song start (07:462F), 40CD/40FC output (note -> frequency
+  07:4412, durations 07:4403), the four table walkers (envelope 07:6870, pitch 07:68D3, duty
+  07:69AE, panning 07:692F), 44DC sequences with the command set E0-FF (the jump table at 07:4528
+  disassembled by hand: F0-F4 octave, F5 NRx1, F6 jumps to 0000, F7 table select via 07:4629, F8
+  wave pattern 07:69BD, F9-FB loop count, FC/FD/FE loops and jumps, FF end), 6A44 jingles (music
+  saved to CE60), 6AA8 effects (pulse 1 07:6BC7, noise 07:6C0F). Run by the frame tick
+  (`hooks.soundTick`), the reset by 00:0224.
+- Check (replay with the sound RAM compared, `SOUND=1`: CE00-CEFF and FFE1-FFEF; the APU
+  registers stay out because the traces read them back as 0): title1, probe1, walk1, walk2, talk1,
+  menu1, order1, inn1, shop1, guild1, care1 — 8,769 waits, 0 differences. Mutations caught: the
+  volume base +10 -> +20 (title1, 359 waits), duty ticks masked 3F -> 1F (shop1, 1,256), the F7
+  table counter 1 -> 2 (walk2, 1,088).
+- Not verified: sound effects (none in those traces: a mutated effect timer passes menu1 and
+  shop1). In battles and after a song change inside a busy stretch (newgame1, power1, battles)
+  the sound RAM drifts by a tick or two: the original's code writes FFE0/FFE4 at a point of its
+  CPU time that the port does not model (the request lands before or after a tick), and power1's
+  tick detection counts the RAM clear at boot as a tick (tick.bin compares CEC2). The game
+  screens and the other RAM stay identical; this is a CPU-time effect, not a driver difference
+  (probable; to falsify with an isolated driver harness in PyBoy).
+- Web player: Legend I now plays with sound (same APU model, worklet and settings as Legend II:
+  mute, M key, latency); checked in the built app: AudioContext running, title song 14, APU
+  writes flowing, PCM RMS 0.10 (not listened to).
