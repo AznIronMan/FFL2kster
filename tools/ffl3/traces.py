@@ -40,6 +40,10 @@ SCENARIOS = {
     "battle2": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
                                "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
                                + "a:3,none:60," * 12 + "none:900"),
+    # the opening battle to its end: A every 40 frames (default commands and targets, every message)
+    "battle3": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                               "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
+                               + "a:3,none:37," * 150 + "none:600"),
 }
 
 

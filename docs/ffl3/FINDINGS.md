@@ -499,3 +499,16 @@ Method note: the battle routines were ported in parallel by sub-agents from the 
 file reviewed against its listing and type-checked), then integrated and checked only by the
 replays; routines no trace reaches yet are unverified (bank 0E effect code is not disassembled:
 effect 14 and one branch of effect 12 are NotPorted).
+
+## 2026-10-13 — Port: the opening battle to its end (1.35.0)
+
+`battle3` (A every 40 frames: default commands and targets, every message; 8,118 frames) is
+wait-exact: 6754/6754 waits, 61 random draws, 6078 frame works matched. Found: when the code's
+own reti lets in a pending STAT whose handler runs long (a sound tick from 3185/151 to 3186/3,
+then the frame work, then a second STAT taken at 3186/4), the code cannot run until it is done —
+its CD3D decrement came after both works. The port now holds the code while a handler's work is
+still running (`Game.work`), at a reti and before resuming any line wait. Four more native entry
+points were found by the replay (0C:6B3E, 6B67, 6B68 effect 11; 0C:6B4F and 6B55 farcall 0B:44A8
+/ 0B:7E96 still unported). 44 OAM-only wait differences (arrow objects shown or hidden a frame
+apart, a walking figure's x low bit) are counted as transient: each equal again at a later wait.
+

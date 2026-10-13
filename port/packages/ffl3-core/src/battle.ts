@@ -274,3 +274,11 @@ function* openingSlide(g: Game): Co {
 
 
 nativeRoutines.set(0x6001, (g) => figures(g));
+
+// small bank-0C natives (0C:6B3E-6B6A)
+/** 0C:6B67 — nothing (ret). */
+nativeRoutines.set(0x6b67, function* () { /* ret */ });
+/** 0C:6B68 — battle effect 11 (0C:6B6E). */
+nativeRoutines.set(0x6b68, function* (g) { g.m.wr(0xde00, 0x11); yield* rst30(g, 0x02, 0x4394, () => battleEffect(g)); });
+/** 0C:6B3E — farcall 0B:6ED9 (as 00:1D74). */
+nativeRoutines.set(0x6b3e, (g) => nativeRoutines.get(0x1d74)!(g));

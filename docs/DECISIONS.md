@@ -576,3 +576,5 @@ Decisions and assumptions:
   ports the interpreter and the native routines, not the 2,376 statements); natives are registered
   by address and an unported one stops the replay with its address. Routines ported by
   sub-agents count as verified only where a replay reaches them.
+- 1.35.0: the port's code is held while an interrupt handler's work (with its trace end) is still
+  running — the original's code cannot run during a handler.

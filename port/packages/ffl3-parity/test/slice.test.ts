@@ -12,6 +12,7 @@ const TRACES: [string, string][] = [
   ["newgame2", "New Game with A held through the prologue (a tile a frame), its pause, the name entry screen"],
   ["battle1", "the opening simulator battle: entities, monster pictures, slide, battle script up to the command menu"],
   ["battle2", "the opening battle's first round: Fight, every member's command and target, the actions"],
+  ["battle3", "the opening battle to its end: every round with the default commands and targets"],
   ["newgame3", "the names: letters, cursor wrapping, B, Start (empty: buzzer), back a member; fade into the opening"],
 ];
 

@@ -141,7 +141,7 @@ export class Game {
         this.resume();
       }
       if (took && this.waiting === POLL && this.pollFor?.()) this.resume();
-      if (this.waiting === LINE && this.reached()) this.resume();
+      if (this.waiting === LINE && this.reached() && !this.work) this.resume();
       if (this.waiting === BUSY && this.frame === this.busyUntil && this.vblankTaken) this.resume();
       if (ly < 144) this.onLine?.(ly);
     }
@@ -187,9 +187,14 @@ export class Game {
       }
       if (r.done) { this.done = true; return; }
       const k = r.value ?? WAIT;
-      if (k === IRQ) { this.serve(); continue; }
+      if (k === IRQ) {
+        this.serve();
+        // a handler taken here whose work goes on (CPU time): the code waits for its end
+        if (this.work) { this.lineAt = this.work.end; this.waiting = LINE; return; }
+        continue;
+      }
       if (k === VBLANK && this.ly >= 144 && this.frame >= this.syncFrame) continue;
-      if (k === LINE && this.reached()) continue;
+      if (k === LINE && this.reached() && !this.work) continue;
       if (k === BUSY) this.busyUntil = this.nextVblankFrame();
       this.waiting = k;
       return;
