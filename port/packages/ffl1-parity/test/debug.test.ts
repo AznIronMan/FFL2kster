@@ -15,7 +15,7 @@ describe.skipIf(!name || !haveRom() || !haveTrace(name))("FFL1 debug replay", ()
       const u = rig.engine.battleUi as unknown as { coverage: Record<string, number> };
       cov = () => `handlers ${JSON.stringify(b.coverage)} screens ${JSON.stringify(u.coverage)}`;
     } });
-    console.log(`waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} tears ${r.tears} raster ${r.rasterEdges} blank ${r.lcdBlanks} rephased ${r.rephased} seeds ${r.seeds} diffs ${r.diffs.length} waitdiffs ${r.waits.length} error ${r.error ? r.error.message + " @" + r.error.wait : "-"}`);
+    console.log(`waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} tears ${r.tears} raster ${r.rasterEdges} blank ${r.lcdBlanks} lateRegs ${r.lateRegs} rephased ${r.rephased} seeds ${r.seeds} diffs ${r.diffs.length} waitdiffs ${r.waits.length} error ${r.error ? r.error.message + " @" + r.error.wait : "-"}`);
     console.log(summarizeWaits(r.waits));
     console.log(summarize(r.diffs));
     if (cov) console.log((cov as () => string)());

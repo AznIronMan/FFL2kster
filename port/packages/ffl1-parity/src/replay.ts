@@ -18,6 +18,9 @@ export interface FrameDiff {
   frame: number;
   pixels: number;
   got?: Uint8Array;
+  /** Diagnostics: the frame came after busy frames; the port switched the LCD off in it. */
+  afterBusy?: boolean;
+  lcdOff?: boolean;
   raster?: boolean;
 }
 
@@ -44,9 +47,44 @@ export interface ReplayOptions {
 export interface ReplayResult {
   trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number;
   lateWrites: number; rephased: number; tears: number; rasterEdges: number; lcdBlanks: number;
+  /** Frames whose top lines are drawn with the LCD registers as they were before the step, down
+   *  to the line the writes caught up (lateLines with the old registers). */
+  lateRegs: number;
   /** Starts (00:0224) whose DIV-seeded random counters C300-C37F were taken from the trace. */
   seeds: number;
   error?: { message: string; wait: number };
+}
+
+/** LCD registers written during the display (the original's code reached the writes after
+ *  line 0): the top lines drawn as before the writes (`old`: the port's picture redrawn with the
+ *  registers as they were at the frame's start), the rest as after; the line where the writes
+ *  caught up is old up to some pixel and new from there, or mixed by 8-pixel tile segments. */
+export function lateLines(exp: Uint8Array, got: Uint8Array, old: Uint8Array): boolean {
+  const W = 160;
+  const rowIs = (src: Uint8Array, y: number) => {
+    for (let x = 0; x < W; x++) if (exp[y * W + x] !== src[y * W + x]) return false;
+    return true;
+  };
+  let y = 0;
+  while (y < 144 && rowIs(old, y)) y++;
+  if (y === 0 || y === 144) return false;
+  let split = 0;
+  while (split < W && exp[y * W + split] === old[y * W + split]) split++;
+  let rest = split;
+  while (rest < W && exp[y * W + rest] === got[y * W + rest]) rest++;
+  if (rest < W) {
+    for (let x0 = 0; x0 < W; x0 += 8) {
+      let o = true, n = true;
+      for (let x = x0; x < x0 + 8; x++) {
+        const i = y * W + x;
+        if (exp[i] !== old[i]) o = false;
+        if (exp[i] !== got[i]) n = false;
+      }
+      if (!o && !n) return false;
+    }
+  }
+  for (y++; y < 144; y++) if (!rowIs(got, y)) return false;
+  return true;
 }
 
 /** A frame drawn while VRAM was being written: every pixel is the port's (new) or an old
@@ -148,7 +186,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   const ign = opts.ignore ?? IGNORE;
   const diffs: FrameDiff[] = [];
   const waits: WaitDiff[] = [];
-  let nWaits = 0, f = -1, tickPhase = 0, busy = 0, rephased = 0, tears = 0, rasterEdges = 0, lcdBlanks = 0;
+  let nWaits = 0, f = -1, tickPhase = 0, busy = 0, rephased = 0, tears = 0, rasterEdges = 0, lcdBlanks = 0, lateRegs = 0;
   const latchPpu = new Ppu(m.vram, m.oam);
   let lastDrawn = -1;
   let pre: Uint8Array | null = null;
@@ -233,6 +271,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     if (!pixels) { lastGot = rig.ppu.frame.slice(); continue; }
     if (blank) { lcdBlanks++; continue; }
     if (lastGot && lateWrite(rig.ppu.frame, exp, lastGot)) { lateWrites++; lastGot = rig.ppu.frame.slice(); continue; }
+    if (opts.tears !== false && lateLines(exp, rig.ppu.frame, rig.redrawFrom(m.vram, regsFromIo(io0)))) { lateRegs++; lastGot = rig.ppu.frame.slice(); continue; }
     // a polled raster frame: lines whose register write landed a line early or late
     if (rig.raster && opts.tears !== false && rasterRows(rig, exp)) { rasterEdges++; lastGot = rig.ppu.frame.slice(); continue; }
     // drawn while the original wrote VRAM line by line (00:069F): every pixel old or new
@@ -253,9 +292,9 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
       const olds = [lastGot, f > 0 ? t.screens.subarray((f - 1) * FRAME_BYTES, f * FRAME_BYTES) : null].filter((x): x is Uint8Array => !!x);
       if (splitTear(exp, rig.ppu.frame, latched, olds)) { tears++; lastGot = rig.ppu.frame.slice(); continue; }
     }
-    diffs.push({ frame: f, pixels, got: rig.ppu.frame.slice() });
+    diffs.push({ frame: f, pixels, got: rig.ppu.frame.slice(), afterBusy: f - prevDrawn > 1, lcdOff: rig.lcdOff });
   }
-  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, seeds, error };
+  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, lateRegs, seeds, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {
@@ -263,7 +302,7 @@ export function summarizeWaits(w: WaitDiff[]): string {
 }
 
 export function summarize(diffs: FrameDiff[]): string {
-  return diffs.slice(0, 10).map((d) => `f${d.frame}: px ${d.pixels}`).join("\n");
+  return diffs.slice(0, 10).map((d) => `f${d.frame}: px ${d.pixels}${d.afterBusy ? " after-busy" : ""}${d.lcdOff ? " lcd-off" : ""}`).join("\n");
 }
 
 // ---------------------------------------------------------------- comparison filters

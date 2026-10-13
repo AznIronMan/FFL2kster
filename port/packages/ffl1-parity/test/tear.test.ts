@@ -1,6 +1,6 @@
 /** splitTear (replay.ts): frames the original finished drawing during the display. */
 import { describe, expect, it } from "vitest";
-import { splitTear } from "../src/replay.js";
+import { splitTear, lateLines } from "../src/replay.js";
 
 const W = 160, H = 144;
 const pic = (f: (x: number, y: number) => number) => {
@@ -39,5 +39,31 @@ describe("splitTear", () => {
     const e = split(OLD, WIN, 119);
     expect(splitTear(e, NEW, null, [OLD])).toBe(false);
     expect(splitTear(e, NEW, WIN, [OLD])).toBe(true);
+  });
+});
+
+describe("lateLines", () => {
+  it("accepts old lines down to a line, new below", () => {
+    expect(lateLines(split(OLD, NEW, 7), NEW, OLD)).toBe(true);
+  });
+  it("accepts the boundary line split at a pixel or mixed by tiles", () => {
+    const e = split(OLD, NEW, 7);
+    for (let x = 0; x < 50; x++) e[7 * W + x] = OLD[7 * W + x]!;
+    expect(lateLines(e, NEW, OLD)).toBe(true);
+    const t = split(OLD, NEW, 7);
+    for (let x = 16; x < 24; x++) t[7 * W + x] = OLD[7 * W + x]!;
+    expect(lateLines(t, NEW, OLD)).toBe(true);
+  });
+  it("rejects two mixed lines, new above old, old in the middle, stray pixels, whole frames", () => {
+    const two = split(OLD, NEW, 7);
+    for (let x = 16; x < 24; x++) { two[7 * W + x] = OLD[7 * W + x]!; two[8 * W + x] = OLD[8 * W + x]!; }
+    expect(lateLines(two, NEW, OLD)).toBe(false);
+    expect(lateLines(split(NEW, OLD, 7), NEW, OLD)).toBe(false);
+    const mid = pic((x, y) => (y >= 20 && y < 30 ? OLD : NEW)[y * W + x]!);
+    expect(lateLines(mid, NEW, OLD)).toBe(false);
+    const stray = split(OLD, NEW, 7);
+    stray[100 * W + 5] = 3 - NEW[100 * W + 5]!;
+    expect(lateLines(stray, NEW, OLD)).toBe(false);
+    expect(lateLines(OLD, NEW, OLD)).toBe(false);
   });
 });

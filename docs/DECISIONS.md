@@ -473,3 +473,14 @@ Decisions and assumptions for the Legend I work:
   the replay copies these 128 bytes from the trace's next frame-wait snapshot (no random draw comes
   before it) and counts it (`seeds`); the player uses Math.random, which is as unpredictable to the
   player as the hardware value.
+
+## 2026-10-13 — Legend I replay: late VRAM and register writes; residual frames
+
+- lateRegs (counted): a frame whose top lines are drawn as before the step's writes (with the
+  LCD registers as they were when the step began) and the rest as
+  after, the line where the writes caught up old up to some pixel or mixed by 8-pixel tiles. This
+  is lateWrite's case when the previous picture is not a valid "old" (an object moved in the same
+  frame). Only the frames that fail every exact check reach it.
+- Residual frames are kept as exact expectations ([frame, pixels]) in the sweep test rather than
+  absorbed by a looser rule: today two half-written tile rows during busy stretches. A rule that
+  accepts a pixel mixed bit by bit from old and new tile data would hide real tile errors.

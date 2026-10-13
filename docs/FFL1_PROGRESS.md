@@ -16,7 +16,8 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
       changes with neighbour controls, emulator acceptance tests) — M1–M7, see FINDINGS
 - [x] A3. Web player loads the FFL1 data package and plays the vertical slice — checked in the
       built app (1.15.0), with music since 1.16.0 (see the log)
-- [ ] A4. Field and battle parity sweeps recorded with counts against the original ROM
+- [x] A4. Field and battle parity sweeps recorded with counts against the original ROM — field 200
+      traces (every map), battle 24 traces + slice 17 (see the log; 2 residual frames documented)
 - [ ] A5. All suites green (FFL2kster suite and its byte-identical no-op build included), CI green
 
 ## Milestone 1 — one verified enemy-data slice
@@ -62,7 +63,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 |---|---|---|
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
 | P1 vertical slice | in progress | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 16 traces, 0 differences); sound driver and the web player to come |
-| P2 full field | not started | |
+| P2 full field | in progress | field sweep: every map (200) entered through its first warp and walked: 159,508 waits, 0 state differences; 198/200 traces frame-exact, 2 residual frames (VRAM half-written during a busy stretch) |
 | P3 full battle | in progress | battle sweep 24 traces (bsw01-bsw24), 63,885 waits, 0 differences; 44 of 49 effect handlers and every reachable screen effect / boss death reached (see the log); flee, defeat, random encounters, the sound driver to come |
 | P4 platforms | not started | |
 | P5 extras | not started | |
@@ -298,3 +299,33 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 - Web player: Legend I now plays with sound (same APU model, worklet and settings as Legend II:
   mute, M key, latency); checked in the built app: AudioContext running, title song 14, APU
   writes flowing, PCM RMS 0.10 (not listened to).
+
+### 2026-10-13 — Field sweep (P2)
+- `tools/ffl1/traces.py` FIELD_SWEEP: for each of the 200 maps the first warp leading to it
+  (bank 02:52D0, 474 warps of 3 bytes), poked as the warp event at the field loop from the first
+  town (C3A9 = 05 / 06, C3AA = the warp's low byte, C5BA = 0 — a freshly loaded map ignores warps
+  until the first step, which is why the first attempt without it never left the town), then 3
+  steps each way and A, twice (820 frames). Recorded in about 10 s each, 4 at a time.
+- `port/packages/ffl1-parity/test/fieldsweep.test.ts`: 200 traces, 159,508 waits, **0 wait
+  (state) differences**; maps reached 184 of 200 at the end (the rest walked out through an exit
+  or into a battle); event commands seen 0, 3, 5, 6, 7, 8, 9, D; 9 battles (encounters on the
+  world maps). Counted rules: lateWrite 289, lateRegs 18 (below), others 0.
+- New counted rule lateRegs: the top lines drawn as before the step (with the LCD registers as
+  they were when it began; a VRAM variant accepted nothing and was dropped), the rest as after, the line where the writes
+  caught up old up to some pixel or mixed by tile. The 18 frames are scroll changes (SCX) that the
+  original made after line 0 in rooms where an object moves at the same time, so lateWrite (the
+  whole top equal to the previous picture) does not fit (fsw077, 110, 112, 124, 199: every 20
+  frames, lines 0-6 or 0-17).
+- Residual (2 frames, kept as exact expectations in the test): fsw101 f126 (10 px) and fsw097 f147
+  (590 px), each the first frame after a busy stretch in which the original was still clearing tile
+  data: in fsw101 one line shows colour 3 as 2, a tile row whose low bitplane byte is written and
+  high one not yet; fsw097 shows rows 0-79 old tile by tile with 3 pixels neither (probably the
+  same). The port completes a step's writes before the display, so it cannot draw half-written
+  tile rows; the machine state at every wait is identical.
+- Two rules tried for these residuals accepted nothing in either sweep and were removed: mixTear
+  after any busy stretch, and lines drawn with intermediate LCD register values of the step.
+- Falsification: unit tests (tear.test.ts) — lateLines accepts old-then-new with one split or
+  tile-mixed line and rejects two mixed lines, new above old, old lines in the middle, a stray
+  pixel and a whole old frame. The first sweep (without the C5BA poke) stayed in the town in the
+  original and the port alike (state equal, 200/200 passing), which is why the maps reached are
+  part of the output.

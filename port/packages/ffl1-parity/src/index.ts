@@ -63,6 +63,17 @@ export class Rig {
     }
     return p.frame;
   }
+  /** The last frame drawn again from a VRAM (each line with its registers), or with fixed
+   *  registers. */
+  redrawFrom(vram: Uint8Array, regs?: LcdRegs): Uint8Array {
+    const p = new Ppu(vram, this.g.m.oam);
+    p.beginFrame();
+    for (let k = 0; k < 144; k++) {
+      p.regs = regs ?? this.lineRegs[k]!;
+      p.line(k);
+    }
+    return p.frame;
+  }
   get g() {
     return this.engine.g;
   }

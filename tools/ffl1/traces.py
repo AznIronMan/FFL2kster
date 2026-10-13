@@ -144,9 +144,32 @@ PLANNED["flee1"] = ("town0", FIELD, [("wait", 240)] + [P("down"), P("a", 90)] * 
 # (06:6298 jp 00:0101 -> 00:0224) and the title
 PLANNED["defeat1"] = ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * 70 + [("wait", 300)])
 
+# Field sweep (P2): every map, entered through the first warp (bank 02:52D0, 3 bytes: map, x, y)
+# that leads to it — the warp event poked at the field loop (C3A9 = 05 for warps 0-FF, 06 for
+# 100+; C3AA = the warp's low byte; C5BA = 0: a map just loaded ignores warps until the first step)
+# from the first town — then a walk: 3 steps each way, A, twice.
+WARP_TABLE, WARP_COUNT = 2 * 0x4000 + 0x12D0, 474
+
+
+def _field_sweep():
+    rom = open("ffl1/input/original.gb", "rb").read()
+    first = {}
+    for n in range(WARP_COUNT):
+        first.setdefault(rom[WARP_TABLE + 3 * n], n)
+    return {f"fsw{mp:03d}": n for mp, n in sorted(first.items())}
+
+
+FIELD_SWEEP = _field_sweep()
+_WALK = ([("press", "up", 16, 4)] * 3 + [("press", "right", 16, 4)] * 3 + [("press", "down", 16, 4)] * 3
+         + [("press", "left", 16, 4)] * 3 + [P("a", 60)]) * 2
+for _n in FIELD_SWEEP:
+    PLANNED[_n] = ("town0", FIELD, [("wait", 90)] + _WALK + [("wait", 120)])
+
 # Fixture pokes applied at the hook (address, value[, mask]), by the planner and the recorder alike.
 POKES = {
     **{_n: battle_pokes(_area, _ms) for _n, (_area, _ms, _k) in SWEEP.items()},
+    **{_n: [(0xC5BA, 0x00), (0xC3A9, 0x06 if _w >= 0x100 else 0x05), (0xC3AA, _w & 0xFF), (0xC3AB, 0x01)]
+       for _n, _w in FIELD_SWEEP.items()},
     "care1": [(0xCC0F, 0x84), (0xCC10, 0x05), (0xCC06, 0x0A), (0xCC07, 0x00)],
     "battle1": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
     "flee1": battle_pokes(16, [dict(items=[0x37])] * 4),
