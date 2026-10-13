@@ -65,13 +65,14 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 | Phase | Status | Evidence |
 |---|---|---|
 | P0 importer | done (1.30.0) | `@ffl3k/importer` = the Python data package for every record, script, layout, patch list and music stream, and the graphics/map-buffer hashes (`tools/ffl3/golden_export.py`); `importFfl3Rom` hash gate (verified / labelled unverified), 16 bank segments; golden test skipped without the ROM |
-| P1 vertical slice | in progress (1.31.0: first checkpoint) | `@ffl3k/core` runtime (frame clock, interrupts, VRAM bracket, bank stack, copies, decompressor, fades), title 01:7C79, menu input 00:1E51 + key repeat, text 00:3211 (literal runs, line at once, newline), party sprites; `@ffl3k/parity` replay: title1 373/373 waits, title2 313/313 waits identical (2 traces, 743 frames: 15 busy-frame tears and 1 late-object frame each) |
+| P1 vertical slice | in progress (1.31.0, 1.32.0 checkpoints) | `@ffl3k/core` runtime (frame clock, interrupts, VRAM bracket, bank stack, copies, decompressor, fades), title 01:7C79, menu input 00:1E51 + key repeat; 1.32.0: New Game 01:7D40, text engine (dictionary, control and scene codes), script references 00:2EF8, events 00:1236 (doors, specials), map load 00:027D, window slide 00:35AF/35D2, field frame work 00:3575 (map animations 01:54A0, objects 00:01A0); `@ffl3k/parity` replay: title1 373/373, title2 313/313, newgame1 1117/1117 waits identical (3 traces, 2,009 frames; newgame1: 7 busy frames, 147 line tears, 2 transient OAM waits) |
 | P2-P5 | not started | |
 
 ## Log
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
 - 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).
+- 2026-10-13 (1.32.0): P1 second checkpoint — New Game to the prologue map, text window and text, wait-exact (newgame1); tests/ffl3 63 passed (20 emulator).
 - 2026-10-13 (1.31.0): P1 first checkpoint — the title frame-exact (2 traces).
 - 2026-10-13 (1.30.0): P0 — `@ffl3k/importer` golden-equal to the Python reference; map 11 patch overflow found and verified; tests/ffl3 63 passed (20 emulator; the 1.28.0/1.29.0 lines overstated by one each: 1.29.0 was 61 / 19).
 - 2026-10-13 (1.29.0): M7 music and the data package; tests/ffl3 62 passed (21 emulator).

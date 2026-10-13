@@ -5,7 +5,7 @@ import { bracketEnter, copy, decompress, pushBank, popBank, far0, farcall, farSy
   lowBit, soundOk, soundBuzz, wait1 } from "./sys.js";
 import { resetSprites } from "./sprites.js";
 import { printText } from "./text.js";
-import { NotPorted } from "./irq.js";
+import { titleChoice } from "./newgame.js";
 
 /** 0B:6D22 — the key repeat pause after a menu action: a direction held (or pressed) waits up
  *  to 15 frames (8 for a new press; CD38 set: 14), A/B/Start 30, Select held 1; any new press
@@ -108,8 +108,10 @@ export function* title(g: Game): Co<TitleChoice> {
   let choice: TitleChoice | null = null;
   yield* menuInput(g, function* (i) {
     if (i === 0) {
-      choice = m.rd(0xc080) === 0x68 ? "new" : "continue";
-      throw new NotPorted("01:7D21 (the title choice)");
+      const c = m.rd(0xc080);
+      choice = c === 0x68 ? "new" : "continue";
+      yield* titleChoice(g, c);
+      return true;
     }
     if (i >= 6) { m.wr(0xc080, m.rd(0xc080) ^ 0x10); return false; }
     yield* soundBuzz(g);

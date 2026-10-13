@@ -57,3 +57,5 @@
 00:3E26   # tile animation step (called by 00:1EFA)
 00:11E4   # STAT handler
 00:121D   # STAT handler
+00:3631   # STAT handler of the text window slide (installed at C0BC by 00:35F0)
+00:366E   # wait for the next hblank (used by 00:3631)

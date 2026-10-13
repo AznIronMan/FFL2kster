@@ -75,6 +75,14 @@ export interface Trace {
   oam: Uint8Array;
   waits: Uint8Array;
   waitFrames: number[];
+  /** The frames of the original's vblank polls in the bracket (00:1E35); -1: the hook's frame. */
+  syncs: number[];
+  /** [frame, LY] of the original's entries to 00:1D9E / 00:1DFD (di before the poll). */
+  polls: [number, number][];
+  /** [frame, LY, end frame, end LY] of the original's runs of the frame work 00:3557. */
+  works: [number, number, number, number][];
+  /** [frame, LY] at which each frame wait began (00:3A6D). */
+  starts: [number, number][];
   prevScreen?: Uint8Array;
 }
 
@@ -92,6 +100,11 @@ function undelta(gz: Uint8Array, size: number, first?: Uint8Array): Uint8Array {
   return out;
 }
 
+function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts"> {
+  const w = JSON.parse(readFileSync(f, "utf8"));
+  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [] };
+}
+
 export function loadTrace(name: string): Trace {
   const d = resolve(TRACES, name);
   const rd = (f: string) => new Uint8Array(readFileSync(resolve(d, f)));
@@ -102,7 +115,7 @@ export function loadTrace(name: string): Trace {
     tick: existsSync(resolve(d, "tick.bin")) ? rd("tick.bin") : new Uint8Array(0),
     oam: existsSync(resolve(d, "oam.bin")) ? rd("oam.bin") : new Uint8Array(0),
     waits: undelta(rd("waits.dx.gz"), 0x8000, start),
-    waitFrames: JSON.parse(readFileSync(resolve(d, "waits.json"), "utf8")).frames,
+    ...waitsJson(resolve(d, "waits.json")),
     ...(existsSync(resolve(d, "prev.bin")) ? { prevScreen: rd("prev.bin") } : {}),
   };
 }

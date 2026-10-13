@@ -100,3 +100,5 @@ both ROMs; differences are listed first because they are the valuable part.
   that swaps the interrupt handlers, not by a line-paced STAT handler as in Legend I. The
   port-side design (generators, original RAM, busy frames from the trace) carries over; the busy
   frames are taken at the wait's start because Legend III's copies span several frames.
+  Legend III's interrupt-time frame work (00:3557, up to ~90 lines of hblank-paced copies) can
+  nest a second STAT (only the sound runs, CDC5 set); the replay takes its end from the trace.

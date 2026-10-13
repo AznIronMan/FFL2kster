@@ -14,11 +14,11 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:11A2 | vblank handler (via C0B9) | verified (hook) |
 | 00:11E3 | STAT handler (via C0BC): reti | verified (hook) |
 | 00:11A2 work | DMA (CD39 = 0), joypad 00:36F1, CA26, then while FF95 counts: FF95 - 1, the tile list C100 (00:3757), FF93/94 + 1; scroll 00:3D2B, shake 00:108F, sound 00:1F3A | probable (code; normal mode not yet in a trace) |
-| 00:1D9E / 00:1DFD | VRAM bracket enter / leave (nested, CDCE): IE/STAT/LYC and vectors saved to CDD0/CDCF/CDCA/CDC7/CDCB; IE \| 3, STAT 40, LYC 3, STAT -> 00:1F27, vblank -> 00:1EFA; both poll for mode 1 with interrupts off, then reti | verified (parity title1/title2) |
+| 00:1D9E / 00:1DFD | VRAM bracket enter / leave (nested, CDCE): IE/STAT/LYC and vectors saved to CDD0/CDCF/CDCA/CDC7/CDCB; IE \| 3, STAT 40, LYC 3, STAT -> 00:1F27, vblank -> 00:1EFA; di at the entry, then the switch, then the poll for mode 1, then reti (interrupts that came meanwhile are taken by the new handlers) | verified (parity title1/title2/newgame1; hooks) |
 | 00:1D98 / 00:1DF3 | CD3D + 1 then enter / leave then CD3D - 1 | verified (parity) |
 | 00:1EFA | bracket vblank: 00:3E26 sprite flip (CBFF), DMA, joypad, CDAF \|= FF8B, FF93/94 + 1, FF95 - 1 | verified (parity) |
 | 00:1F27 | bracket STAT (LYC 3): sound (00:1F3A, bank 0F pushed), then 00:3549 while CD3D | verified (parity) |
-| 00:3549 / 00:3557 | once (CDC5): CDC4 or WY = 50 -> bank 01 00:3575 (field work); else 00:2192 party figures + 00:1ED7 | verified (parity, title path) |
+| 00:3549 / 00:3557 | once (CDC5): CDC4 or WY = 50 -> bank 01 00:3575 (field work, then di); else 00:2192 party figures + 00:1ED7; ends back at 00:3552 | verified (parity title1/title2/newgame1; hooks) |
 | 00:3A6D / 00:3A6B | frame wait: FF95 = n (1), halt until 0 (00:3A77) | verified (parity) |
 | 00:36F1 | joypad: FF8A held (A B Sel Start low, R L U D high), FF8B new presses | verified (parity) |
 
@@ -211,3 +211,18 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 09:40E8 / 0B:7DCA / 0B:7E17 | sprite reset: member sprite tiles (bank 04 by 0B:6DC7, mirrored for a status) to 8000, shared tiles bank 03 5700-57BF to 8180; OAM buffer C000 | verified (parity) |
 | 00:21A9 | party walking figures in C000 / C050 (CD3C), frame by FF93 bit 4, type by 0B:748F (00:2315 / 00:2322) | verified (parity) |
 | 00:2205 | cursor step C080 (CD15 bit 7) | probable (code; CD15 clear in the traces) |
+
+## New game, map load, events, window (port P1)
+
+| Location | What | Status |
+|---|---|---|
+| 01:7D21 / 01:7D40 | title choice; New Game: party records copied, window clear 01:7DFD, CA6E, window off, prologue text 09:5EAD (then 01:7D75 names, not ported yet) | verified (parity newgame1) |
+| 00:027D | map load: zone override 00:0409, CA6B before/after, layout pointer 00:0E1C, layout 00:0F42 (C100 -> 9C00, then back), patches 01:78F5 / 01:7926, tiles 00:0535 / 00:0427 (shared 01:7F00, tilesets 01:7F5B, town test 01:418A), objects 00:05BF (talked 00:0715, pair 00:0730), leader 00:054D, slot 1 01:4F2B, view 00:0E34 (cell 00:0D14, pointer 00:0DB3, BG address 00:0DE4; blocks hidden by bit 6 and CA12, 01:5EA6) | verified (parity newgame1) |
+| 00:2EF8 | script reference (lo, hi): hi < 40 event (CA28/CA29, 0F:7DD4 closes the window for some types, 00:1236), else text in bank 09 (40-7F), 0A (80-BF), 03 (C0-FF) | verified (parity) |
+| 0B:6C35 / 0B:6C4C | text scene codes -> event types (32 26, 3D 28, 3B 27, 13 1D, 12 1C, 3F 1B, 0A 10, 0D 0E, 38 12) | verified (parity, 0D/38 used) |
+| 00:1236 | event dispatcher (CA29 & 3F; CD3D cleared meanwhile): 0D/0E door 00:1389 (06:6BA4 + 3(n-1)), 12 special 00:16B9, 06/07 and >= 2D (but 2F, 3F) nothing | verified for 0E, 12 (parity) |
+| 00:1B64 | return point C7C9-C7CB for maps below 0A, one step back against the facing | verified (parity) |
+| 00:35AF / 00:35D2 / 00:27AB | text window open / close / toggle (code 14): slide 6B -> 51 (2 lines a frame) with STAT 00:3631 (BGP flashes, WX on/off, LYC mirrored around 6E), a sound tick and the field work per frame | verified (parity) |
+| 00:3575 | field frame work: map animation 01:54A0 (CA6F guard; CA18 mode table at 01:54B4), objects 00:01A0, scroll 00:3D2B, shake 00:108F, objects under the window hidden (00:3A32) | verified (parity) |
+| 01:5993 / 01:5814 / 01:5730 / 01:57A9 | water (mode 22, every 32 frames), falls (mode 23: strip 9080/9180 every 8 frames, 9600/9610 rolled down every 4), strip scroll (ends with reti), tile roll | verified (parity) |
+| 00:3211 and helpers | text engine: flush 00:331B, line at once 00:3357, tile by tile 00:338E (delay 00:3593), box scroll 00:342C / 00:34B2, dictionary 00:308C / 00:30B8, wait for A 00:275C | verified (parity) |

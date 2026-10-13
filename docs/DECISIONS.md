@@ -556,3 +556,12 @@ Decisions and assumptions:
   every pixel new or old (tear), or in/just after a busy stretch equal to the port's picture with
   the original's objects of the previous frame (late OAM writes; the objects are compared at the
   next wait). Traces now also record the OAM per frame (oam.bin).
+- 1.32.0: more CPU time is taken from the trace, by the same principle: the frame and line of
+  each VRAM bracket entry (the port spends the time before it with the interrupts on, then
+  disables them, switches the handlers and polls, as the original), and the end of each
+  interrupt-time frame work 00:3557 (its hblank-paced copies; CDC5 held until then). In play,
+  without a trace, both happen at once — the difference is at most a waterfall pixel. New counted
+  screen rule: line tears (differences only on lines the original was still writing, showing an
+  old picture; at most two half-written lines). OAM-only wait differences that a later wait shows
+  equal again are counted as transient (the interrupts' sprite work saw a half-done copy). The
+  replay requires every bracket entry and poll on time and every work matched by frame.

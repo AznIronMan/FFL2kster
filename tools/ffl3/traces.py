@@ -18,6 +18,8 @@ SCENARIOS = {
     # the title menu: cursor down/up, B and Start (buzzer), Select, a direction held (key repeat)
     "title2": ("boot", TITLE, "none:60,down:3,none:30,up:3,none:30,b:3,none:40,start:3,none:40,select:3,none:20,"
                               "down:45,none:30,left:3,none:30"),
+    # New Game: the prologue text over the world scene (map 0D), then on
+    "newgame1": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:1200"),
 }
 
 

@@ -6,6 +6,12 @@ compact storage). Per trace directory build/traces/NAME:
   trace.json    state, hook, pokes, plan, per-frame buttons and LCD registers ("lean": true)
   hram.bin      FF80-FFFF after every frame (128 bytes per frame)
   oam.bin       FE00-FE9F after every frame (160 bytes per frame)
+  waits.json    also "syncs": the frame of every end of the VRAM bracket's mode-1 poll (00:1E35, after
+                00:1D9E / 00:1DFD), which the port's replay aligns its own polls to, and "polls": [frame, LY]
+                of every entry to 00:1D9E / 00:1DFD (di: the interrupts stay off until the poll's reti), and
+                "works": [frame, LY, end frame, end LY] of every run of the frame work 00:3557 (from 00:3549,
+                CDC5 0 -> 1; it ends back at 00:3552), whose hblank-paced VRAM copies span lines, and
+                "starts": [frame, LY] at which each frame wait began (00:3A6D)
   tick.bin      CB00 (the music tempo accumulator, advanced by every sound tick) and FF93 (the vblank frame
                 counter) after every frame
   prev.bin      the screen of the frame before the hook (160x144 shades)
@@ -75,15 +81,42 @@ class Recorder:
             start["frame"] = pb.frame_count
             start["ly"] = pb.memory[0xFF44]
 
+        wait_starts, arm_at = [], [None]
+
         def arm(_):
             if start:
                 armed[0] = True
+                arm_at[0] = [nframes[0] if recording[0] else -1, pb.memory[0xFF44]]
+
+        syncs, recording = [], [False]
+
+        def at_sync(_):
+            if start:
+                syncs.append(nframes[0] if recording[0] else -1)  # -1: the rest of the hook's frame
+
+        polls = []
+
+        def at_poll(_):
+            if start:
+                polls.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
+
+        works, open_work = [], []
+
+        def at_work(_):
+            if start:
+                open_work[:] = [nframes[0] if recording[0] else -1, pb.memory[0xFF44]]
+
+        def at_work_end(_):
+            if start and open_work and pb.memory[0xCDC5] == 1:
+                works.append(open_work + [nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
+                open_work.clear()
 
         def at_halt(_):
             if armed[0]:
                 armed[0] = False
                 waits.append(bytes(pb.memory[0x8000:0x10000]))
                 wait_frames.append(nframes[0])
+                wait_starts.append(arm_at[0])
         mark_mem, mark_meta = bytearray(), []
 
         def mk_mark(bank, addr):
@@ -113,6 +146,11 @@ class Recorder:
             pb.hook_register(mb, ma, mk_mark(mb, ma), None)
         pb.hook_register(0, 0x3A6D, arm, None)
         pb.hook_register(0, 0x3A77, at_halt, None)
+        pb.hook_register(0, 0x1E35, at_sync, None)
+        pb.hook_register(0, 0x1D9E, at_poll, None)
+        pb.hook_register(0, 0x1DFD, at_poll, None)
+        pb.hook_register(0, 0x3557, at_work, None)
+        pb.hook_register(0, 0x3552, at_work_end, None)
         try:
             for _ in range(max_pre):
                 pb.tick(1, True)
@@ -123,6 +161,7 @@ class Recorder:
                 raise RuntimeError(f"{name}: hook {hb:02X}:{ha:04X} not reached")
             prev = LUT[np.asarray(pb.screen.ndarray)[:, :, 0]].tobytes()  # last frame before the hook
             screens, hram, frames, held = [], bytearray(), [], set()
+            recording[0] = True
             tick = bytearray()
             oam = bytearray()
             si = 0
@@ -159,6 +198,11 @@ class Recorder:
         finally:
             pb.hook_deregister(0, 0x3A6D)
             pb.hook_deregister(0, 0x3A77)
+            pb.hook_deregister(0, 0x1E35)
+            pb.hook_deregister(0, 0x1D9E)
+            pb.hook_deregister(0, 0x1DFD)
+            pb.hook_deregister(0, 0x3557)
+            pb.hook_deregister(0, 0x3552)
             for mb, ma in marks:
                 pb.hook_deregister(mb, ma)
             for (sb, sa), _st in switch:
@@ -177,7 +221,8 @@ class Recorder:
         open(f"{out}/prev.bin", "wb").write(prev)
         open(f"{out}/screens.dx.gz", "wb").write(_dx(screens, 160 * 144))
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
-        json.dump({"frames": wait_frames}, open(f"{out}/waits.json", "w"))
+        json.dump({"frames": wait_frames, "syncs": syncs, "polls": polls, "works": works,
+                   "starts": wait_starts}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
                    "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))

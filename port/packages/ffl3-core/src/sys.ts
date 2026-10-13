@@ -141,11 +141,13 @@ function bracketWork(g: Game): void {
   if (g.m.rd(0xcd3d)) g.hooks.statWork?.(g);
 }
 
-/** 00:1D9E — enter the VRAM bracket (nested: CDCE counts): the first level saves IE, STAT, LYC
- *  and the interrupt vectors, enables vblank + STAT at LYC 3 with the handlers 00:1F27 (STAT) and
- *  00:1EFA (vblank); then waits for mode 1 and returns with reti. */
-export function* bracketEnter(g: Game): Co {
+/** 00:1D9E — enter the VRAM bracket (nested: CDCE counts): di; the first level saves IE, STAT,
+ *  LYC and the interrupt vectors, enables vblank + STAT at LYC 3 with the handlers 00:1F27 (STAT)
+ *  and 00:1EFA (vblank); then waits for mode 1 and returns with reti (the interrupts pending
+ *  meanwhile are taken by the new handlers). */
+export function* bracketEnter(g: Game, timed = false): Co {
   const m = g.m;
+  if (!timed) yield* g.pollStart();
   g.ime = false;
   const n = m.rd(0xcdce);
   m.wr(0xcdce, n + 1);
@@ -166,10 +168,12 @@ export function* bracketEnter(g: Game): Co {
   yield* g.reti();
 }
 
-/** 00:1DFD — leave the VRAM bracket: the last level restores IE, STAT, LYC and the vectors;
- *  then waits for mode 1 and returns with reti. */
+/** 00:1DFD — leave the VRAM bracket: di; the last level restores IE, STAT, LYC and the vectors;
+ *  then waits for mode 1 and returns with reti (as 00:1D9E: a STAT at LYC 3 that came during the
+ *  poll is taken by the restored handler). */
 export function* bracketLeave(g: Game): Co {
   const m = g.m;
+  yield* g.pollStart();
   g.ime = false;
   const n = (m.rd(0xcdce) - 1) & 0xff;
   m.wr(0xcdce, n);
@@ -185,10 +189,12 @@ export function* bracketLeave(g: Game): Co {
   yield* g.reti();
 }
 
-/** 00:1D98 — CD3D + 1, enter the bracket. */
+/** 00:1D98 — CD3D + 1, enter the bracket (the CPU time before it spent first: CD3D turns the
+ *  STAT handler's frame work on). */
 export function* textBegin(g: Game): Co {
+  yield* g.pollStart();
   g.m.wr(0xcd3d, g.m.rd(0xcd3d) + 1);
-  yield* bracketEnter(g);
+  yield* bracketEnter(g, true);
 }
 
 /** 00:1DF3 — leave the bracket, CD3D - 1. */

@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.31.0`
+Version: `1.32.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,14 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.32.0` — Legend III port P1, second checkpoint: New Game through the prologue's first map —
+  the party set-up, the text engine (dictionary, control and scene codes), script references and
+  the event dispatcher (doors, specials), the map load (layout, tiles, objects, leader, view), the
+  text window's slide (a STAT raster) and the field frame work (map animations, objects). The
+  `newgame1` trace (1,266 frames) is wait-exact (1,117 waits). The parity replay now also takes
+  from the trace where the original entered the VRAM bracket and how long each interrupt-time
+  frame work ran (its VRAM copies are paced by hblank), and counts screens drawn while the
+  original was still writing line by line.
 - `1.31.0` — Legend III port P1, first checkpoint: `@ffl3k/core` (the Legend III runtime: frame
   waits, interrupts and the VRAM bracket, ROM bank stack, copies, decompressor, fades, text lines,
   party sprites, the title and its menu) and `@ffl3k/parity` (PyBoy trace replay). The title is

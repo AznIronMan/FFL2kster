@@ -4,8 +4,9 @@
  *     through C0BC (normally 00:11E3 = reti; 00:1F27 at LYC = 3 in the bracket);
  *   - the frame wait 00:3A6D sets FF95 = n and halts until the vblank handler has counted it
  *     down to 0 (00:3A71-3A77);
- *   - the VRAM bracket enter/leave (00:1D9E / 00:1DFD) poll STAT for mode 1 with interrupts off,
- *     switch the handlers, and end with reti: the pending vblank interrupt is taken at once.
+ *   - the VRAM bracket enter/leave (00:1D9E / 00:1DFD) disable the interrupts, switch the
+ *     handlers, poll STAT for mode 1 and end with reti: the interrupts that came meanwhile (the
+ *     vblank, a STAT at LYC) are taken at once, in priority order, by the new handlers.
  *  Ported code is written as generators (`Co`) that yield what they wait for; the code between
  *  two yields runs in no time (CPU time is not modelled: the parity replay re-times frame waits
  *  from the trace, see `onWaitStart`). */
@@ -21,6 +22,12 @@ export const IRQ = 3;
 /** CPU time spent before a frame wait (parity re-timing): resume after the next vblank
  *  interrupt. */
 export const BUSY = 4;
+/** A busy loop polling RAM the interrupts change (no halt, no FF95): resume after an interrupt
+ *  once the condition holds. */
+export const POLL = 5;
+/** CPU time before a VRAM bracket entry (parity re-timing): resume at a given frame and line,
+ *  after that line's interrupts. */
+export const LINE = 6;
 
 export type Handler = (g: Game) => void;
 
@@ -54,6 +61,21 @@ export class Game {
   onWaitStart: ((n: number) => number) | null = null;
   /** A frame wait ended (00:3A77): the trace's wait point. */
   onWaitDone: (() => void) | null = null;
+  /** The code is about to poll for vblank (the bracket, 00:1E2E): the frame in which the
+   *  original's poll ended (parity re-timing: the CPU time before it is spent first, with the
+   *  interrupts running); undefined in play. */
+  onSync: (() => number | undefined) | null = null;
+  /** The code is about to enter or leave the VRAM bracket (00:1D9E / 00:1DFD, di): the frame and
+   *  line at which the original did (parity re-timing: the CPU time before it is spent first,
+   *  with the interrupts running); undefined in play. */
+  onPollStart: (() => [number, number] | undefined) | null = null;
+  /** The frame work 00:3557 ran (from 00:3549, CDC5 0 -> 1): the frame and line at which the
+   *  original's run ended (parity re-timing: its hblank-paced VRAM copies take lines, during which
+   *  CDC5 stays set and the interrupts stay off unless the work enabled them); undefined in
+   *  play. */
+  onWork: (() => [number, number] | undefined) | null = null;
+  /** Debugging output (parity tools). */
+  debug: ((msg: string) => void) | null = null;
   hooks: {
     soundTick?: (g: Game) => void; // 0F:4006 (through 00:1F3A)
     /** 00:3549 — the frame work run while CD3D is set (bracket STAT handler, bracket switches). */
@@ -62,6 +84,13 @@ export class Game {
   private main: Co<unknown> | null = null;
   private waiting = 0;
   private busyUntil = -1;
+  private pollFor: (() => boolean) | null = null;
+  private syncFrame = -Infinity;
+  private lineAt: [number, number] = [-Infinity, 0];
+  /** An interrupt handler's work still running in the original (see `handlerBusy`). */
+  private work: { end: [number, number]; holds: boolean; done: () => void } | null = null;
+  /** Register writes the interrupt handlers make at later lines (hblank waits), by line. */
+  private readonly lineWork = new Map<number, (() => void)[]>();
   done = false;
 
   constructor(segments: Segments) {
@@ -91,15 +120,25 @@ export class Game {
     for (let ly = from; ly < 154; ly++) {
       this.ly = ly;
       io[0x44] = ly;
+      const work = this.lineWork.get(ly);
+      if (work) { this.lineWork.delete(ly); for (const f of work) f(); }
       if (ly === io[0x45] && io[0x41]! & 0x40) io[0x0f] = io[0x0f]! | 0x02;
       if (ly === 144) io[0x0f] = io[0x0f]! | 0x01;
       if (this.waiting === -1) this.resume();
-      if (this.waiting === VBLANK && ly >= 144) this.resume();
-      const took = this.serve();
+      if (this.waiting === VBLANK && ly >= 144 && this.frame >= this.syncFrame) this.resume();
+      let took = this.serve();
+      if (this.work && this.reachedAt(this.work.end)) {
+        const done = this.work.done;
+        this.work = null;
+        done();
+        took = this.serve() || took;
+      }
       if (took && this.waiting === WAIT && m.hram[0x15] === 0) {
         this.onWaitDone?.();
         this.resume();
       }
+      if (took && this.waiting === POLL && this.pollFor?.()) this.resume();
+      if (this.waiting === LINE && this.reached()) this.resume();
       if (this.waiting === BUSY && this.frame === this.busyUntil && this.vblankTaken) this.resume();
       if (ly < 144) this.onLine?.(ly);
     }
@@ -112,7 +151,7 @@ export class Game {
   serve(): boolean {
     const m = this.m, io = m.io;
     let took = false;
-    while (this.ime) {
+    while (this.ime && !this.work?.holds) {
       const p = io[0x0f]! & m.hram[0x7f]! & 0x1f;
       if (!p) break;
       const bit = p & 1 ? 1 : p & 2 ? 2 : p & 4 ? 4 : p & 8 ? 8 : 16;
@@ -146,14 +185,40 @@ export class Game {
       if (r.done) { this.done = true; return; }
       const k = r.value ?? WAIT;
       if (k === IRQ) { this.serve(); continue; }
-      if (k === VBLANK && this.ly >= 144) continue;
+      if (k === VBLANK && this.ly >= 144 && this.frame >= this.syncFrame) continue;
+      if (k === LINE && this.reached()) continue;
       if (k === BUSY) this.busyUntil = this.nextVblankFrame();
       this.waiting = k;
       return;
     }
   }
 
+  private reached(): boolean {
+    return this.reachedAt(this.lineAt);
+  }
+
+  /** The clock is at or after frame f, line l. */
+  reachedAt([f, l]: [number, number]): boolean {
+    return this.frame > f || (this.frame === f && this.ly >= l);
+  }
+
+  /** From an interrupt handler: its work goes on until `end` in the original (CPU time); `done`
+   *  runs then. With `holds` (the handler left the interrupts off), no interrupt is taken
+   *  before. */
+  handlerBusy(end: [number, number], holds: boolean, done: () => void): void {
+    if (this.work) throw new Error("handler work overlaps another");
+    this.work = { end, holds, done };
+  }
+
   // ---------------------------------------------------------------- waits used by ported code
+
+  /** Before 00:1D9E / 00:1DFD: with `onPollStart`, the CPU time until the original's entry. */
+  *pollStart(): Co {
+    const p = this.onPollStart?.();
+    if (!p) return;
+    this.lineAt = p;
+    yield LINE;
+  }
 
   /** 00:3A6D — wait n frames (FF95 = n, halt until the vblank handler counted it down). */
   *wait(n: number): Co {
@@ -163,9 +228,28 @@ export class Game {
     if (n) yield WAIT;
   }
 
-  /** 00:1E2E — poll STAT until mode 1 (vblank). */
+  /** 00:1E2E — poll STAT until mode 1 (vblank); with `onSync`, not before the frame in which
+   *  the original's poll ended. */
   *untilVblank(): Co {
+    this.syncFrame = this.onSync?.() ?? -Infinity;
     yield VBLANK;
+  }
+
+  /** A busy loop until `cond` holds (checked after each interrupt). */
+  *until(cond: () => boolean): Co {
+    if (cond()) return;
+    this.pollFor = cond;
+    yield POLL;
+    this.pollFor = null;
+  }
+
+  /** From an interrupt handler: `fn` runs at the start of line ly + dl (a write in the hblank
+   *  of the line before). */
+  later(dl: number, fn: () => void): void {
+    const l = this.ly + dl;
+    if (l > 153) throw new Error("line work past the frame");
+    const a = this.lineWork.get(l);
+    if (a) a.push(fn); else this.lineWork.set(l, [fn]);
   }
 
   /** reti / ei: interrupts on; pending ones are taken now. */

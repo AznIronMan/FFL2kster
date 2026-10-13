@@ -383,3 +383,44 @@ Falsification: the cursor y 78 -> 79 fails every wait (C080/FE80) and every fram
 a text line step of 0x20 instead of 0x40 fails at the first wait (9D66.. text tiles). Found on the
 way: the PyBoy frame (one `tick`) runs from LY 0 to 153; the fill chain 00:1F50/1F53/1F55 fills
 9/6/4 bytes (ROM_MAP had 6/3/2).
+
+## 2026-10-13 — Port P1, second checkpoint: New Game to the prologue's map (1.32.0)
+
+Ported and replayed (`newgame1`: from the title, Down, A on New Game, 1,266 frames): the party
+set-up 01:7D40 (copies, window clear 01:7DFD), the prologue text 09:5EAD through the text engine
+(dictionary words, control codes 05/06/07/14/3E, scene codes 0B:6C35 -> script reference
+00:2EF8), the event dispatcher 00:1236 (door 0D/0E 00:1389 with the return point 00:1B64,
+special 12 00:16B9 cases 0-2), the map load 00:027D (layout 00:0F42, patches 01:78F5, tiles
+00:0535/0427, objects 00:05BF, leader 00:054D, the view 00:0E34), the text window's slide
+00:35AF / 00:35D2 (STAT raster 00:3631 at LYC moving 2 lines a frame) and the field frame work
+00:3575 (map animations 01:54A0: mode 22 = water 01:5993, mode 23 = falls 01:5814 with the strip
+01:5730; objects 00:01A0). Result: 1,117/1,117 waits identical.
+
+Timing found on the way (PyBoy hooks at 00:1D9E/1DFD/1E35, 00:3557/3552, 00:3A6D; each now
+recorded in the traces):
+- The bracket's di comes at its entry, before the handler switch and the mode-1 poll; a STAT at
+  LYC 3 that arrives during the poll is taken after the vblank, by the handlers installed at the
+  entry. Leaving the outer level restores 00:11E3 (reti), so that frame has no frame work: no
+  waterfall roll at frame 371 (entry 370/153, poll ended 371/144). Leaving a nested level keeps
+  00:1F27, so the frame work runs in vblank (174/147).
+- An entry at line 153 polls through the whole next frame (the switch code outlasts the line).
+- The frame work 00:3557 (guarded by CDC5) runs up to ~90 lines in the field: its VRAM copies
+  (00:20FF) wait for hblank. 01:5730 ends with reti, so a STAT arriving during the rest of the
+  work nests and, with CDC5 set, only ticks the sound. A work started in vblank (174/150) ended
+  at 175/81: the STAT at 175/3 did not roll the waterfall again (the port without the end time
+  rolled twice).
+- A long sound tick (a new song or effect) can push the work into the next frame (STAT taken at
+  288/147, work 289/3).
+- During the slide the main code writes VRAM through lines 0 to ~45-80 of each frame; a 5-byte
+  chunk of 00:20FF can leave a tile row half written for one line.
+
+Parity method additions: the replay takes from the trace the frame and line of every bracket
+entry (`polls`; the port runs the CPU time before it with the interrupts on, then di, switch,
+poll), the end of every frame work (`works`; CDC5 stays set until then, and the interrupts stay
+off unless the work enabled them) and the start of every frame wait (`starts`). Screens drawn
+while the original was still writing VRAM line by line are counted as line tears: every
+differing pixel lies on a line the original's main code ran before its wait / bracket entry in
+that frame, or on a line its frame work spanned, and shows an old picture; at most two lines
+(16 pixels) may show a half-written tile row (5 of 147 frames in newgame1). Falsification: the
+waterfall rolled 1 pixel instead of 2, the strip rotated through the wrong plane, and the work's
+end dropped (CDC5 released at once) each fail newgame1.

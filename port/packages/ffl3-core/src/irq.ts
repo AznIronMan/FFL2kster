@@ -99,13 +99,25 @@ export function spriteFlip(m: Memory): void {
   copyB(m, 0xdc83, 0xc078, (m.rd(0xdc82) * 8) & 0xff);
 }
 
-/** 00:3549 — while CD3D is set (text, fades): once (CDC5 guards re-entry) 00:3557. */
+/** 00:3549 — while CD3D is set (text, fades): once (CDC5 guards re-entry) 00:3557. The work's
+ *  VRAM copies are hblank-paced (00:20FF): with `Game.onWork` the original's end is kept, CDC5
+ *  staying set until then (a STAT taken meanwhile, when the work had enabled the interrupts
+ *  (01:5730's reti), only ticks the sound). */
 export function statWork(g: Game, frameWork: (g: Game) => void): void {
   const m = g.m;
   const n = m.rd(0xcdc5);
   m.wr(0xcdc5, n + 1);
-  if (n === 0) frameWork(g);
-  m.wr(0xcdc5, m.rd(0xcdc5) - 1);
+  const dec = () => m.wr(0xcdc5, m.rd(0xcdc5) - 1);
+  if (n === 0) {
+    const ime = g.ime;
+    g.ime = false;
+    frameWork(g);
+    const end = g.onWork?.();
+    const enabled = g.ime;
+    g.ime = ime;
+    if (end && !g.reachedAt(end)) { g.handlerBusy(end, !enabled, dec); return; }
+  }
+  dec();
 }
 
 export function installInterrupts(g: Game, frameWork: (g: Game) => void): void {
