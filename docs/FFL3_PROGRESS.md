@@ -12,7 +12,7 @@ Reference ROM: `ffl3/input/original.gb` (read-only, never committed), SHA-256
 ## Acceptance (whole run)
 
 - [x] A1. FFL3kster no-op build byte-identical with a zero-change diff (M1)
-- [ ] A2. Tables evidenced to the milestone-1 standard — M1 done; M2–M7 open
+- [x] A2. Tables evidenced to the milestone-1 standard — M1–M7 (open items listed per milestone)
 - [ ] A3. Web player loads the FFL3 data package and plays a vertical slice
 - [ ] A4. Field and battle parity sweeps recorded with counts
 - [ ] A5. All suites green (FFL2kster and FFL1kster included), CI green
@@ -56,7 +56,9 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 | M4 encounters/drops | done (1.25.0); GP source open | rate/zone/threshold/formation chain 14/14; EXP = floor(sum of class byte 1 / 4), 14/14 |
 | M5 maps/events | done (1.26.0-1.27.0); shop prices and in-game shop use open | 171 records framed exactly; 8/8 emulator changes (header, object, doors); layout decoder equal to D000 at 10/10 map loads |
 | M6 graphics | done (1.28.0); per-map tile overrides and Xagor's picture open | tilesets = VRAM at 8 map loads; font; monster pictures = VRAM for 6 monsters (sizes 0-4); `gfx-export` |
-| M7 music | open | — |
+| M7 music | done (1.29.0; timbre not modelled) | frame-level driver model = game pointers for 20/20 songs (600 frames) and song 3 over 3,000 frames |
+
+| Data package (`export-all`) | done (1.29.0) | ffl3/data/ (253 files, local), reproduced byte for byte by the tests |
 
 ## Port P0–P5 (Legend III import target)
 
@@ -66,6 +68,7 @@ Not started.
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
 - 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).
+- 2026-10-13 (1.29.0): M7 music and the data package; tests/ffl3 62 passed (21 emulator).
 - 2026-10-13 (1.28.0): M6 graphics; tests/ffl3 56 passed (19 emulator).
 - 2026-10-13 (1.27.0): M5 layouts — decoder equal to the game's tile buffer; tests/ffl3 48 passed (12 emulator).
 - 2026-10-13 (1.26.0): M5 first part — maps, objects, doors, warps, shops; tests/ffl3 45 passed (11 emulator).

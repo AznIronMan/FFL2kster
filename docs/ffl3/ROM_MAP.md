@@ -61,6 +61,16 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0B:4301 / 43C4 / 43CC / 43E4 | picture code per monster / tiles per size / sheet bank+size / sheet spans | verified (6 monsters) |
 | banks 0D/0E/0F | compressed picture sheets (bitplane 0, bitplane 1) | verified |
 
+## Music (bank 0F)
+
+| Location | What | Status |
+|---|---|---|
+| 0F:4006 / 402D / 41CE | driver per frame / song start / tempo accumulator, two ticks per carry | verified (pointer traces) |
+| 0F:482F | 20 songs × 4 channel pointers | verified |
+| 0F:41BE | 16 note durations (low nibble) | verified |
+| 0F:4428 / 4448 / 4468 / 4488 | per-channel command tables F0-FF | verified (operand counts) |
+| CB00 / CB01 / CB05+ (×0x18) | accumulator / tempo / channel state, counter, pointer | verified |
+
 ## Text
 
 | Location | What | Status |
@@ -123,6 +133,16 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 03:4000 | font and window tiles → 8800 | verified |
 | 0B:4301 / 43C4 / 43CC / 43E4 | picture code per monster / tiles per size / sheet bank+size / sheet spans | verified (6 monsters) |
 | banks 0D/0E/0F | compressed picture sheets (bitplane 0, bitplane 1) | verified |
+
+## Music (bank 0F)
+
+| Location | What | Status |
+|---|---|---|
+| 0F:4006 / 402D / 41CE | driver per frame / song start / tempo accumulator, two ticks per carry | verified (pointer traces) |
+| 0F:482F | 20 songs × 4 channel pointers | verified |
+| 0F:41BE | 16 note durations (low nibble) | verified |
+| 0F:4428 / 4448 / 4468 / 4488 | per-channel command tables F0-FF | verified (operand counts) |
+| CB00 / CB01 / CB05+ (×0x18) | accumulator / tempo / channel state, counter, pointer | verified |
 
 ## Text
 

@@ -195,6 +195,27 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--rom", default=ROM)
     s.set_defaults(fn=cmd_encounters)
 
+    def cmd_music_export(a):
+        from pathlib import Path
+        from . import music
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.out).write_text(json.dumps(music.export(romlib.load_rom(a.rom)), indent=1) + "\n")
+        print(f"wrote {a.out}: {music.SONG_COUNT} songs")
+        return 0
+    s = sub.add_parser("music-export", help="decode the 20 songs (bank 0F) to JSON")
+    s.add_argument("--rom", default=ROM)
+    s.add_argument("--out", default="ffl3/build/music.json")
+    s.set_defaults(fn=cmd_music_export)
+
+    def cmd_export_all(a):
+        from .export import export_all
+        print(json.dumps(export_all(romlib.load_rom(a.rom), a.out)))
+        return 0
+    s = sub.add_parser("export-all", help="regenerate the Legend III processed data package (ffl3/data)")
+    s.add_argument("--rom", default=ROM)
+    s.add_argument("--out", default="ffl3/data")
+    s.set_defaults(fn=cmd_export_all)
+
     def cmd_gfx_export(a):
         from .gfx import export
         print(json.dumps(export(romlib.load_rom(a.rom), a.out)))

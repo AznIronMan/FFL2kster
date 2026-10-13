@@ -314,3 +314,30 @@ size: 4, 8, 4, 6, 8, 16 tiles across (probable: the pictures are coherent).
 
 `ffl3kster gfx-export` draws the 171 distinct maps (layout + patches + base tileset), 194 monster
 pictures and the font (ffl3/build/gfx, local).
+
+## 2026-10-13 — Music (M7) and the data package
+
+Driver (bank 0F, 0F:4006 from the vblank handler): FFBA ≠ FFBB starts song n (1-20) from 0F:482F
++ 8(n − 1): pointers for pulse 1, pulse 2, wave, noise; tempo CB01 = 3C, accumulator CB00 = FF,
+each channel's counter 1 (0F:402D). Every frame CB00 += CB01 and a carry ticks all channels twice
+(0F:41CE). At a channel's count 0 it reads: a note (< E0): low nibble → duration from 0F:41BE
+(90 60 48 30 24 20 18 12 10 0C 09 08 06 04 03 02 ticks), high nibble the pitch (0-B with the
+octave, C rest, D silence); E0-E7 octave, E8-EF octave shift; F0-FE commands through per-channel
+tables (0F:4428/4448/4468/4488; operands from the handlers: jump F1, loops F2/F9 on two counters
+set by F3/FA, FB compare-and-jump, F7 tempo, FE channel set-up, ...; F8/FD/FF-slot handlers hang,
+none is used); FF ends the channel and leaves its stored pointer on the FF.
+
+Falsified on the way: "high nibble = duration" (as in many drivers) — the model drifted from the
+game within 4 frames; 0F:4408 takes the low nibble for the duration table and swaps the byte for
+the pitch. A second model fix: on FF the game does not store the advanced pointer.
+
+Result (`src/ffl3kster/music.py`): a frame-level model of the driver (tempo accumulator, double
+tick, counters, loops) gives the same four channel pointers as the game after every frame for all
+20 songs over 600 frames, and for song 3 over 3,000 frames (more than two of its 1,392-frame
+periods) — `tests/ffl3/test_music_emu.py`. Channel loops in ticks: the four channels of each song
+share a period (e.g. song 1: 1,536 ticks, noise 48); song 7 is a jingle that ends. Timbre
+(envelope/wave tables F0/F4/F8) is not modelled.
+
+`ffl3kster export-all` writes the processed package ffl3/data/ (local, gitignored like data/):
+monsters, items, encounters, maps, layouts (metatile rows), text, music (JSON) and font,
+tilesets and 194 monster pictures (PNG), 253 files, reproduced byte for byte.
