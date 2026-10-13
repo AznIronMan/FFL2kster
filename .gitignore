@@ -71,3 +71,7 @@ dist/
 
 # vitest/vite config bundles left behind when temp files cannot be removed
 *.timestamp-*.mjs
+
+# FFL1kster local outputs
+ffl1/build/
+ffl1/scratch/

@@ -132,3 +132,27 @@ artifact contains known asset hashes.
 | Android Studio + JDK 17 | needed for Android |
 
 P0–P1 need Node only.
+
+## Legend I course (FFL1kster), started 2026-10-12
+
+The proven Legend II pipeline repeated on *The Final Fantasy Legend* (USA, `ffl1/input/original.gb`,
+SHA-256 `e5b1d116…0d906`). Nothing is assumed from Legend II: every address, record format,
+routine, encoding and checksum behaviour is re-derived from this ROM; where it shares structure
+with Legend II that is shown with evidence (docs/CROSS_GAME.md). Checklist: docs/FFL1_PROGRESS.md.
+
+| Phase | Goal | Exit criteria |
+|---|---|---|
+| **M1** | One verified monster-data slice | No-op build byte-identical; record format evidenced (boundaries on ≥2 records, neighbour controls); patch compiler + SQLite; PyBoy acceptance |
+| **M2–M7** | Items/abilities and growth, text, encounters/drops, maps/events, graphics, music | Each domain evidenced to the M1 standard; `export-all` reproduces the Legend I data package |
+| **P0** | Importer + scaffold for the Legend I import target | TypeScript importer reproduces the Python package; CI green |
+| **P1** | Vertical slice: title → hero creation → first town (guild) → world → battle → save/load | Web player loads the Legend I data package and plays the slice; scenario parity |
+| **P2** | Full field | Field parity sweeps recorded with counts |
+| **P3** | Full battle | Battle parity sweeps recorded with counts |
+| **P4** | Platforms | The Legend I target in the existing shells; MBC2 saves portable |
+| **P5** | Extras | Opt-in extras for Legend I; parity unaffected when off |
+
+Rules: `src/ffl2kster`, its tests, `data/`, `project/` and the `@ffl2k/*` port packages are not
+modified except to factor genuinely shared harness code; the FFL2kster suite and its
+byte-identical no-op build stay green (CI guard against v1.0.0). Stop and report if a blocker
+survives three different approaches, a tool or permission is missing, or continuing needs scope
+expansion. Out of scope: Legend II P6, TOLkster.

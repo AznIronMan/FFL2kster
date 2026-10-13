@@ -36,6 +36,37 @@ subject): **TOLkster** — name reserved, nothing built yet.
 
 The faithful ports are preservation. The arena/tower game is creation.
 
+## Authoring model — data, not code
+
+The engine is a small fixed kernel interpreting a large data world: maps,
+event scripts (bytecode), battle/growth rules (calc-VM bytecode), text,
+encounters, and music sequences are all data the engine looks up at runtime
+(indirection — the engine asks, the data layer answers).
+
+- **Content vs behavior.** New spells composed from existing handlers,
+  animations and SFX; new dungeons composed from existing script ops, maps,
+  text and encounters — these are *data authoring*, no engine code. Genuinely
+  new behavior (new effect handlers, new systems) is *engine work*: ASM on
+  the `.gb` path, new TypeScript handlers on the port path. That is the
+  plugin/addon line, and it is where TOLkster's addon layer lives.
+- **Asset packs** (TOLkster-side, modern-only, never the `.gb` path). Audio:
+  manifest maps track ID → file + loop points, per-track fallback to the
+  synthesized original; OGG/Opus preferred (MP3 padding breaks seamless
+  loops). Graphics: manifest maps sprite/tile ID → PNG/WebP with
+  grid-alignment and frame-inventory contracts; the engine keeps timing and
+  flip attributes; unmapped frames fall back to the original.
+- **Hotswap.** On the port, the data layer resolves IDs dynamically — by
+  story flags, scripts, mods, or procedural generators (endless tower
+  floors, randomized arena formations). On the `.gb`, selection is among
+  pre-compiled variants (conditional maps are native — 28 decoded in
+  Legend II); the pool is fixed at build time.
+- **Editor responsibilities:** ID allocator (no collisions across new maps,
+  text, flags, formations); per-target budget view (ROM space + flag bits on
+  `.gb` — tracking overwrite / dummy-slot / new-bank strategy per addition;
+  unbounded on port); authoring forms (maps, warps, variants-by-flag, text,
+  encounters); validator enforcing referential integrity across all
+  configurations (the feature that makes hotswap safe).
+
 ## Unified data model
 
 - A character is: chassis (human, mutant, monster, robot, beast, cyborg)
@@ -97,6 +128,8 @@ Mode is a property of the run, not of the arena. Default: **II**.
 - Wagering in arena (above).
 - Per-variant table layouts: regional ROMs may place tables differently;
   each variant needs its own layout evidence (see The picture).
+- Asset-pack format details (manifest schemas, grid/frame contract
+  versioning, pack signing or trust marking).
 - Name: must be neutral (no Square trademarks). Decided scheme (Geon,
   2026-10-12): project **FFTOL**, full title **Tower of Legends** (TOL),
   logo mark **F²**; toolkits FFL1kster / FFL2kster / FFL3kster; master

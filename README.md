@@ -6,8 +6,9 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.0.0`
-Status: **1.0.0 — the port is complete for private use (P6 hardening done).** The port plays from the title through
+Version: `1.1.0`
+Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
+milestone 1 done (docs/FFL1_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -98,6 +99,10 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.1.0` — FFL1kster begins (Legend I, *The Final Fantasy Legend* USA): `src/ffl1kster` with its own
+  CLI, project and SQLite store; milestone 1 complete — identity and byte-identical no-op build,
+  monster table 06:6AE8 (200 × 9 bytes) evidenced by controlled changes, proof build and PyBoy
+  acceptance; cross-game comparison note (docs/CROSS_GAME.md).
 - `1.0.0` — Port P6 hardening for private use (web, Windows 10/11+, macOS, Linux; Android and iOS
   deferred; no store submissions): performance bench and 10-hour soak test, Firefox and WebKit
   checks, Game Boy A/B layout by default (Xbox layout in Options), Sound (mute) button, audio

@@ -7,7 +7,8 @@ working on FFTOL (Tower of Legends) and its toolkits.
 
 - Project name: FFTOL (full title: Tower of Legends, short TOL; logo mark F²)
 - Toolkits: FFL2kster (Legend II, exists: editor, patch compiler, data package,
-  web port); FFL1kster / FFL3kster (reserved); TOLkster (future master engine,
+  web port); FFL1kster (Legend I, in progress: `src/ffl1kster`, `ffl1/`, docs/FFL1_PROGRESS.md);
+  FFL3kster (reserved); TOLkster (future master engine,
   reserved — see docs/END_GOAL.md)
 - Description: Private preservation and modding project for the Game Boy
   *Final Fantasy Legend* trilogy; currently the Legend II toolkit and port
@@ -16,7 +17,7 @@ working on FFTOL (Tower of Legends) and its toolkits.
 - Company: Clark & Burke LLC
 - Website: https://www.cnb.llc
 - Developer email: streetkings@cnb.llc
-- Current version: `1.0.0`
+- Current version: `1.1.0`
 
 ## Required Workflow
 
@@ -77,6 +78,10 @@ working on FFTOL (Tower of Legends) and its toolkits.
 - Supported ROM: SHA-256
   `ef66c90aeaab71672aefc6f39569b70925c08bda4996fe68f1452ed4a898486e`.
   Refuse to build against anything else.
+- Legend I (FFL1kster): `ffl1/input/original.gb` is read-only input with SHA-256
+  `e5b1d116a8fb01b7a7213f906b3ef1bcc91a18f6826b01ee1bccd89429a0d906`; never modify it, never
+  assume a Legend II layout for it (docs/ffl1/), and do not change `src/ffl2kster` for Legend I
+  work except to factor genuinely shared harness code (CI guard against v1.0.0).
 - Every generated ROM goes in `build/`.
 
 ## Evidence Rules

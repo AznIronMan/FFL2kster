@@ -1,0 +1,22 @@
+{
+  "name": "FFL1kster",
+  "schema_version": 1,
+  "supported_rom": {
+    "game": "FFL1",
+    "title": "SAGA",
+    "region": "USA",
+    "size": 131072,
+    "sha256": "e5b1d116a8fb01b7a7213f906b3ef1bcc91a18f6826b01ee1bccd89429a0d906"
+  },
+  "database": "ffl1/project/ffl1kster.sqlite",
+  "settings": {},
+  "edits": [
+    {
+      "domain": "monster",
+      "id": 155,
+      "field": "hp_class",
+      "value": 21,
+      "reason": "milestone-1 proof edit: first world-map enemy (1x ASIGARU, area 19) HP class 0 (base 20) -> 21 (base 795)"
+    }
+  ]
+}

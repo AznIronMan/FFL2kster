@@ -389,3 +389,49 @@ Architecture guidance for the importer and the web app; not new feature work.
 - Licence: none chosen. NOTICE.md says all rights are reserved until the owner adds one; the
   repository is public, so this is the owner's decision. Third-party notices are in
   THIRD_PARTY.md and the About page.
+
+## 2026-10-12 — Legend I course (FFL1kster) and direction notes A–D restated (Geon)
+
+Scope for this course: repeat the Legend II method on *The Final Fantasy Legend* (USA): data
+milestones 1–7, then port phases P1–P5. docs/PORT_PLAN.md ("Legend I course") controls scope; P6
+for Legend II and TOLkster are out of scope.
+
+Direction notes recorded for this course (destination, not current scope):
+- **A.** docs/END_GOAL.md is the destination, docs/PORT_PLAN.md the active course. END_GOAL now has
+  the finalized naming (FFTOL / Tower of Legends; FFL1kster/FFL2kster/FFL3kster; TOLkster
+  reserved) and an "Authoring model" section (docs/ARCHITECTURE_NOTES.md is its plain-English
+  companion). No end-goal work in this course.
+- **B.** Multi-region ROM support: a variant registry (docs/VARIANTS.md), never a single-SHA
+  assumption; support is claimed per variant only after full verification. The FFL1 USA dump is
+  registered as the Legend I reference.
+- **C.** Unverified import: an unmatched hash is not a dead end — manual game/engine choice,
+  clearly labelled unverified/best-effort mode, sanity checks warn. The web app keeps this
+  behaviour; the Legend I import target will offer it too.
+- **D.** Authoring model: content vs behaviour (new spells/dungeons from existing parts are data
+  authoring; genuinely new behaviour is engine work); asset packs (audio manifest track ID → file +
+  loop points, OGG/Opus; graphics manifest ID → PNG/WebP with grid and frame contracts; per-track /
+  per-frame fallback; modern-only, never the `.gb` path); hotswap/indirection (the engine asks, the
+  data layer answers; port resolvers may be procedural); editor duties to design toward (ID
+  allocator, per-target budget view, referential-integrity validator). Nothing of this is built now;
+  where current work can keep these seams open at no cost (data-driven over hardcoded, IDs
+  namespaced per game), it does, and genuine conflicts go to docs/FINDINGS.md.
+
+Decisions and assumptions for the Legend I work:
+- Layout: Python package `src/ffl1kster` (own CLI, mirrors ffl2kster's commands), project at
+  `ffl1/project/project.json` + `ffl1/project/ffl1kster.sqlite`, ROM at `ffl1/input/original.gb`
+  (read-only, gitignored), outputs in `ffl1/build/` (gitignored), docs in `docs/ffl1/` plus
+  `docs/FFL1_PROGRESS.md` and `docs/CROSS_GAME.md`, tests in `tests/ffl1/`, tools in `tools/ffl1/`.
+- Shared code: game-independent modules of ffl2kster (cartridge header/checksums/bank math, byte
+  patch/diff, project manifest, byte/relative search) are **imported unchanged** rather than copied
+  or moved, so `src/ffl2kster` stays byte-for-byte as released (1.0.0). A shared package can absorb
+  them later; moving them now would modify ffl2kster for no functional gain.
+- Proof of non-interference: CI fails if `src/ffl2kster`, the Legend II tests, `data/` or `project/`
+  differ from tag v1.0.0, and runs the full ROM-free suite. ROM-dependent tests (both games' no-op
+  builds, emulator tests) cannot run in CI because no ROM may be uploaded; they run locally before
+  every commit and their counts are recorded in docs/FFL1_PROGRESS.md.
+- The Legend I SQLite store uses one generic layout (records / fields / edits) for every domain and
+  records `game = FFL1` in meta and on every record (IDs namespaced per game, note D).
+- Version: one version for the repository; each Legend I milestone is a minor bump.
+- Versions: the repository version (pyproject.toml, README, app shells) moves with every change;
+  `ffl1kster.__version__` follows it. `ffl2kster.__version__` stays at 1.0.0 because the Legend II
+  toolkit itself is unchanged (and the CI guard keeps `src/ffl2kster` identical to v1.0.0).
