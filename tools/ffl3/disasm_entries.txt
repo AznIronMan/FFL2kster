@@ -1,3 +1,53 @@
 # Legend III entry points the recursive disassembler cannot find on its own.
 00:11A2   # vblank handler, installed at C0B9 by 00:3D46 (boot 00:0224)
 00:11E3   # STAT handler, installed at C0BC by 00:3D5A (boot 00:022A)
+# text control-code handlers (00:3175 table, 0x4E words) and the dictionary expansion
+00:26C6
+00:26CB
+00:26CC
+00:2745
+00:274D
+00:2753
+00:275C
+00:2766
+00:2779
+00:27AB
+00:27BF
+00:27C5
+00:27CD
+00:280F
+00:2955
+00:29E1
+00:2A52
+00:2A65
+00:2A7B
+00:2ADC
+00:2B02
+00:2B08
+00:2B3B
+00:2BC1
+00:2C25
+00:2C9C
+00:2CB3
+00:2CBD
+00:2CC7
+00:2CD1
+00:2D11
+00:2DBB
+00:2DD7
+00:2DF0
+00:2E76
+00:2EC8
+00:2EEE
+00:2EF2
+00:2EF6
+00:2F38
+00:2F49
+00:2F5C
+00:2FBF
+00:306C
+00:3086
+00:308C
+00:3174
+00:308C
+00:30B8

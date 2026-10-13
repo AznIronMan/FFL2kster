@@ -3,11 +3,13 @@ ffl3/build/analysis/rd: bank_BB.asm, xref.json). Analysis aid; output stays loca
 
 Legend III conventions (from the ROM, 2026-10-13; docs/ffl3/ROM_MAP.md):
 - rst $20 (00:38E1): select bank a and push the previous one (stack C0A0, depth C0B0, current
-  C0B1); rst $28 (00:38FC): pop it back. `ld a,N` + rst $20 sets the bank context for 4000-7FFF.
+  C0B1); rst $28 (00:38FC): pop it back. `ld a,N` + rst $20 (or `call $38E1`) sets the bank
+  context for 4000-7FFF; a 4000-7FFF target with no known bank is not followed.
 - rst $18 (00:378A) + one inline byte x, a far call:
     bit 3 clear: the bank-0 routine 00:38C4[x & 7] with bank x >> 4 selected (if not 0);
     bit 3 set:   entry (x & F0) | 2 (x & 7) of the table at 00:3806 (lo) / 00:3807 (hi): bank
                  00:3802[hi >> 6], address (hi & 3F | 40) << 8 | lo.
+- `call $373A` + a word per case: a jump table (followed until the lowest target is reached).
 - rst $30 (00:38D4): call the RAM trampoline C0B2 (jp set by the caller) with bank a: not followed.
 - interrupts: vblank -> C0B9, STAT -> C0BC (RAM vectors; their handlers are found from where the
   code installs them, listed in tools/ffl3/disasm_entries.txt).
@@ -46,7 +48,7 @@ def crawl(entries):
     todo = [(b, p, True) for b, p in entries]
     while todo:
         bank, pc, is_func = todo.pop()
-        if is_func:
+        if is_func:                          # a bank-0 routine inherits its caller's bank context
             labels[(bank if pc >= 0x4000 else 0, pc)] = "F"
         ctx, last_lda = bank, None
         while pc < 0x8000:
@@ -69,18 +71,35 @@ def crawl(entries):
                 last_lda = None
                 continue
             code[key] = (l, t)
+            if t == "call $373a":                    # jump table: a word per case follows the call
+                tbl, n, first = pc + 3, 0, 0x10000
+                while n < 64 and tbl + 2 * n < first:
+                    w = rom[off(ctx, tbl + 2 * n)] | rom[off(ctx, tbl + 2 * n) + 1] << 8
+                    if not (0x100 <= w < 0x8000) or (w >= 0x4000 and ctx == 0):
+                        break
+                    first = min(first, w) if (w >= 0x4000) == (tbl >= 0x4000) else first
+                    tb = ctx if w >= 0x4000 else 0
+                    todo.append((ctx if w < 0x4000 else tb, w, False))
+                    xref.setdefault((tb, w), set()).add(key)
+                    n += 1
+                for k in range(n):
+                    code[(ctx if tbl >= 0x4000 else 0, tbl + 2 * k)] = (2, "dw $%04x" % (
+                        rom[off(ctx, tbl + 2 * k)] | rom[off(ctx, tbl + 2 * k) + 1] << 8))
+                break
             if op == "rst":
                 v = int(t.split("$")[1], 16)
                 if v == 0x20 and last_lda is not None:
                     ctx = last_lda
                 todo.append((0, v, True))
+            if op == "call" and tg == 0x38E1 and last_lda is not None:
+                ctx = last_lda                       # `ld a,N` + `call $38E1`: same as rst $20
             if t.startswith("ld a,$") and len(t) == 8:
                 last_lda = int(t[6:], 16)
             elif op not in ("rst", "push", "pop"):
                 last_lda = None
-            if tg is not None and tg < 0x8000:
+            if tg is not None and tg < 0x8000 and not (tg >= 0x4000 and ctx == 0):
                 tb = ctx if tg >= 0x4000 else 0
-                todo.append((tb, tg, op == "call"))
+                todo.append((ctx if tg < 0x4000 and op == "call" else tb, tg, op == "call"))
                 xref.setdefault((tb, tg), set()).add(key)
             if t in ("ret", "reti", "jp hl") or (op in ("jp", "jr") and "," not in t):
                 break

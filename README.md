@@ -6,10 +6,10 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.23.0`
+Version: `1.24.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
-milestone 1 and most of 2 (items, equipment, EXP) done (docs/FFL3_PROGRESS.md).** The port plays from the title through
+milestones 1-3 done (data, items, equipment, EXP, text) (docs/FFL3_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -100,6 +100,11 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.24.0` — Legend III milestone 3: text. The script interpreter (00:3211) with its 80-entry
+  recursive dictionary, every control code's operands, and 1,639 scripts in seven spans of banks
+  03/09/0A that parse exactly; all script references and pointers land on script starts; byte and
+  semantic round trips 1,639/1,639; a rewritten battle message shows in PyBoy; `ffl3kster
+  text-export`.
 - `1.23.0` — Legend III milestone 2b: field and menu save states after the intro; armor verified
   through the Equip menu (Defence/M.Def., Evade/M.Evade, resistances, weight; 11/11); the stat
   order (Attack, Defence, Agility, Magic) and MP from the status screen; battle EXP from the

@@ -181,6 +181,19 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--table", choices=["spell", "weapon", "armor", "item", "skill"])
     s.set_defaults(fn=cmd_items)
 
+    def cmd_text_export(a):
+        from pathlib import Path
+        from . import script_text as T
+        data = T.export(romlib.load_rom(a.rom))
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.out).write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+        print(f"wrote {a.out}: {len(data['scripts'])} scripts, {len(data['dictionary'])} dictionary entries")
+        return 0
+    s = sub.add_parser("text-export", help="decode every text script (banks 03, 09, 0A) to JSON")
+    s.add_argument("--rom", default=ROM)
+    s.add_argument("--out", default="ffl3/build/text.json")
+    s.set_defaults(fn=cmd_text_export)
+
     def cmd_db_import(a):
         from .db import import_rom
         p = load_project(a.project)

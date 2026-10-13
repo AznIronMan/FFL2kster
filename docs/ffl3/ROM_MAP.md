@@ -56,6 +56,18 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0B:468B | copy the staging entity (0x80 bytes) once per enemy into D280, D300, ... | verified |
 | 0B:728B / 7422 | recompute +36.., +39.., and (kind ≠ 4) +3D..+3F from the item list at +41 | verified (kind test) |
 
+## Text
+
+| Location | What | Status |
+|---|---|---|
+| 00:3211 | script interpreter (00 end, 10 wait + end, ≥ 88 literal runs, 4E-87 + 22 low codes dictionary, others via 00:3175) | verified |
+| 00:3175 | control-code handlers, 0x4E words | verified (operand counts) |
+| 00:2EF6 | script reference: hi < 40 scene change (0F:7DD4), else text in 09/0A/03 | verified (all refs land) |
+| 03:71C5 | dictionary, 80 length-prefixed entries (to 731B) | verified |
+| 03:6287-71B4, 09:5EAC-67BE, 09:6C5F-78FD, 09:79C4-7FFF, 0A:4000-4003, 0A:41E2-791D, 0A:792E-7FFF | 1,639 scripts | verified (exact parse) |
+| 0A:4004 / 09:78FE / 0A:791E | pointer tables: 239 map texts / 99 battle messages / 8 | verified |
+| 09:6015 | the prologue script (power-on, flag 31) | verified |
+
 ## Items, spells, skills (bank 09)
 
 | Location | What | Status |

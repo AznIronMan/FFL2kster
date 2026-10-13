@@ -39,6 +39,7 @@ both ROMs; differences are listed first because they are the valuable part.
 | Bank switch | `rst $20` pushes a bank on a RAM stack (C0A0, depth C0B0, current C0B1), `rst $28` pops; `rst $18` far call with an inline byte (bank-0 routine or table entry) | neither (a bank stack instead of save/return) |
 | Interrupts | vblank / STAT through RAM vectors C0B9 / C0BC | Legend I's STAT jp in RAM (C39D) |
 | Alphabet | `A` = 0xBA, `a` = 0xD4, `0` = 0xB0 (punctuation AF . F0 : F1 / F2 - F3 ! F4 ?) | Legend II (identical letters and digits) |
+| Text | one script interpreter for dialogue, battle and menus; dictionary of 80 length-prefixed entries (03:71C5) reached by 4E-87 and 22 low codes, recursive (entries may hold codes); scripts reference each other by a 2-byte bank-coded address; scene changes are script codes | Legend II's dictionary range 4E-9D is similar; Legend I has two interpreters |
 | Monster data | three tables in bank 0B, 195 ids: battle record 12 bytes (4A19), class record 4 bytes (470D), ability list 9 bytes (533D); names 0E:7533 | split, unlike both (one record per id in I and II) |
 | Monster HP | 12-bit value (byte + low nibble of the next), × 16 for the eight last ids (bosses) | Legend II (stored value), not Legend I (class + random) |
 | Battle entity | 0x80 bytes per enemy, built in a staging slot (D680) and copied once per group member (D280, D300, ...); name copied into it | Legend II (name in WRAM); Legend I keeps 32-byte slots |

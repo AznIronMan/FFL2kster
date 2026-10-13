@@ -169,3 +169,50 @@ Not done: using an item or casting a spell in the field. The Item list (A picks 
 it; a trash can sits at the right) did not offer a use with A, Start or Select, and the Magic
 lists are empty in this state (poking a spell id into the party record at +48 shows nothing);
 these wait for a shop state (M5).
+
+## 2026-10-13 — Text (M3)
+
+Finding the interpreter. The dialogue is compressed (a search for "Simulator" finds nothing).
+Hooks on every `ld a,[hl+]`/`[de]`/`[bc]` of banks 00/01/03/09 while a line printed showed one
+read walking 09:6101-6121: 00:3214, the loop of 00:3211. The disassembler learnt two things on
+the way: `ld a,N` + `call $38E1` sets the bank like rst $20, and `call $373A` is followed by a
+jump table (coverage 5,600 → 46,000 code bytes).
+
+The interpreter (00:3211): 00 ends; 10 waits for a button and ends; ≥ 88 literal tiles printed as
+a run (00:32EA); 4E-87 dictionary entries 0-57; codes 01-04, 0E, 0F, 16-1B, 40-42, 44-4A
+dictionary entries 58-79 (lookup list 00:30D1); others through the table 00:3175 (0x4E words).
+The dictionary (03:71C5-731B, 80 length-prefixed entries) is copied to CD4D and interpreted
+recursively, so entries may hold codes ("{1C}{1F 00}" prints the leader's name). Operand counts
+come from the handlers (`ld a,[hl+]`, 00:20DE takes one) and were cross-checked by hooking
+00:3214/3224 over 1,000 presses (hl advance per code: 09/0A/0C/0D/12/13/1E/1F/2A/30/32/36/37/38/3B/
+3D take 1, 3E takes 2, 06/07/08/0B/14/1C none).
+
+Script references: 3E lo hi (and the two of 3C, the two of 39, the three of 3A) go through
+00:2EF6: hi < 40 is a scene change (map hi, entry lo, 0F:7DD4); otherwise a text in bank 09
+(hi 40-7F), 0A (80-BF) or 03 (C0-FF). The prologue (Simulator battle, the farewell, the Talon) is
+one script, 09:6015, started at power-on when flag 31 is clear (00:023F-0257).
+
+Falsified on the way:
+- "A script is ended by 00 only": 168 of 308 bank-0A entry points sat inside the 00-separated
+  stream until 10 was also taken as an end (00:321A → 322D → 32B0).
+- "Bank 03 text runs up to the dictionary": a 16-byte tile (03:71B5) sits between.
+- "09:4F79, 09:507D, 0A:4379 are texts": they were "references" read out of pointer tables that
+  had been parsed as text (09:78FE battle messages, 99 pointers; 0A:791E, 8 pointers).
+
+Result (`ffl3kster text-export`, `src/ffl3kster/script_text.py`): seven spans parse exactly to
+their ends — 03:6287-71B4, 09:5EAC-67BE, 09:6C5F-78FD, 09:79C4-7FFF, 0A:4000-4003,
+0A:41E2-791D, 0A:792E-7FFF — 1,639 scripts (30 + 588 + 1,021). All 243 script references and all
+346 pointers (0A:4004 239, 09:78FE 99, 0A:791E 8) land on script starts. Round trips: byte level
+1,639/1,639; semantic (render → encode → render) 1,639/1,639; 1,308 re-encode to the same bytes
+(the encoder's greedy dictionary choice differs for the rest). Tiles beyond the name set: AC ',',
+AD "'", EE/EF quotes, FE period + closing quote in one tile, F5 ○, F6 ×, FD © (font in VRAM).
+
+Reinsertion (`tests/ffl3/test_text_emu.py`): 09:7BFC "{1C}{1F FF} used / {1C}{1E 80} against"
+rewritten in place as "swung / at" (padded with spaces to 18 bytes): from battle.state the
+screen shows "Myron swung / Battle at" where the original shows "Myron used / Battle against".
+
+Code meanings (probable, from handlers and context): 06 line break, 08 wait for a button, 0C n
+wait n frames, 14 clear the box, 1C reset the name position, 1F n a name (00-03 the four heroes,
+FF the actor, 10+ other characters), 1E n an item or skill name, 30 n a number, 2A n an item
+name, 3E jump/scene, 39 f a b / 3A … branches on story flags (00:3CB2), 3C a yes/no choice,
+32/3B/3D n object movement in scenes.
