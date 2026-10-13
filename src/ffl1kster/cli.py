@@ -228,5 +228,28 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--out", default="ffl1/build/gfx")
     s.set_defaults(fn=cmd_gfx_export)
 
+    def cmd_music_export(a):
+        from . import music
+        from pathlib import Path
+        rom = romlib.load_rom(a.rom)
+        data = {"songs": [music.song(rom, s) for s in range(music.SONG_COUNT)], "durations": music.durations(rom)}
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.out).write_text(json.dumps(data, indent=1) + "\n")
+        print(f"wrote {a.out}: {music.SONG_COUNT} songs")
+        return 0
+    s = sub.add_parser("music-export", help="decode the 18 songs (bank 07) to JSON")
+    s.add_argument("--rom", default=ROM)
+    s.add_argument("--out", default="ffl1/build/music.json")
+    s.set_defaults(fn=cmd_music_export)
+
+    def cmd_export_all(a):
+        from .export import export_all
+        print(json.dumps(export_all(romlib.load_rom(a.rom), a.out)))
+        return 0
+    s = sub.add_parser("export-all", help="regenerate the Legend I processed data package (ffl1/data)")
+    s.add_argument("--rom", default=ROM)
+    s.add_argument("--out", default="ffl1/data")
+    s.set_defaults(fn=cmd_export_all)
+
     a = ap.parse_args(argv)
     return a.fn(a)

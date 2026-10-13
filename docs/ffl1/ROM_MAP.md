@@ -87,7 +87,7 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `02:52D0` | 474 × 3 | Warps (map, x, y) | verified (structure; warp 0 = town start) |
 | `02:585E`, `02:62F0`–`6FA5` | 99 lists | Event lists (objects with command/parameter) | verified (parse; parameter change) |
 | `05:7D10` | 25 × 10 | Shop inventories | verified |
-| `05:7E10` | 165 × 3 | Prices, BCD | verified |
+| `05:7E10` | 128 × 3 | Prices, BCD (items 0x00–0x7F) | verified |
 
 ## Graphics
 
@@ -99,6 +99,17 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `03:7100` | font, 1bpp, codes 0x80–0xF6 | verified |
 | `02:79D2` / `02:79EA` | monster picture class bases (bank 04) / tiles per class | verified |
 | `04:4000`–`7FFF` | monster pictures, 2bpp | verified |
+
+## Sound (bank 07)
+
+| Address | Content | Status |
+|---|---|---|
+| `07:4000` / `07:4003` | driver init / per-frame update | verified |
+| `07:462F` | song table, 18 × 3 channel pointers | verified (decode + timing) |
+| `07:4403` | note durations (15) | verified |
+| `07:4412` | frequency table | probable |
+| `07:6870`, `07:68D3`, `07:692F` | envelope tables | probable |
+| `07:69BD` | wave patterns | probable |
 
 ## Code
 

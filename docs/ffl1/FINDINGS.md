@@ -279,7 +279,7 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   A breadth-first navigator using this rule (`ffl1kster.navigate`) reaches the weapon shop at
   (29,18) from the town start; probable (all planned routes walked, no failed step).
 - **Shops**: 05:7D10 + 10 × shop (item ids, FF empty); **prices** 05:7E10 + 3 × item, BCD
-  (165 items have a price: the table runs to the end of bank 05).
+  (items 0x00–0x7F; the monster abilities 0x80+ have none).
 - Controlled changes:
 
 | Change | Result |
@@ -320,3 +320,27 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   were first read three bytes too late (02:79ED), which only showed up as out-of-bank pictures.
 - `python -m ffl1kster gfx-export` writes font, tilesets, sprite sets, the 200 monster pictures
   and renders of all 200 maps (processed data).
+
+## 2026-10-12 — Music (M7) and the data package
+
+- Sound driver, bank 07: 07:4000 init, 07:4003 per-frame update (called from the interrupt).
+  Each frame CEC2 += tempo (FFEA); every time it passes 60 the driver ticks (07:40CD channel
+  output + 07:44BC sequence reading). A new song starts when FFE0 ≠ FFE1 (07:4059): song table
+  **07:462F**, 6 bytes = pointers for pulse 1, pulse 2 and wave (structs CE00/CE20/CE40, 32 bytes).
+  18 songs; the first channel data starts right after the table (07:469B).
+- Sequence commands (07:44DC): 00–DF note (high nibble pitch, low nibble duration index into
+  07:4403: 60 48 30 24 20 18 12 10 0C 09 08 06 04 03 02 ticks); E0 tempo; E1–EF channel byte +0B;
+  F0–F4 octave; F5 xx; F7 xx envelope (slot from the top two bits, 07:4629); F8 xx wave pattern
+  from 07:69BD (16 bytes → FF30); F9–FB loop counter 1–3; FC repeat while the counter runs;
+  FD jump when it is zero; FE jump; FF end. Envelope tables 07:6870 / 68D3 / 692F and the
+  frequency table 07:4412 are read by the output side (probable; timbre not modelled yet).
+- Decoder check: the three channels of every song loop together (equal loop lengths, or whole
+  multiples where a part repeats) — 17/17 songs with music.
+- Timing in PyBoy (`tools/ffl1/music_timing.py`): title song 14 (tempo 30, loop 384 ticks):
+  predicted 768.00 frames, measured 768 on 14 consecutive loops; town song 1 (tempo 55, 2400 ticks):
+  predicted 2618.18, measured 2619, 2618, 2618; battle song 8 (tempo 65, 2304 ticks): predicted
+  2126.77, measured 45 + 44 + 44 + 1994 = 2127 per loop (the watched note occurs four times).
+- **Data package** `ffl1/data/` (`python -m ffl1kster export-all`, 248 files): monsters, items,
+  encounters, meat, text, maps (records, event lists, warps, shops, prices, decoded layouts,
+  attribute sets), music, and graphics (font, tilesets, sprite sets, 200 monster pictures). The
+  test suite regenerates it and compares every file byte for byte.

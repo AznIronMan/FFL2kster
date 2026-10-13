@@ -35,7 +35,7 @@ ATTRIBUTES = romlib.bank_to_file(0x02, 0x4840)
 SHOPS = romlib.bank_to_file(0x05, 0x7D10)
 SHOP_SLOTS, SHOP_COUNT = 10, 25
 PRICES = romlib.bank_to_file(0x05, 0x7E10)
-PRICE_COUNT = (0x8000 - 0x7E10) // 3   # 165 items have a price slot in bank 05
+PRICE_COUNT = 128          # items 0x00-0x7F (05:7E10-7F8F); ids 0x80+ are monster abilities
 COMMANDS = {0: "dialogue", 1: "dialogue", 2: "dialogue", 3: "chest", 4: "facility", 5: "warp",
             6: "warp", 8: "battle"}
 

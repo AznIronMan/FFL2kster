@@ -28,6 +28,7 @@ both ROMs; differences are listed first because they are the valuable part.
 | Events | per-map object lists with presence ranges on story flags; commands 0–2 dialogue, 3 chest, 4 facility, 5/6 warp, 8 battle | event kinds incl. F0–FF (docs/EVENTS.md) |
 | Shops | 25 inventories × 10, 3-byte BCD prices per item (bank 05) | shop events + item price table (docs/ROM_MAP.md) |
 | Graphics | uncompressed 2bpp; BG sets pick 128 tiles from 1 KiB blocks of bank 01; metatile m = tiles 0x80+4m; 1bpp font; monster pictures in 5 size classes (bank 04) indexed by the same family byte the meat code uses | monster art in banks 05/06 by family; tilesets via 00:1F55 (docs/ROM_MAP.md) |
+| Music | 3 channels (pulse, pulse, wave), 18 songs; tempo accumulator ticks at 60; note byte = pitch nibble + duration index | sequence driver in bank 0E with envelopes, vibrato, wave tables, SFX table (docs/MUSIC.md) |
 | Party creation | one hero created and named; the rest recruited later | the whole party chosen at the start |
 
 ## Transferred unchanged (method and generic code)
