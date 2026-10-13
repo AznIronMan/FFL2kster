@@ -4,6 +4,8 @@ then recorded with (same state + same buttons = same run).
 
 Actions: ("goto", x, y) walk there (BFS on the map buffer, ffl1kster.navigate rules),
 ("face", dir) tap a direction, ("press", button, hold, wait), ("wait", frames),
+("reach", x, y) step onto a cell, or when it is blocked walk next to it and push into it,
+("talk", x, y) walk next to a cell, face it and press A (both best effort: self.missed counts),
 ("until_text", needle, max_frames, button_every) press A every N frames until text shows.
 
 Edge-safe input: the port runs a frame's code segment entirely before the next frame's joypad tick
@@ -47,6 +49,7 @@ class Planner:
         for a in READS:
             self.pb.hook_register(0, a, self._read, None)
         self.delayed = 0
+        self.missed = 0
 
     def _read(self, _):
         if self.pb.memory[0xFF44] < 144:
@@ -106,6 +109,8 @@ class Planner:
         m = self.pb.memory
         target = (x, y)
         for _ in range(max_steps):
+            if getattr(self, "budget", None) and len(self.log) >= self.budget:
+                return False
             p = self.pos()
             if p == target:
                 return True
@@ -139,8 +144,11 @@ class Planner:
     def text(self):
         return " ".join(x.strip(" ·") for x in self.e.screen_text()[:10] if x.strip(" ·"))
 
-    def run(self, actions):
+    def run(self, actions, max_frames=None):
         for a in actions:
+            if max_frames and len(self.log) >= max_frames:
+                self.missed += 1
+                break
             k = a[0]
             if k == "goto":
                 if not self.goto(a[1], a[2]):
@@ -152,7 +160,28 @@ class Planner:
             elif k == "wait":
                 for _ in range(a[1]):
                     self.frame()
+            elif k in ("reach", "talk"):
+                self.approach(k, a[1], a[2], max_frames)
         return self.log
+
+    def approach(self, kind, x, y, max_frames=None):
+        m = self.pb.memory
+        self.budget = max_frames
+        if kind == "reach" and passable(m, x, y):
+            if not self.goto(x, y, max_steps=40):
+                self.missed += 1
+            return
+        for k, (dx, dy) in DIRS.items():
+            n = (x - dx, y - dy)  # stand at n, then direction k leads to (x, y)
+            if not passable(m, *n) or not self.goto(*n, max_steps=40):
+                continue
+            if kind == "reach":
+                self.press(k, 16, 30)
+            else:
+                self.press(k, 2, 10)
+                self.press("a", 4, 60)
+            return
+        self.missed += 1
 
     def plan(self):
         """Run-length plan string for traces.py."""

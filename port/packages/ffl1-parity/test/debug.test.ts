@@ -13,9 +13,9 @@ describe.skipIf(!name || !haveRom() || !haveTrace(name))("FFL1 debug replay", ()
     const r = replay(name, { keepGoing: true, ...(process.env.SOUND ? { ignore: IGNORE_KEEP_SOUND } : {}), onFrame: (f, px) => { if (shot === -1 || f === shot) last = px.slice(); }, setup: (rig) => {
       const b = rig.engine.battle as unknown as { coverage: Record<string, number> };
       const u = rig.engine.battleUi as unknown as { coverage: Record<string, number> };
-      cov = () => `handlers ${JSON.stringify(b.coverage)} screens ${JSON.stringify(u.coverage)}`;
+      cov = () => `handlers ${JSON.stringify(b.coverage)} screens ${JSON.stringify(u.coverage)} events ${JSON.stringify(rig.engine.events.coverage)} map ${rig.g.m.rd(0xccc7)}`;
     } });
-    console.log(`waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} tears ${r.tears} raster ${r.rasterEdges} blank ${r.lcdBlanks} lateRegs ${r.lateRegs} rephased ${r.rephased} seeds ${r.seeds} diffs ${r.diffs.length} waitdiffs ${r.waits.length} error ${r.error ? r.error.message + " @" + r.error.wait : "-"}`);
+    console.log(`waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} tears ${r.tears} raster ${r.rasterEdges} blank ${r.lcdBlanks} lateRegs ${r.lateRegs} objOrder ${r.objOrder} rephased ${r.rephased} seeds ${r.seeds} diffs ${r.diffs.length} waitdiffs ${r.waits.length} error ${r.error ? r.error.message + " @" + r.error.wait : "-"}`);
     console.log(summarizeWaits(r.waits));
     console.log(summarize(r.diffs));
     if (cov) console.log((cov as () => string)());

@@ -89,6 +89,9 @@ export class Engine {
     }
     yield* vramEnd(g);
     g.selectBank(0x06);
+    // the stack at 06:4009: CFFC from the field loop's event, 0x10 deeper per text-started event
+    // (verified for command 9 -> text -> event 8: CFEC, evt9_069_2112)
+    this.battle.sp = 0xcffc - 0x10 * Math.max(0, this.events.depth - 1);
     yield* this.battle.run();
     yield* this.field.loadMap(m.rd(0xccc7));
     m.hram[0x7e] = 1;

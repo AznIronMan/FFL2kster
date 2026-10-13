@@ -44,26 +44,41 @@ describe("splitTear", () => {
 
 describe("lateLines", () => {
   it("accepts old lines down to a line, new below", () => {
-    expect(lateLines(split(OLD, NEW, 7), NEW, OLD)).toBe(true);
+    expect(lateLines(split(OLD, NEW, 7), [OLD, NEW])).toBe(true);
   });
   it("accepts the boundary line split at a pixel or mixed by tiles", () => {
     const e = split(OLD, NEW, 7);
     for (let x = 0; x < 50; x++) e[7 * W + x] = OLD[7 * W + x]!;
-    expect(lateLines(e, NEW, OLD)).toBe(true);
+    expect(lateLines(e, [OLD, NEW])).toBe(true);
     const t = split(OLD, NEW, 7);
     for (let x = 16; x < 24; x++) t[7 * W + x] = OLD[7 * W + x]!;
-    expect(lateLines(t, NEW, OLD)).toBe(true);
+    expect(lateLines(t, [OLD, NEW])).toBe(true);
   });
-  it("rejects two mixed lines, new above old, old in the middle, stray pixels, whole frames", () => {
+  it("rejects two mixed lines, new above old, old in the middle, stray pixels", () => {
     const two = split(OLD, NEW, 7);
     for (let x = 16; x < 24; x++) { two[7 * W + x] = OLD[7 * W + x]!; two[8 * W + x] = OLD[8 * W + x]!; }
-    expect(lateLines(two, NEW, OLD)).toBe(false);
-    expect(lateLines(split(NEW, OLD, 7), NEW, OLD)).toBe(false);
+    expect(lateLines(two, [OLD, NEW])).toBe(false);
+    expect(lateLines(split(NEW, OLD, 7), [OLD, NEW])).toBe(false);
     const mid = pic((x, y) => (y >= 20 && y < 30 ? OLD : NEW)[y * W + x]!);
-    expect(lateLines(mid, NEW, OLD)).toBe(false);
+    expect(lateLines(mid, [OLD, NEW])).toBe(false);
     const stray = split(OLD, NEW, 7);
     stray[100 * W + 5] = 3 - NEW[100 * W + 5]!;
-    expect(lateLines(stray, NEW, OLD)).toBe(false);
-    expect(lateLines(OLD, NEW, OLD)).toBe(false);
+    expect(lateLines(stray, [OLD, NEW])).toBe(false);
+  });
+  it("accepts a frame wholly old (the writes landed after the display)", () => {
+    expect(lateLines(OLD, [OLD, NEW])).toBe(true);
+  });
+});
+
+describe("lateLines with intermediate stages", () => {
+  const MID = pic((x, y) => (x * 7 + y) % 4);
+  it("accepts old, then a stage of the step, then new, in line order", () => {
+    const e = pic((x, y) => (y < 30 ? OLD : y < 90 ? MID : NEW)[y * W + x]!);
+    expect(lateLines(e, [OLD, MID, NEW])).toBe(true);
+    expect(lateLines(MID, [OLD, MID, NEW])).toBe(true);
+  });
+  it("rejects stages out of order", () => {
+    const e = pic((x, y) => (y < 30 ? MID : y < 90 ? OLD : NEW)[y * W + x]!);
+    expect(lateLines(e, [OLD, MID, NEW])).toBe(false);
   });
 });

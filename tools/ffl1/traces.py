@@ -144,6 +144,16 @@ SWEEP = {
                    dict(items=[0x37], stats=(1, 1, 1, 1)), dict(items=[0x37], stats=(1, 1, 1, 1))], 50),
     "bsw24": (16, [dict(items=[0xC0], stats=(50, 50, 99, 50)), dict(items=[0x37], stats=(1, 1, 1, 1)),
                    dict(items=[0x37], stats=(1, 1, 1, 1)), dict(items=[0x37], stats=(1, 1, 1, 1))], 50),
+    # round 4: the handlers not yet reached, the item in slot 0 of the fastest member, the others
+    # with potions so the battle lasts: 44B0 (handler 0: ELIXIR, a field item), 451B (handler 4:
+    # the {E9} items 4E and 13), 5098 (handler 47: item FC, which no monster holds)
+    "bsw25": (16, [dict(items=[0x08], stats=(50, 50, 99, 50))] + [dict(items=[0x00], stats=(1, 1, 1, 1))] * 3, 40),
+    "bsw26": (16, [dict(items=[0x4E], stats=(50, 50, 99, 50))] + [dict(items=[0x00], stats=(1, 1, 1, 1))] * 3, 40),
+    "bsw27": (16, [dict(items=[0xFC], stats=(50, 50, 99, 50))] + [dict(items=[0x00], stats=(1, 1, 1, 1))] * 3, 40),
+    "bsw28": (16, [dict(items=[0x13], stats=(50, 50, 99, 50))] + [dict(items=[0x00], stats=(1, 1, 1, 1))] * 3, 40),
+    # 5098 (handler 47, item FC) is a monster's action once every ability is used up (06:5A37):
+    # WERERATs (one ability, 10 uses) against a party that only defends ({E9}KING) until they flee
+    "bsw29": (22, [dict(items=[0x13], stats=(1, 99, 1, 1))] * 4, 300),
 }
 for _n, (_area, _ms, _k) in SWEEP.items():
     PLANNED[_n] = ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * _k + [("wait", 120)])
@@ -176,13 +186,81 @@ _WALK = ([("press", "up", 16, 4)] * 3 + [("press", "right", 16, 4)] * 3 + [("pre
 for _n in FIELD_SWEEP:
     PLANNED[_n] = ("town0", FIELD, [("wait", 90)] + _WALK + [("wait", 120)])
 
+# Event sweep (P2): field events of the commands the field sweep did not reach, from
+# ffl1/build/event_targets.json (tools/ffl1/event_targets.py): trigger cells (stepped onto, or
+# pushed into when blocked) and map objects (talked to), each map entered as in the field sweep,
+# then A every 60 frames. Per command a few distinct (map, parameter) targets.
+EVENT_SWEEP = {}  # name: (map, kind, x, y)
+
+
+def _event_sweep():
+    import json
+    import os
+    if not os.path.exists("ffl1/build/event_targets.json"):
+        return
+    t = json.load(open("ffl1/build/event_targets.json"))
+    cells = {0: 99, 1: 99, 2: 99, 4: 99, 7: 99, 0x0A: 99, 0x0B: 99, 0x0C: 99, 0x0E: 99, 0x0F: 12}
+    objs = {1: 99, 4: 12, 0x0F: 12, 8: 8, 3: 6, 9: 4}
+    for src, kind, limits in ((t["cells"], "reach", cells), (t["objects"], "talk", objs)):
+        seen, count = set(), {}
+        for mp, x, y, cmd, d in src:
+            if cmd not in limits or (cmd, mp, d) in seen or count.get(cmd, 0) >= limits[cmd]:
+                continue
+            if f"fsw{mp:03d}" not in FIELD_SWEEP:
+                continue
+            seen.add((cmd, mp, d))
+            count[cmd] = count.get(cmd, 0) + 1
+            EVENT_SWEEP[f"ev{kind[0]}{cmd:x}_{mp:03d}_{x:02d}{y:02d}"] = (mp, kind, x, y)
+
+
+_event_sweep()
+for _n, (_mp, _k, _x, _y) in EVENT_SWEEP.items():
+    PLANNED[_n] = ("town0", FIELD, [("wait", 90), (_k, _x, _y)] + [P("a", 60)] * 6 + [("wait", 200)])
+
+# Text event sweep (P2): the events dialogue texts start (codes 00-02 + C3A9 C3AA, 00:0ED2) for
+# the commands no map triggers directly (A give item, B park) and a few others, each poked as the
+# pending event (C3A9, C3AA, C3AB = 1) at the first town's field loop, then A every 50 frames.
+# (Running the texts themselves as event 9 showed nothing: they are sub-texts behind conditions.)
+TEXT_SWEEP = {}  # name: (C3A9, C3AA)
+
+
+def _text_sweep():
+    import json
+    import os
+    import re
+    if not os.path.exists("ffl1/data/text.json"):
+        return
+    t = json.load(open("ffl1/data/text.json"))["tables"]["dialogue"]["entries"]
+    limits = {0x0A: 5, 0x0B: 5, 0x07: 3, 0x0E: 3, 0x0F: 3}
+    count, seen = {}, set()
+    for e in t:
+        for mm in re.finditer(r"\{0[012] ([0-9A-F]{2}) ([0-9A-F]{2})\}", e["text"]):
+            a9, aa = int(mm.group(1), 16), int(mm.group(2), 16)
+            cmd = a9 & 0x0F
+            if cmd in limits and count.get(cmd, 0) < limits[cmd] and (a9, aa) not in seen:
+                seen.add((a9, aa))
+                count[cmd] = count.get(cmd, 0) + 1
+                TEXT_SWEEP[f"tsw{cmd:x}_{a9:02x}{aa:02x}"] = (a9, aa)
+
+
+_text_sweep()
+for _n in TEXT_SWEEP:
+    PLANNED[_n] = ("town0", FIELD, [("wait", 30)] + [P("a", 50)] * 12 + [("wait", 200)])
+
+
+def POKES_FSW(w):
+    """The warp event w poked at the field loop (C5BA = 0: a fresh map ignores warps until a step)."""
+    return [(0xC5BA, 0x00), (0xC3A9, 0x06 if w >= 0x100 else 0x05), (0xC3AA, w & 0xFF), (0xC3AB, 0x01)]
+
+
 # Fixture pokes applied at the hook (address, value[, mask]), by the planner and the recorder alike.
 POKES = {
     **{_n: battle_pokes(_area, _ms) for _n, (_area, _ms, _k) in SWEEP.items()},
-    **{_n: [(0xC5BA, 0x00), (0xC3A9, 0x06 if _w >= 0x100 else 0x05), (0xC3AA, _w & 0xFF), (0xC3AB, 0x01)]
-       for _n, _w in FIELD_SWEEP.items()},
+    **{_n: POKES_FSW(_w) for _n, _w in FIELD_SWEEP.items()},
     **{f"sfx{_i:02d}": [(0xFFE4, _i)] for _i in range(1, SFX_COUNT + 1)},
     **{f"jng{_j:02x}": [(0xFFE2, _j)] for _j in JINGLES},
+    **{_n: POKES_FSW(FIELD_SWEEP[f"fsw{_mp:03d}"]) for _n, (_mp, *_r) in EVENT_SWEEP.items()},
+    **{_n: [(0xC3A9, _a9), (0xC3AA, _aa), (0xC3AB, 0x01)] for _n, (_a9, _aa) in TEXT_SWEEP.items()},
     "care1": [(0xCC0F, 0x84), (0xCC10, 0x05), (0xCC06, 0x0A), (0xCC07, 0x00)],
     "battle1": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
     "flee1": battle_pokes(16, [dict(items=[0x37])] * 4),
@@ -196,7 +274,7 @@ def plan_for(name):
         return SCENARIOS[name]
     state, hook, actions, *save = PLANNED[name]
     p = Planner(state, hook, pokes=POKES.get(name, ()))
-    p.run(actions)
+    p.run(actions, max_frames=2500 if name in EVENT_SWEEP or name in TEXT_SWEEP else None)
     plan = p.plan()
     p.e.__exit__(None, None, None)
     return (state, hook, plan, *save)

@@ -368,3 +368,12 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
 - A defeat restarts through 00:0101 -> 00:0224 with C425/C426 = 1B E4 still set, so C427 = 0
   (warm; verified by defeat1: the mutated value differs at the first wait); a power-on gives C427 = 1
   (code; who reads C427 is not yet traced).
+- Nested events: an event started by a text (dialogue codes 00-02, 00:0ED2 -> 00:16E0) runs 0x10
+  bytes deeper on the stack; a battle started that way saves SP = CFEC at 06:4009 (verified,
+  evt9_069_2112), CFFC from the field loop's own event.
+- 06:5A37: a monster none of whose abilities is usable gets the action FC (06:5A68), whose
+  handler 06:5098 makes it flee (status FF, message 4F) unless the formation is a boss's (D3E6;
+  message 11) (code, not yet traced).
+- Emulator note (not the game): PyBoy draws overlapping objects from the lowest priority up, so
+  an object with the behind-background bit over a non-zero background pixel lets a lower object
+  show through; on the DMG it masks it. Traces show PyBoy's version (evr1_080_1517).

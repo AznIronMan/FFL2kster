@@ -61,15 +61,19 @@ export class Battle {
 
   // ---------------------------------------------------------------- the battle loop
 
+  /** SP at 06:4009 (saved to D4AB/D4AC): CFFC from the field loop's event (00:16E0). */
+  sp = 0xcffc;
+
   /** 06:4000 -> 4006 — the battle. */
   *run(): Co {
     const r = this.r;
     try {
       this.clearEntities();          // 565E
       // 4009 ld [d4ab],sp: the exit point (06:5CEB). The field loop (00:1243) -> 00:16E0 ->
-      // 00:1BBE -> 06:4000 always leaves SP at CFFC here.
-      this.wr(0xd4ab, 0xfc);
-      this.wr(0xd4ac, 0xcf);
+      // 00:1BBE -> 06:4000 leaves SP at CFFC here; deeper when the battle comes from an event
+      // inside a text (`sp`, set by the caller).
+      this.wr(0xd4ab, this.sp & 0xff);
+      this.wr(0xd4ac, this.sp >> 8);
       this.vectors();                // 5D90
       this.loadParty();              // 556A
       this.loadMonsters();           // 56AD

@@ -63,8 +63,8 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 |---|---|---|
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
 | P1 vertical slice | in progress | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 16 traces, 0 differences); sound driver and the web player to come |
-| P2 full field | in progress | field sweep: every map (200) entered through its first warp and walked: 159,508 waits, 0 state differences; 198/200 traces frame-exact, 2 residual frames (VRAM half-written during a busy stretch) |
-| P3 full battle | in progress | battle sweep 24 traces (bsw01-bsw24), 63,885 waits, 0 differences; 44 of 49 effect handlers and every reachable screen effect / boss death reached (see the log); flee, defeat, random encounters, the sound driver to come |
+| P2 full field | in progress | field + event sweep: 293 traces (every map; trigger cells, objects and text-started events: commands 0, 1, 3-F), 299,221 waits, 0 state differences; 2 residual frames (half-written tile data during busy stretches) |
+| P3 full battle | in progress | battle sweep 29 traces, 84,833 waits, 0 differences; 45 of 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters (field sweep: 19 battles) frame-exact; sound verified separately |
 | P4 platforms | not started | |
 | P5 extras | not started | |
 
@@ -342,3 +342,31 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   CE19 instead of CE18 (37), the tempo restored from CEC1 (2), the effect loop count off by one
   (7). Sound effects move from probable to verified; the battle-trace drift stays a CPU-time
   effect of when requests land.
+
+### 2026-10-13 — Event sweep, text-started events, battle round 4
+- `tools/ffl1/event_targets.py` reads, for every map entered as in the field sweep, the map buffer
+  and attribute table in PyBoy: cells whose attribute has bit 7 trigger event e & 0F (100,519
+  cells, mostly exits); objects come from the M5 event lists (457). `traces.py` EVENT_SWEEP: 74
+  targets of the commands the field sweep missed (stepped onto, pushed into when blocked, or an
+  object talked to: new planner actions `reach` / `talk`, best effort, 2,500-frame cap).
+  TEXT_SWEEP: 19 events that dialogue texts start (codes 00-02: A give item, B park, 7, E, F)
+  poked as the pending event. All 93 in fieldsweep.test.ts: event commands seen 0, 1, 3-F (2 is
+  never used by a map or text and runs 0/1's code).
+- Fixed by the sweep: a battle started by an event inside a text (event 9 -> text -> event 8)
+  runs with SP 0x10 lower: 06:4009 saves CFEC, not CFFC (evt9_069_2112, D4AB). The port now
+  counts nested events (Events.depth) and passes SP to the battle (verified for this path).
+- Replay rules: lateRegs now draws with the step's intermediate LCD register values too
+  (after each write, in order, line by line forward); a frame wholly in one earlier stage counts
+  (the writes came after the display) — evr0_142_1116 (window enabled a frame late while the
+  scroll was already new) and evt9_069_2112. New counted rule objOrder: PyBoy paints objects from
+  the lowest priority up, so a high-priority object behind the background leaves the one below
+  visible, where the DMG (and the port's renderer) masks it (PyBoy core/lcd.py
+  `scanline_sprites`); evr1_080_1517's 13 frames equal the port's picture redrawn that way.
+- Battle round 4 (bsw25-29): 451B ({E9} items) reached and frame-exact (bsw26, bsw28, 113 uses).
+  Not reached: 44B0 (handler 0) and 5098 (item FC): 06:5A37 gives a monster the action FC when
+  none of its abilities is usable (uses spent), and 5098 then makes it flee outside boss battles
+  (code); bsw29 (WERERATs, 10 uses, a party that only defends, 13,454 waits, frame-exact) did
+  not get there in 300 presses. Field items in a member's slot are not offered in battle.
+- Totals: battle sweep 29 traces, 84,833 waits, 0 differences, handlers 45 of 49; field sweep
+  293 traces, 299,221 waits, 0 state differences, counted lateWrite 706, lateRegs 22, objOrder
+  13, tears 6; the same 2 residual frames. Suites: port 4,704 passed (tear tests 12).

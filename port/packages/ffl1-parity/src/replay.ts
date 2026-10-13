@@ -47,43 +47,54 @@ export interface ReplayOptions {
 export interface ReplayResult {
   trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number;
   lateWrites: number; rephased: number; tears: number; rasterEdges: number; lcdBlanks: number;
-  /** Frames whose top lines are drawn with the LCD registers as they were before the step, down
-   *  to the line the writes caught up (lateLines with the old registers). */
+  /** Frames drawn with the LCD registers as they were before or during the step, line by line
+   *  moving forward (lateLines). */
   lateRegs: number;
+  /** Frames equal to the port's picture with PyBoy's object order (the trace's emulator paints
+   *  objects lowest priority first; the DMG masks): an emulator difference, not a timing one. */
+  objOrder: number;
   /** Starts (00:0224) whose DIV-seeded random counters C300-C37F were taken from the trace. */
   seeds: number;
   error?: { message: string; wait: number };
 }
 
 /** LCD registers written during the display (the original's code reached the writes after
- *  line 0): the top lines drawn as before the writes (`old`: the port's picture redrawn with the
- *  registers as they were at the frame's start), the rest as after; the line where the writes
- *  caught up is old up to some pixel and new from there, or mixed by 8-pixel tile segments. */
-export function lateLines(exp: Uint8Array, got: Uint8Array, old: Uint8Array): boolean {
-  const W = 160;
+ *  line 0, or after the frame): `stages` are the port's picture redrawn with the registers as
+ *  they were at the frame's start, after each register write of the step, in order, and last the
+ *  port's own frame. Each line must equal a stage, the stages only moving forward from line to
+ *  line; a line where a write landed is one stage up to some pixel and a later one from there, or
+ *  mixed by 8-pixel tiles of two stages. (A frame wholly in one earlier stage counts: the writes
+ *  came after the display.) */
+export function lateLines(exp: Uint8Array, stages: Uint8Array[]): boolean {
+  const W = 160, n = stages.length;
   const rowIs = (src: Uint8Array, y: number) => {
     for (let x = 0; x < W; x++) if (exp[y * W + x] !== src[y * W + x]) return false;
     return true;
   };
-  let y = 0;
-  while (y < 144 && rowIs(old, y)) y++;
-  if (y === 0 || y === 144) return false;
-  let split = 0;
-  while (split < W && exp[y * W + split] === old[y * W + split]) split++;
-  let rest = split;
-  while (rest < W && exp[y * W + rest] === got[y * W + rest]) rest++;
-  if (rest < W) {
+  const mixed = (a: Uint8Array, b: Uint8Array, y: number) => {
+    let x = 0;
+    while (x < W && exp[y * W + x] === a[y * W + x]) x++;
+    while (x < W && exp[y * W + x] === b[y * W + x]) x++;
+    if (x === W) return true;
     for (let x0 = 0; x0 < W; x0 += 8) {
-      let o = true, n = true;
-      for (let x = x0; x < x0 + 8; x++) {
-        const i = y * W + x;
-        if (exp[i] !== old[i]) o = false;
-        if (exp[i] !== got[i]) n = false;
+      let o = true, nw = true;
+      for (let i = y * W + x0; i < y * W + x0 + 8; i++) {
+        if (exp[i] !== a[i]) o = false;
+        if (exp[i] !== b[i]) nw = false;
       }
-      if (!o && !n) return false;
+      if (!o && !nw) return false;
     }
+    return true;
+  };
+  let k = 0;
+  for (let y = 0; y < 144; y++) {
+    let j = k;
+    while (j < n && !rowIs(stages[j]!, y)) j++;
+    if (j < n) { k = j; continue; }
+    for (j = k + 1; j < n && !mixed(stages[k]!, stages[j]!, y); j++);
+    if (j >= n) return false;
+    k = j;
   }
-  for (y++; y < 144; y++) if (!rowIs(got, y)) return false;
   return true;
 }
 
@@ -186,7 +197,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   const ign = opts.ignore ?? IGNORE;
   const diffs: FrameDiff[] = [];
   const waits: WaitDiff[] = [];
-  let nWaits = 0, f = -1, tickPhase = 0, busy = 0, rephased = 0, tears = 0, rasterEdges = 0, lcdBlanks = 0, lateRegs = 0;
+  let nWaits = 0, f = -1, tickPhase = 0, busy = 0, rephased = 0, tears = 0, rasterEdges = 0, lcdBlanks = 0, lateRegs = 0, objOrder = 0;
   const latchPpu = new Ppu(m.vram, m.oam);
   let lastDrawn = -1;
   let pre: Uint8Array | null = null;
@@ -242,6 +253,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   };
   while (f < n - 1 && !(nWaits >= wf.length && wf.length) && !(opts.maxWaits && nWaits >= opts.maxWaits)) {
     const io0 = m.io.slice();
+    rig.stepRegs = [];
     rig.lcdOff = false;
     const prevF = f;
     try {
@@ -269,9 +281,13 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     const exp = t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES);
     const pixels = screenDiff(rig.ppu.frame, exp);
     if (!pixels) { lastGot = rig.ppu.frame.slice(); continue; }
+    if (!screenDiff(rig.redrawPyBoyObjects(), exp)) { objOrder++; lastGot = rig.ppu.frame.slice(); continue; }
     if (blank) { lcdBlanks++; continue; }
     if (lastGot && lateWrite(rig.ppu.frame, exp, lastGot)) { lateWrites++; lastGot = rig.ppu.frame.slice(); continue; }
-    if (opts.tears !== false && lateLines(exp, rig.ppu.frame, rig.redrawFrom(m.vram, regsFromIo(io0)))) { lateRegs++; lastGot = rig.ppu.frame.slice(); continue; }
+    if (opts.tears !== false) {
+      const stages = [regsFromIo(io0), ...rig.stepRegs].map((r) => rig.redrawFrom(m.vram, r));
+      if (lateLines(exp, [...stages, rig.ppu.frame])) { lateRegs++; lastGot = rig.ppu.frame.slice(); continue; }
+    }
     // a polled raster frame: lines whose register write landed a line early or late
     if (rig.raster && opts.tears !== false && rasterRows(rig, exp)) { rasterEdges++; lastGot = rig.ppu.frame.slice(); continue; }
     // drawn while the original wrote VRAM line by line (00:069F): every pixel old or new
@@ -294,7 +310,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     }
     diffs.push({ frame: f, pixels, got: rig.ppu.frame.slice(), afterBusy: f - prevDrawn > 1, lcdOff: rig.lcdOff });
   }
-  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, lateRegs, seeds, error };
+  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, lateRegs, objOrder, seeds, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {

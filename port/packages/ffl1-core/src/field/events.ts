@@ -35,9 +35,23 @@ export class Events {
   }
 
   /** 00:16E0 — the pending event (C3AB set), then 00:1AB8. */
+  /** Events in progress: 1 for the field loop's, 2 for an event started by a text inside it
+   *  (dialogue codes 00-02), whose stack is 0x10 bytes deeper. */
+  depth = 0;
+
   *run(): Co {
     const m = this.m;
     if (!m.rd(0xc3ab)) return;
+    this.depth++;
+    try {
+      yield* this.runPending();
+    } finally {
+      this.depth--;
+    }
+  }
+
+  private *runPending(): Co {
+    const m = this.m;
     m.wr(0xc5d0, m.hram[0x0b]!);
     m.wr(0xc5b1, 0);
     const cmd = m.rd(0xc3a9) & 0x0f;

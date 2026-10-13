@@ -49,6 +49,8 @@ export class Memory {
 
   /** LCDC writes (the parity rig notes the LCD switched off). */
   onLcdc: ((v: number) => void) | null = null;
+  /** Diagnostics (parity): every write to the LCD registers FF40-FF4B. */
+  onLcdWrite: ((a: number, v: number) => void) | null = null;
 
   wr(a: number, v: number): void {
     a &= 0xffff;
@@ -68,6 +70,7 @@ export class Memory {
       if (a === 0xff46) this.dma(v);
       else if (a === 0xff40) this.onLcdc?.(v);
       else if (a >= 0xff10 && a < 0xff40) this.onSoundWrite?.(a, v);
+      if (a >= 0xff40 && a <= 0xff4b) this.onLcdWrite?.(a, v);
     } else this.hram[a - 0xff80] = v;
   }
 

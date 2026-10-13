@@ -39,9 +39,13 @@ export class Rig {
   vramWrites = false;
   /** Set when the code switched the LCD off (cleared by the replay before each frame). */
   lcdOff = false;
+  /** The LCD registers after each write the code made in the current step (cleared by the
+   *  replay before each frame): the values the original's display may have caught on its way. */
+  stepRegs: LcdRegs[] = [];
   constructor(readonly rom: Uint8Array) {
     this.engine = new Engine(segments(rom), rom);
     const m = this.g.m;
+    m.onLcdWrite = () => { this.stepRegs.push(regsFromIo(m.io)); };
     m.onLcdc = (v) => { if (!(v & 0x80)) this.lcdOff = true; };
     this.ppu = new Ppu(m.vram, m.oam);
     this.g.onLine = (y) => {
@@ -63,6 +67,51 @@ export class Rig {
     }
     return p.frame;
   }
+  /** The last frame drawn again with PyBoy's object order instead of the DMG's: objects painted
+   *  from the lowest priority to the highest, so a high-priority object hidden behind the
+   *  background (attribute bit 7, background colour not 0) leaves the lower one visible; the
+   *  hardware (and @ffl2k/render) lets it mask the pixel instead (Pan Docs, "object priority"). */
+  redrawPyBoyObjects(): Uint8Array {
+    const m = this.g.m, vram = m.vram, oam = m.oam;
+    const bg = new Ppu(vram, oam), idx = new Ppu(vram, oam);
+    bg.beginFrame();
+    idx.beginFrame();
+    for (let y = 0; y < 144; y++) {
+      const r = this.lineRegs[y]!;
+      bg.regs = { ...r, lcdc: r.lcdc & ~0x02 };
+      idx.regs = { ...r, lcdc: r.lcdc & ~0x02, bgp: 0xe4 };
+      bg.line(y);
+      idx.line(y);
+      if (!(r.lcdc & 0x02)) continue;
+      const h = r.lcdc & 0x04 ? 16 : 8;
+      const line: number[] = [];
+      for (let i = 0; i < 40 && line.length < 10; i++) {
+        const sy = oam[4 * i]! - 16;
+        if (y >= sy && y < sy + h) line.push(i);
+      }
+      // lowest priority first: larger X, then larger OAM index
+      line.sort((a, b) => oam[4 * b + 1]! - oam[4 * a + 1]! || b - a);
+      for (const i of line) {
+        const sy = oam[4 * i]! - 16, sx = oam[4 * i + 1]! - 8, fl = oam[4 * i + 3]!;
+        let tile = oam[4 * i + 2]!;
+        if (h === 16) tile &= 0xfe;
+        let ty = y - sy;
+        if (fl & 0x40) ty = h - 1 - ty;
+        const a = tile * 16 + ty * 2;
+        for (let tx = 0; tx < 8; tx++) {
+          const x = sx + tx;
+          if (x < 0 || x >= 160) continue;
+          const px = fl & 0x20 ? 7 - tx : tx;
+          const c = (((vram[a + 1]! >> (7 - px)) & 1) << 1) | ((vram[a]! >> (7 - px)) & 1);
+          if (!c) continue;
+          if (fl & 0x80 && idx.frame[y * 160 + x] !== 0) continue;
+          bg.frame[y * 160 + x] = ((fl & 0x10 ? r.obp1 : r.obp0) >> (2 * c)) & 3;
+        }
+      }
+    }
+    return bg.frame;
+  }
+
   /** The last frame drawn again from a VRAM (each line with its registers), or with fixed
    *  registers. */
   redrawFrom(vram: Uint8Array, regs?: LcdRegs): Uint8Array {

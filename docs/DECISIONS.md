@@ -484,3 +484,13 @@ Decisions and assumptions for the Legend I work:
 - Residual frames are kept as exact expectations ([frame, pixels]) in the sweep test rather than
   absorbed by a looser rule: today two half-written tile rows during busy stretches. A rule that
   accepts a pixel mixed bit by bit from old and new tile data would hide real tile errors.
+
+## 2026-10-13 — Legend I replay: register stages and PyBoy's object order
+
+- lateRegs generalised: the stages are the frame drawn with the LCD registers as at the step's
+  start, after each register write of the step (Memory.onLcdWrite, diagnostics only), and the
+  port's frame; each line must equal a stage, moving forward line by line (one line may mix two
+  stages). It replaces the two-stage form; unit tests cover order, mixing and rejection.
+- objOrder: a frame equal to the port's picture redrawn with PyBoy's object order is accepted
+  and counted. This is a difference of the reference emulator from the DMG, not of the port; the
+  player keeps the DMG behaviour (@ffl2k/render is unchanged).
