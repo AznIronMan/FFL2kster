@@ -402,3 +402,5 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   and 192); all 31 traces frame-exact, 0 wait differences, so D4AB = CFEC was matched at every wait
   of every battle: the nested-event stack (0x10 per text-started event) holds for the talk path
   too. Falsified: 0x08 per level gives D4AB F4 instead of EC (tsb0_0021, 573 wait differences).
+- Field sweep after the correction: 324 traces (200 maps, 83 event targets, 19 text events, 22
+  talk-battle texts), all passing in the full suite (4,739 port tests).
