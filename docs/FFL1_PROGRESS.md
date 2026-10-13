@@ -64,7 +64,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
 | P1 vertical slice | in progress | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 16 traces, 0 differences); sound driver and the web player to come |
 | P2 full field | in progress | field + event sweep: 327 traces (every map; trigger cells, objects, talk and text-started events: commands 0, 1, 3-F), 333,695 waits, 0 state differences; 2 residual frames (half-written tile data during busy stretches) |
-| P3 full battle | in progress | battle sweep 29 traces, 84,833 waits, 0 differences; 45 of 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters (field sweep: 19 battles) frame-exact; sound verified separately |
+| P3 full battle | in progress | battle sweep 33 traces, 95,039 waits, 0 differences, plus flee2 (a monster flees): all 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters and event battles (field sweep) frame-exact; sound verified separately |
 | P4 platforms | not started | |
 | P5 extras | not started | |
 
@@ -379,3 +379,26 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   reach; the texts' battles sit behind progress and item conditions). The talk-path SP stays a
   hypothesis.
 - Field sweep now 327 traces, 333,695 waits, 0 state differences (event commands 0 x59, 1, 3-F).
+
+### 2026-10-13 — A monster flees; talk-started battles
+- flee2 (`traces.py` SCENARIOS, a plain plan: A every 40 frames for 12,000 frames; the planner's
+  per-frame check is too slow for that length): area 22's REDBULL against one member who only
+  defends ({E9}KING; the other three down). REDBULL uses HORN 10 times (its other ability, {44}ICE,
+  is passive), then 06:5A37 gives it action FC and 06:5098 makes it flee: 12,159 waits, 0
+  differences (17 joypad re-phases, counted). Handler 5098 verified.
+- The handler coverage was undercounted: 44B0 ("nothing", for an action whose item is FF), 44BC
+  (paralysed, status bit 6) and 44E4 (asleep, bit 7) are entered from 06:4316 without the jump
+  table, and the port's counter sat in the table dispatch only. Counted now: 44B0 x8, 44BC x1,
+  44E4 x4 in the existing sweep traces (all frame-exact). bsw30 (the {EC} CORAL / OGRE / DRAGON /
+  SUN swords) reaches 476B (handler 8). bsw31-33 (members poked asleep / paralysed, a member with
+  no item, SLEEP and KINESIS on the monsters) are frame-exact. With flee2: all 49 handlers.
+  Falsified: the asleep wake-up mask 7F -> FF fails 2 sweep traces. (The port's comment had the
+  two statuses swapped: bit 6 is paralysis, message 03, bit 7 sleep, message 05.)
+- Text numbers: the text routine (00:3475) reads text n at 05:7B10 + 2n, while the dialogue table
+  (M3, 05:7B30) starts 16 entries later: events and objects name dialogue entry k as text k + 16.
+  The first talk-battle probes (1.19.1) used the entry numbers, so their "battle" texts were other
+  texts. Corrected: tsb0_* = the 22 texts holding a battle as talk events, evt0_* = 9 objects
+  whose talk text holds one. 19 battles started (17 from poked talk texts, 2 from objects: map 96
+  and 192); all 31 traces frame-exact, 0 wait differences, so D4AB = CFEC was matched at every wait
+  of every battle: the nested-event stack (0x10 per text-started event) holds for the talk path
+  too. Falsified: 0x08 per level gives D4AB F4 instead of EC (tsb0_0021, 573 wait differences).

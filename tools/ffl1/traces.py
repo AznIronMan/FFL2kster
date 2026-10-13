@@ -38,6 +38,11 @@ JINGLES = (0x0B, 0x0C, 0x0D, 0x0F, 0x10, 0x11)
 for _j in JINGLES:
     SCENARIOS[f"jng{_j:02x}"] = ("town0", FIELD, "none:900")
 
+# A monster that flees (06:5A37 -> FC -> 06:5098): area 22's REDBULL has one usable ability (HORN,
+# 10 uses; {44}ICE is passive); one member (the others down) who only defends ({E9}KING) outlasts
+# it. A plain plan (A every 40 frames): the planner's per-frame edge check is slow for long runs.
+SCENARIOS["flee2"] = ("town0", FIELD, "none:60," + ",".join(["a:5,none:35"] * 300) + ",none:300")
+
 # Planned scenarios: (state, hook, actions[, state saved at the end]) -> the plan comes from
 # tools/ffl1/planner.py run on the same state (deterministic).
 P = lambda b, w=24: ("press", b, 5, w)
@@ -154,6 +159,17 @@ SWEEP = {
     # 5098 (handler 47, item FC) is a monster's action once every ability is used up (06:5A37):
     # WERERATs (one ability, 10 uses) against a party that only defends ({E9}KING) until they flee
     "bsw29": (22, [dict(items=[0x13], stats=(1, 99, 1, 1))] * 4, 300),
+    # round 5: 476B (handler 8, the {EC} CORAL / OGRE / DRAGON / SUN swords); tried for 44BC /
+    # 44E4 / 44B0 (bsw31: members poked asleep / paralysed; bsw32: a member with no item)
+    "bsw30": (39, [dict(items=[0x26]), dict(items=[0x27]), dict(items=[0x28]), dict(items=[0x29])], 60),
+    "bsw31": (16, [dict(items=[0x00], status=0x40, stats=(1, 1, 1, 1)), dict(items=[0x00], status=0x80, stats=(1, 1, 1, 1)),
+                   dict(items=[0x00], stats=(1, 1, 1, 1)), dict(items=[0x00], stats=(1, 1, 1, 1))], 40),
+    "bsw32": (16, [dict(items=[], stats=(50, 50, 99, 50))] + [dict(items=[0x00], stats=(1, 1, 1, 1))] * 3, 40),
+    # the statuses that make an actor's turn 44E4 (asleep, bit 7: {EF}SLEEP power 80) or 44BC
+    # (paralysed, bit 6: KINESIS power 40); party status bits poked into the records (bsw31) are
+    # not enough, as asleep / paralysed members get no turn to execute
+    "bsw33": (16, [dict(items=[0x6F], stats=(50, 50, 99, 99)), dict(items=[0xEC], stats=(50, 50, 98, 99)),
+                   dict(items=[0x13], stats=(1, 99, 1, 1)), dict(items=[0x13], stats=(1, 99, 1, 1))], 80),
 }
 for _n, (_area, _ms, _k) in SWEEP.items():
     PLANNED[_n] = ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * _k + [("wait", 120)])
@@ -225,7 +241,7 @@ def _talk_battles():
     if not os.path.exists("ffl1/data/text.json"):
         return
     t = json.load(open("ffl1/data/text.json"))["tables"]["dialogue"]["entries"]
-    bt = {e["id"] for e in t if re.search(r"\{0[012] [0-9A-F]8 [0-9A-F]{2}\}", e["text"])}
+    bt = {e["id"] + 16 for e in t if re.search(r"\{0[012] [0-9A-F]8 [0-9A-F]{2}\}", e["text"])}  # text numbers
     seen = set()
     for mp in json.load(open("ffl1/data/maps.json"))["maps"]:
         for e in mp.get("event_list", []):
@@ -269,16 +285,17 @@ _text_sweep()
 
 
 def _talk_texts():
-    """Talk events (command 0: window, text C3AA) for the texts that start a battle (tsb + id):
-    the stack depth of a battle started from a talk."""
+    """Talk events (command 0: window, text C3AA) for the texts that start a battle (tsb + the
+    text number C3AA): the stack depth of a battle started from a talk. 00:3475 reads text n at
+    05:7B10 + 2n while the dialogue table (M3) starts at 05:7B30: entry k is text k + 16."""
     import json
     import os
     import re
     if not os.path.exists("ffl1/data/text.json"):
         return
     for e in json.load(open("ffl1/data/text.json"))["tables"]["dialogue"]["entries"]:
-        if re.search(r"\{0[012] [0-9A-F]8 [0-9A-F]{2}\}", e["text"]):
-            TEXT_SWEEP[f"tsb0_00{e['id']:02x}"] = (0x00, e["id"])
+        if re.search(r"\{0[012] [0-9A-F]8 [0-9A-F]{2}\}", e["text"]) and e["id"] + 16 < 0x100:
+            TEXT_SWEEP[f"tsb0_00{e['id'] + 16:02x}"] = (0x00, e["id"] + 16)
 
 
 _talk_texts()
@@ -299,6 +316,8 @@ POKES = {
     **{f"jng{_j:02x}": [(0xFFE2, _j)] for _j in JINGLES},
     **{_n: POKES_FSW(FIELD_SWEEP[f"fsw{_mp:03d}"]) for _n, (_mp, *_r) in EVENT_SWEEP.items()},
     **{_n: [(0xC3A9, _a9), (0xC3AA, _aa), (0xC3AB, 0x01)] for _n, (_a9, _aa) in TEXT_SWEEP.items()},
+    "flee2": battle_pokes(22, [dict(items=[0x13], stats=(1, 99, 1, 1))]
+                          + [dict(items=[0x13], hp=0, status=0x01)] * 3),
     "care1": [(0xCC0F, 0x84), (0xCC10, 0x05), (0xCC06, 0x0A), (0xCC07, 0x00)],
     "battle1": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
     "flee1": battle_pokes(16, [dict(items=[0x37])] * 4),

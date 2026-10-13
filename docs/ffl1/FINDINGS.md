@@ -373,7 +373,13 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   evt9_069_2112), CFFC from the field loop's own event.
 - 06:5A37: a monster none of whose abilities is usable gets the action FC (06:5A68), whose
   handler 06:5098 makes it flee (status FF, message 4F) unless the formation is a boss's (D3E6;
-  message 11) (code, not yet traced).
+  message 11) (traced: flee2; the boss branch from code).
 - Emulator note (not the game): PyBoy draws overlapping objects from the lowest priority up, so
   an object with the behind-background bit over a non-zero background pixel lets a lower object
   show through; on the DMG it masks it. Traces show PyBoy's version (evr1_080_1517).
+- Text numbering: 00:3475 reads text n at 05:7B10 + 2n; the dialogue table exported in M3
+  (05:7B30) is texts 16 and up (entry k = text k + 16). Numbers 0-15 point outside the text bank
+  and are never used. Object and event parameters use the text numbers (verified: talk event 0x56
+  shows entry 0x46's text and starts its battle).
+- Monsters flee: verified by flee2 (REDBULL, HORN spent after 10 uses -> action FC -> 06:5098:
+  "ran away", status FF).

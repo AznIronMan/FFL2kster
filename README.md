@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.19.1`
+Version: `1.20.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
@@ -99,6 +99,11 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.20.0` — Legend I: every battle effect handler (49 of 49) reached and frame-exact — a
+  monster that runs out of abilities flees (06:5098), the {EC} slayer swords, and the asleep /
+  paralysed / "nothing" turns that were reached all along but not counted; battles started from
+  talk texts keep their deeper stack (verified); events number dialogue texts 16 above the M3
+  table's entries.
 - `1.19.1` — Legend I field sweep extended with talk events whose texts start battles (34 more
   traces: 327, 333,695 waits, all frame-exact or counted).
 - `1.19.0` — Legend I event sweep: trigger cells, map objects and the events texts start

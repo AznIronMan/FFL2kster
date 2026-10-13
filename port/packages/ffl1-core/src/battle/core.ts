@@ -592,10 +592,12 @@ export class Battle {
     yield* this.checkEnd();
   }
 
-  /** 06:44BC / 06:44E4 — an asleep (bit 6) / paralysed (bit 7) actor: message 01, then the
-   *  chance (item FE / FD power) to recover. */
+  /** 06:44BC / 06:44E4 — a paralysed (bit 6, message 03) / asleep (bit 7, message 05) actor:
+   *  message 01, then the chance (item FE / FD power) to recover (4C / 4D). */
   *wakeUp(actor: number, it: number, stay: number, msgOk: number, mask: number): Co {
     const r = this.r;
+    const k = it === 0xfd ? "44e4" : "44bc";
+    this.coverage[k] = (this.coverage[k] ?? 0) + 1;
     this.hw(0xffb0, actor);
     yield* this.msg(0x01);
     const c = this.itemPower(it);
@@ -701,6 +703,7 @@ export class Battle {
 
   /** 06:44B0 — "nothing happens" (14) for the first target. */
   *nothing(): Co {
+    this.coverage["44b0"] = (this.coverage["44b0"] ?? 0) + 1;
     if (!this.first()) return;
     this.nextHit();
     yield* this.msg(0x14);
