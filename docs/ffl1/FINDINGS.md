@@ -215,3 +215,33 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   NPC's window; battle message 13 " {31} damage" with 'a' → 'A' shows "10 dAmage"; UI template 7
   "START" → "BEGIN" shows on the title screen after a cold boot.
 - `python -m ffl1kster text-export` writes the decoded tables (processed data).
+
+## 2026-10-12 — Encounters (M4)
+
+- The random battle reaches the battle command (00:1BBE: FFBD = C3AA) through the event executor
+  00:16E0 with C3A9 = 8 (battle) and C3AA = area; a hook on 00:1BBE gave C3A9 = 0x08, C3AA = 0x13
+  for the make-states battle. The writer is **00:2266** (each step):
+  zone = C5C2[index] (four zone slots per map; the index is the top two bits of a byte passed in,
+  probably the metatile attribute — open, M5), zone record **06:6400 + 8 × zone** = rate + 7 area
+  ids; encounter when rand(0..e) = 0 with e = (C5B3 − 1) × 8 + rate (capped at 255); the area slot
+  comes from rand(0..255) against 80 40 20 10 08 04 00 (00:22B5) — weights 1/2, 1/4 … 1/128.
+  Area id bit 7 selects the area's alternate formation (it is copied to FFBD).
+- Falsified on the way: *"encounters come from metatile attributes"* — the tile under the hero
+  (metatile 0x1B, attribute 00 4E) carries no command; tile commands are touch events (M5).
+- The zone table (141 records) is followed directly by the area table (128 × 5) and then the monster
+  table; the formation table (31 × 3) ends where the ability lists begin.
+- Controlled changes (`python tools/ffl1/encounter_change.py`, same world state and route):
+
+| Change | Result |
+|---|---|
+| none | step 68, FFBD 0x13, ASIGARU |
+| zone 0 slot 4 0x13→0x12 | step 68, FFBD 0x12, ZOMBIE (area 18 formation 2) |
+| zone 0 slot 4 0x13→0x93 | FFBD 0x93, SKELETON ×2 (area 19 alternate formation 6: 1–3) |
+| CONTROL zone 1 slot 4 →0x12 | unchanged |
+| zone 0 rate 0x18→0x02 | battle at step 11 |
+| area 19 formation 2→3 | LIZARD, SKELETON, ASIGARU (formation 3 = one of each) |
+| formation 2 `00 00 11`→`00 00 33` | ASIGARU ×3 |
+| CONTROL formation 1 → `33 33 33` | unchanged |
+
+- Drops: Legend I enemies leave meat (record b0 bits 0–2) and GP (record b6 low nibble); both were
+  verified in M2. No item drops were found in the battle-end code (06:5240).

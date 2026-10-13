@@ -89,3 +89,17 @@ def test_known_strings(ffl1_rom):
     ui = T.table_entries(ffl1_rom, "ui")
     assert ui[4]["text"] == "  FIGHT{0D}  RUN{00}"
     assert "Can't run" in T.table_entries(ffl1_rom, "battle")[70]["text"]
+
+
+def test_encounter_tables(ffl1_rom):
+    from ffl1kster.schema import encounters as E
+    assert E.ZONES + E.ZONE_SIZE * E.ZONE_COUNT == E.AREAS
+    assert E.AREAS + E.AREA_SIZE * E.AREA_COUNT == 0x1AAE8  # the monster table follows
+    assert E.FORMATIONS + 3 * E.FORMATION_COUNT == 0x1B321  # the ability lists follow
+    assert E.zone(ffl1_rom, 0) == {"id": 0, "rate": 0x18, "areas": [0x10, 0x11, 0x12, 0x15, 0x13, 0x93, 0x16]}
+    assert E.encounter_groups(ffl1_rom, 0x13) == [{"monster": 66, "min": 0, "max": 0},
+                                                  {"monster": 96, "min": 0, "max": 0},
+                                                  {"monster": 155, "min": 1, "max": 1}]
+    assert [g["max"] for g in E.encounter_groups(ffl1_rom, 0x93)] == [0, 3, 0]   # 1-3 SKELETON
+    w = E.slot_weights()
+    assert abs(sum(w) - 1) < 1e-9 and w[0] == 0.5

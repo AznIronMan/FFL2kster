@@ -49,7 +49,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 |---|---|---|
 | M2 items/abilities, growth | done (prices with the shops in M5) | item table 06:7700 (uses, power, handler); stat items; meat drop + GP rewards in the monster record; meat transformation tables (6/6 predictions); mutant growth tables; RNG model |
 | M3 text | done | 386 strings in 3 tables; control codes from both interpreters; contiguous parse 383/383 boundaries; semantic round trip 386/386; reinsertion visible for dialogue, battle and UI |
-| M4 encounters/drops | not started | |
+| M4 encounters/drops | done | zone table 06:6400 + roll 00:2266; areas, formations; 8 controlled changes; drops = meat + GP (M2) |
 | M5 maps/events | not started | |
 | M6 graphics | not started | |
 | M7 music | not started | |
@@ -94,4 +94,9 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   02:7860 (80), 03:7080 (51), 05:7B30 (255).
 - Contiguous parse of every entry; semantic round trip 386/386 (365 byte-identical).
 - PyBoy reinsertion: dialogue, battle message, title screen.
-- Tests: `tests/ffl1` 41 (6 emulator).
+- Tests: `tests/ffl1` 38 (6 emulator).
+
+### 2026-10-12 — Milestone 4
+- Random encounter roll 00:2266: zones 06:6400 (rate + 7 weighted areas), areas 06:6868,
+  formations 06:72C4 — eight controlled changes, two controls clean.
+- Tests: `tests/ffl1` 39; full suite 120.

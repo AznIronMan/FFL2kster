@@ -19,7 +19,7 @@ both ROMs; differences are listed first because they are the valuable part.
 | Names | one shared table (05:4000): monsters 0–199 then items | monster names 0F:6EC0 (8 × 256) |
 | Enemy name in battle | read from ROM when drawn | copied into the WRAM group block (D500) |
 | Battle state | 32-byte combatant slots at D000 (heroes 0–3, enemies 4–7), HP little-endian at +3 | enemy group block D500, party slots C200 |
-| Encounters | area records (3 ids + formation) at 06:6868, formation nibble ranges at 06:72C4 | encounter tables per area (docs/ROM_MAP.md) |
+| Encounters | per-map zone slots → zone (rate + 7 areas weighted 1/2…1/128) → area (3 monster ids + formation, bit 7 = alternate) → formation nibble ranges; battle started as event command 8 | encounter tables per area (docs/ROM_MAP.md) |
 | RNG | per-call-site counters (C300+, keyed by the caller's address) into a 256-byte table at CB00 | streams modelled in docs/ROM_MAP.md (00:043E) |
 | Items | one 8-byte record per id at 06:7700; names share the monster name table; default uses kept in the name entry | separate item name and stats tables |
 | Meat | drop chance in the monster record (b0 bits 0–2); result = family × family table, then level → monster | measured matrix / formula (docs/ROM_MAP.md) |

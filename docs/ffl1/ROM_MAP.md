@@ -37,12 +37,13 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | Address | Size | Content | Status |
 |---|---|---|---|
 | `05:4000` | 8 × N | Shared name table: monsters 0–199 (`FLY` … `CREATOR`, incl. the 16 hero types 173–188 and bosses 189–199), then items from 200 (`POTION`, 7 chars + a trailing byte) | verified (monsters: battle window controlled change); items: probable |
-| `06:6868` | 128 × 5 | Encounter areas: 3 monster ids (groups 1–3), formation index (byte 3), alternate formation (byte 4, used when FFBD bit 7 is set); bit 7 of the formation byte increments D3E6 | probable (code 06:56AD; area 19 swap changes the battle's monster) |
+| `06:6400` | 141 × 8 | Encounter zones: rate, then 7 area ids (slot weights 1/2 … 1/128; bit 7 = alternate formation) | verified |
+| `06:6868` | 128 × 5 | Encounter areas: 3 monster ids (groups 1–3), formation index (byte 3), alternate formation (byte 4, used when FFBD bit 7 is set); bit 7 of the formation byte increments D3E6 | verified (code 06:56AD; controlled changes M1, M4) |
 | `06:6AE8` | 200 × 9 | **Monster records** (below) | **verified** |
 | `06:71F0` | 100 | One nibble per monster id (high nibble = even id), copied to combatant +1 | probable (code) |
 | `06:7254` | 40 × 2 | Base HP per HP class, u16 LE (20, 40, 60, 82, …) | verified (controlled change) |
 | `06:72A4` | 16 × 2 | GP rewards per class, BCD hi/lo (0, 40, 120, 240 … 9999) | verified |
-| `06:72C4` | 31 × 3 | Formations: per group one byte, high nibble = minimum count, low = maximum | probable (code; 1 ASIGARU = formation 2 `00 00 11`) |
+| `06:72C4` | 31 × 3 | Formations: per group one byte, high nibble = minimum count, low = maximum | verified |
 | `06:7321`–`76E1` | 960 | Monster ability id lists (contiguous, in monster id order) | verified |
 | `06:7700` | 256 × 8 | **Item/ability records**: kind, flags, handler, uses (as a monster ability), power, param, ?, ? | verified (uses, power), probable (handler, param) |
 | `06:403A` | 49 × 2 | Battle effect handlers (06:44B0–50B7), indexed by item byte 2 | probable |
@@ -88,6 +89,8 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `00:07D3` | random(a..e): per-call-site counter (C300+) into the table at CB00 | probable |
 | `00:0D9C` | meat transformation | verified |
 | `00:0911` | engine text interpreter (battle, UI) | verified |
+| `00:2266` | random encounter roll per step (zone, rate, area slot) | verified |
+| `00:16E0` | event command executor (C3A9 command, C3AA parameter; 8 = battle → 00:1BBE) | probable |
 | `00:0EBA` | dialogue interpreter | verified |
 
 ## RAM
@@ -97,5 +100,6 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `D000 + 32k` | combatant slots (heroes 0–3, enemies 4–7): +0 b0, +1 nibble, +3/+4 HP LE, +5/+6 max HP, +7..+0A Str/Def/Agl/Mana, +0B/+0C ability attribute masks, +0D see byte 6, +0E..+15 ability ids, +16..+1D uses, +1F monster id (FF = empty) | verified (enemy slots) |
 | `CC00 + 31i` | party records (4 × 31 bytes): +1 name (4), +5 type (monster id), +6/+7 HP, +8/+9 max HP, +0A class flags (0x83 HUMAN M, 0x23 MUTANT M, 0x43 CLIPPER; bit 6 = can eat meat, verified by 00:0D9C), +0B..+0E Str/Def/Agl/Mana, +0F..+1E eight (item, uses) slots | probable (stride from 00:0551; status screen; meat and growth tests) |
 | `CCC9` / `CCC8` | field x / y tile | probable (moves with the D-pad) |
-| `FFBD` | encounter area index (bit 7: alternate formation) | probable |
+| `FFBD` | encounter area index (bit 7: alternate formation) | verified |
+| `C5C2`–`C5C5` | the current map's four encounter zone slots | probable |
 | `D3E6` / `D3E7` | encounter flag count / next combatant slot | probable |

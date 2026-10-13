@@ -6,9 +6,9 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.3.0`
+Version: `1.4.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
-milestones 1–3 done (docs/FFL1_PROGRESS.md).** The port plays from the title through
+milestones 1–4 done (docs/FFL1_PROGRESS.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -99,6 +99,8 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.4.0` — FFL1kster milestone 4: Legend I random encounters (zones, areas, formations, rate) by
+  controlled change.
 - `1.3.0` — FFL1kster milestone 3: Legend I text — both interpreters' control codes, 386 strings
   decoded and round-tripped, reinsertion visible in PyBoy; `ffl1kster text-export`.
 - `1.2.0` — FFL1kster milestone 2: Legend I item/ability table, stat items, meat drop and GP rewards,
