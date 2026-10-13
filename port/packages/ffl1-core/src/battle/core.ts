@@ -1713,7 +1713,8 @@ export class Battle {
       const de = r.de;
       r.e >>= 1;
       this.randE();
-      r.d = 0; r.e = r.a;
+      // 4D71: ld d,0; add hl,de: e (product / 2) is added, the random number is dropped
+      r.d = 0;
       r.hl = (r.hl + r.de) & 0xffff;
       r.de = de;
       this.sub7F64(this.hr(0xffb8));

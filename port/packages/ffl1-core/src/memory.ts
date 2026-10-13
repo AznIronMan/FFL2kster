@@ -47,6 +47,9 @@ export class Memory {
     return this.hram[a - 0xff80]!;
   }
 
+  /** LCDC writes (the parity rig notes the LCD switched off). */
+  onLcdc: ((v: number) => void) | null = null;
+
   wr(a: number, v: number): void {
     a &= 0xffff;
     v &= 0xff;
@@ -63,6 +66,7 @@ export class Memory {
     else if (a < 0xff80) {
       this.io[a - 0xff00] = v;
       if (a === 0xff46) this.dma(v);
+      else if (a === 0xff40) this.onLcdc?.(v);
       else if (a >= 0xff10 && a < 0xff40) this.onSoundWrite?.(a, v);
     } else this.hram[a - 0xff80] = v;
   }

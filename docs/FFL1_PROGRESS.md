@@ -184,3 +184,17 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   the carry of its 8-bit accumulator: ported as such (exact only for l < 129).
 - Not yet ported (raise NotPortedBattle): the boss death effects (07:7510, 07:75C6), the screen
   effects of 07:7AD5, moving sprite scripts (07:6F1E), eating meat in battle (00:0D9C).
+
+### 2026-10-12 — Battle sweep (first round)
+- `tools/ffl1/traces.py` SWEEP: 12 battles (bsw01-bsw12) with a poked party of four (HP 999, the
+  item under test in slot 0) in areas 16-121, A every 40 frames. `port/packages/ffl1-parity/test/sweep.test.ts`
+  replays them all: 32,303 waits, 0 differences; counted rules: lateWrite 3, rasterRows 2 (a
+  polled raster line drawn with the neighbouring line's registers, at most 8 lines a frame),
+  LCD blank 64 (PyBoy clears its screen when the LCD goes off: the frame before and the first
+  frame after the switch are white). Handlers seen: 33 of the 49 (the rest: next round).
+- Fixed by the sweep: 06:4D21 adds e (product / 2), not the random number it draws (4D71
+  `ld d,0; add hl,de`); the screen script pointer FFD6 is not advanced past its 00; 07:79A5's
+  step counter wraps FF -> 0.
+- Ported: 07:786B (LCD-off flashes), 07:7895 stripes, 07:78F9 wave, 07:7969 wobble, 07:798F ripple
+  (per-line SCY written in each hblank), 07:77DB top flash, 07:7843 scroll shake, 07:6F1E moving
+  sprite paths, 07:7510 a boss's fall, 00:0D9C eating meat. Still NotPorted: 07:75C6, 07:7A0E.

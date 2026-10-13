@@ -43,8 +43,30 @@ export interface ReplayOptions {
 
 export interface ReplayResult {
   trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number;
-  lateWrites: number; rephased: number; tears: number; error?: { message: string; wait: number };
+  lateWrites: number; rephased: number; tears: number; rasterEdges: number; lcdBlanks: number; error?: { message: string; wait: number };
 }
+
+/** A polled raster's register write lands some cycles after the line change (the polling loop's
+ *  latency, CPU time the port does not model), on either side of the point where the line's
+ *  registers are taken: accept a frame when every differing line equals the port's frame drawn
+ *  with that line taking the previous or the next line's registers. */
+export function rasterRows(rig: { redraw(y: number, src: number): Uint8Array; ppu: { frame: Uint8Array } }, exp: Uint8Array): boolean {
+  const W = 160, got = rig.ppu.frame;
+  const same = (a: Uint8Array, y: number) => { for (let x = 0; x < W; x++) if (a[y * W + x] !== exp[y * W + x]) return false; return true; };
+  // a few lines at most: a systematic line offset in the port must not pass
+  let n = 0;
+  for (let y = 0; y < 144; y++) if (!same(got, y)) n++;
+  if (n === 0 || n > RASTER_ROWS) return false;
+  for (let y = 0; y < 144; y++) {
+    if (same(got, y)) continue;
+    if (y > 0 && same(rig.redraw(y, y - 1), y)) continue;
+    if (y < 143 && same(rig.redraw(y, y + 1), y)) continue;
+    return false;
+  }
+  return true;
+}
+/** The most lines rasterRows accepts in one frame. */
+export const RASTER_ROWS = 8;
 
 /** A frame whose writes the original finished during the display (its code ran longer than the
  *  vertical blank; CPU time is not modelled): from some line L on, every line is the port's
@@ -103,7 +125,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   const ign = opts.ignore ?? IGNORE;
   const diffs: FrameDiff[] = [];
   const waits: WaitDiff[] = [];
-  let nWaits = 0, f = -1, tickPhase = 0, busy = 0, rephased = 0, tears = 0;
+  let nWaits = 0, f = -1, tickPhase = 0, busy = 0, rephased = 0, tears = 0, rasterEdges = 0, lcdBlanks = 0;
   const latchPpu = new Ppu(m.vram, m.oam);
   let lastDrawn = -1;
   let pre: Uint8Array | null = null;
@@ -159,12 +181,24 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   };
   while (f < n - 1 && !(nWaits >= wf.length && wf.length) && !(opts.maxWaits && nWaits >= opts.maxWaits)) {
     const io0 = m.io.slice();
+    rig.lcdOff = false;
+    const prevF = f;
     try {
       rig.g.runFrame();
     } catch (e) {
       if (e instanceof SoftReset || !opts.keepGoing) throw e;
       error = { message: String(e instanceof Error ? e.message : e), wait: nWaits };
       break;
+    }
+    // PyBoy clears its screen when the LCD is switched off, and shows nothing until the first
+    // frame after it is switched back on has passed: the frame whose wait came before the switch
+    // (its tick goes on into vblank) and the first frame after are white in the trace.
+    let blank = false;
+    if (rig.lcdOff) {
+      const last = diffs[diffs.length - 1];
+      const white = (k: number) => k >= 0 && t.screens.subarray(k * FRAME_BYTES, (k + 1) * FRAME_BYTES).every((v) => v === 0);
+      if (last && last.frame === prevF && white(prevF)) { diffs.pop(); lcdBlanks++; }
+      blank = white(f);
     }
     if (f < 0 || f >= n) continue;
     opts.onFrame?.(f, rig.ppu.frame);
@@ -174,7 +208,10 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     const exp = t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES);
     const pixels = screenDiff(rig.ppu.frame, exp);
     if (!pixels) { lastGot = rig.ppu.frame.slice(); continue; }
+    if (blank) { lcdBlanks++; continue; }
     if (lastGot && lateWrite(rig.ppu.frame, exp, lastGot)) { lateWrites++; lastGot = rig.ppu.frame.slice(); continue; }
+    // a polled raster frame: lines whose register write landed a line early or late
+    if (rig.raster && opts.tears !== false && rasterRows(rig, exp)) { rasterEdges++; lastGot = rig.ppu.frame.slice(); continue; }
     // only after a busy frame: the original had not reached its frame wait (its code ran on)
     if (opts.tears !== false && f - prevDrawn > 1) {
       // the window as latched at the frame's start (WY then; LCDC window enable then)
@@ -191,7 +228,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     }
     diffs.push({ frame: f, pixels, got: rig.ppu.frame.slice() });
   }
-  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, error };
+  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {

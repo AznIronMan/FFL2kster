@@ -5,7 +5,7 @@
 import type { Game, Co } from "../game.js";
 import type { Memory } from "../memory.js";
 import type { TextEngine } from "../text.js";
-import { frame, farcallRam, classTiles } from "../title.js";
+import { frame, farcallRam, classTiles, newMember } from "../title.js";
 import { frameTick } from "../irq.js";
 import {
   oamClear, oamDma, bufferClear, fill, copy, copyBank16, vramFill, vramFill16, vramCopy, vramCopy16, vramCopyBank,
@@ -18,8 +18,7 @@ export class NotPortedBattle extends Error {}
 
 export class BattleUi {
   readonly coverage: Record<string, number> = {};
-  /** 00:0D9C (meat), provided by the engine. */
-  eatMeat: ((g: Game) => Co<boolean>) | null = null;
+
 
   constructor(readonly g: Game, readonly text: TextEngine, readonly b: Battle) {}
 
@@ -505,8 +504,7 @@ export class BattleUi {
         if (this.memberOk()) break;
       }
       if (cancel) continue;
-      if (!this.eatMeat) throw new NotPortedBattle("00:0D9C (meat) from the battle");
-      const ok = yield* this.eatMeat(this.g);
+      const ok = yield* this.eatMeatBody();
       const e = ok ? 0x2f : 0x22;
       this.restoreWindow();
       this.spritesToShadow();
@@ -773,12 +771,71 @@ export class BattleUi {
     if (m.rd(0xd877) === 0x98 && m.rd(0xd83a) !== 0) {
       const c = m.rd(0xd83a);
       if (m.rd(0xd3ea) === 0) {
-        if (c === 1) throw new NotPortedBattle("07:7510 (boss death effect)");
+        if (c === 1) yield* this.bossFall();
+        else throw new NotPortedBattle("07:75C6 (boss death effect)");
         throw new NotPortedBattle("07:75C6 (boss death effect)");
       }
     } else yield* this.eraseDead();
     copy(m, 0xd3e9, 0xd800, 6);
   }
+  /** 07:7510 — a boss's fall: per-line SCX (lines 0-3F) spreading from both ends (07:7595)
+   *  every 4 polled frames until D91F = 70, then the top map blanked. */
+  private *bossFall(): Co {
+    const m = this.m, g = this.g;
+    this.cov("7510");
+    this.hw(0xffd2, 4);
+    this.hw(0xffd1, 0);
+    fill(m, 0xd900, 0, 0);
+    yield* vramFill(g, 0x9c00, 0, 0x7f);
+    yield* vramCopy16(g, 0x9900, 0x9d00, 0x140);
+    yield* this.diOn();
+    m.wr(0xff40, 0xc3);
+    m.wr(0xff4b, 0x07);
+    m.wr(0xff4a, 0);
+    for (let first = true; ; first = false) {
+      if (!first) yield* waitLy90(g);
+      const t = Array.from({ length: 0x40 }, (_, i) => m.rd(0xd900 + i));
+      this.raster([0x43], (ly) => [ly < 0x3f ? t[ly + 1] : ly === 0x3f ? 0 : undefined]);
+      m.wr(0xff43, 0);
+      frameTick(g);
+      this.hw(0xffd2, this.hr(0xffd2) - 1);
+      if (this.hr(0xffd2)) continue;
+      this.hw(0xffd2, 4);
+      let a = this.hr(0xffd1) + 1;
+      if (a >= 0x20) a = 0x20;
+      this.hw(0xffd1, a);
+      this.spread();
+      if (m.rd(0xd91f) === 0x70) break;
+    }
+    yield* waitLy90(g);
+    m.wr(0xff40, 0xe3);
+    this.diOff();
+    yield* vramFill(g, 0x9800, 0, 0x7f);
+    yield* vsync(g);
+    m.wr(0xff40, 0xc3);
+  }
+  /** 07:7595 — D900 from the top (FFD1 steps: 0 -> 1, else doubled up to 70) and from D93F
+   *  down (0 -> FF, else doubled, at least 90). A zero entry is bumped without moving on. */
+  private spread(): void {
+    const m = this.m;
+    let hl = 0xd900;
+    for (let b = this.hr(0xffd1); b; b--) {
+      const a = m.rd(hl);
+      if (!a) { m.wr(hl, 1); continue; }
+      let v = (a * 2) & 0xff;
+      if (v >= 0x70) v = 0x70;
+      m.wr(hl++, v);
+    }
+    hl = 0xd93f;
+    for (let b = this.hr(0xffd1); b; b--) {
+      const a = m.rd(hl);
+      if (!a) { m.wr(hl, 0xff); continue; }
+      let v = (a * 2) & 0xff;
+      if (v < 0x90) v = 0x90;
+      m.wr(hl--, v);
+    }
+  }
+
   /** 07:770F — each group now empty that was not: its picture erased (07:772D). */
   private *eraseDead(): Co {
     const m = this.m;
@@ -834,21 +891,17 @@ export class BattleUi {
   private *screenScript(n: number): Co {
     const m = this.m;
     let p = m.rd(0x7ba0 + 2 * (n - 1)) | (m.rd(0x7ba1 + 2 * (n - 1)) << 8);
+    this.hw(0xffd6, p & 0xff);
+    this.hw(0xffd7, p >> 8);
     for (;;) {
-      const a = m.rd(p++);
+      const a = m.rd(p);
+      if (!a) return;
+      p++;
       this.hw(0xffd6, p & 0xff);
       this.hw(0xffd7, p >> 8);
-      if (!a) return;
       yield* this.screenEffect(a);
     }
   }
-  /** 07:77D1 — screen effect a (table 07:7AD5). */
-  private *screenEffect(a: number): Co {
-    const addr = this.m.rd(0x7ad5 + 2 * (a - 1)) | (this.m.rd(0x7ad6 + 2 * (a - 1)) << 8);
-    this.cov(addr.toString(16));
-    throw new NotPortedBattle(`screen effect 07:${addr.toString(16)}`);
-  }
-
   /** 07:6E60 — sprite script (FFD5 & 0F) of 07:7C00: blocks of (repeat << 4 | commands - 1). */
   private *spriteScript(): Co {
     const m = this.m;
@@ -865,18 +918,22 @@ export class BattleUi {
       hl++;
       this.hw(0xfff0, hl & 0xff);
       this.hw(0xfff1, hl >> 8);
-      do {
+      this.blockEnd = -1;
+      block: do {
         this.setScript(this.hr(0xfff0) | (this.hr(0xfff1) << 8));
         do {
           yield* this.scriptCommand();
+          if (this.blockEnd >= 0) break block;
           m.wr(0xd83e, m.rd(0xd83e) - 1);
         } while (m.rd(0xd83e));
         m.wr(0xd83e, m.rd(0xd83f));
         m.wr(0xd83d, m.rd(0xd83d) - 1);
       } while (m.rd(0xd83d));
-      hl = this.script();
+      hl = this.blockEnd >= 0 ? this.blockEnd : this.script();
     }
   }
+  /** Set by 07:6F1E: the script position after the block it consumed. */
+  private blockEnd = -1;
   /** 07:7197 / 71A0 — the script pointer FFF2/FFF3. */
   private setScript(hl: number): void {
     this.hw(0xfff2, hl & 0xff);
@@ -900,7 +957,10 @@ export class BattleUi {
     const k = (c >> 6) & 3;
     if (k === 0) return yield* this.screenEffect(c);
     if (k === 1) return yield* this.atGroups();
-    if (k === 2) throw new NotPortedBattle("07:6F1E (moving sprites)");
+    if (k === 2) {
+      this.blockEnd = yield* this.paths();
+      return;
+    }
     // 6EC2: one frame drawn at (0, 0)
     this.hw(0xfff6, 1);
     this.drawFrame(0, 0, 0xc000);
@@ -976,6 +1036,416 @@ export class BattleUi {
     yield* vsync(this.g);
     m.wr(0xff46, 0xc1);
   }
+
+  // ---------------------------------------------------------------- meat (00:0D9C)
+
+  /** 00:0D9C — member C3AC (a monster: record +0A bit 6) eats the meat of monster C3C8: the
+   *  new form from 02:6FD3 (by both pictures' classes, 00:0E02) and the higher level
+   *  (02:7438 low nibble), 02:72A8; the record rebuilt (00:061F). False when it cannot. */
+  *eatMeatBody(): Co<boolean> {
+    const m = this.m, g = this.g;
+    const rec = 0xcc00 | ((m.rd(0xc3ac) * 31) & 0xff);
+    const f = m.rd(rec + 0x0a);
+    if (!(f & 0x40)) return false;
+    this.hw(0xff8a, f & 0x0f);
+    const prev = g.selectBank(0x02);
+    const cls = (id: number) => {
+      const i = this.pictureInfo(id);
+      return (m.rd(0x0e16 + i.b) + i.c) & 0xff;
+    };
+    const e = cls(m.rd(0xc3c8));
+    const l = cls(m.rd(rec + 5));
+    const a = m.rd((mul8(0x1d, l) + e + 0x6fd3) & 0xffff);
+    if (a === 0xff) {
+      g.selectBank(prev);
+      return false;
+    }
+    const b = m.rd((0x7438 + m.rd(rec + 5)) & 0xffff) & 0x0f;
+    let lv = m.rd((0x7438 + m.rd(0xc3c8)) & 0xffff) & 0x0f;
+    if (lv < b) lv = b;
+    m.wr(0xc3c8, m.rd(((a << 4) + lv + 0x72a8) & 0xffff));
+    newMember(g);
+    g.selectBank(prev);
+    return true;
+  }
+
+  // ---------------------------------------------------------------- polled rasters
+
+  /** The original's polled raster code for the coming frame: f(ly) gives the value register reg
+   *  takes as line ly is drawn (undefined: unchanged). */
+  private raster(regs: number[], f: (ly: number) => (number | undefined)[]): void {
+    const io = this.m.io;
+    this.g.lineHook = (ly) => {
+      const v = f(ly);
+      regs.forEach((r, i) => { if (v[i] !== undefined) io[r] = v[i]!; });
+      if (ly === 143) this.g.lineHook = null;
+    };
+  }
+
+  // ---------------------------------------------------------------- bank 07: screen effects
+
+  /** 07:77D1 — screen effect a (table 07:7AD5). */
+  private *screenEffect(a: number): Co {
+    const addr = this.m.rd(0x7ad5 + 2 * (a - 1)) | (this.m.rd(0x7ad6 + 2 * (a - 1)) << 8);
+    this.cov(addr.toString(16));
+    switch (addr) {
+      case 0x77db: return yield* this.flashTop();
+      case 0x7843: return yield* this.shakeScroll();
+      case 0x786b: return yield* this.lcdFlash();
+      case 0x7895: return yield* this.stripes();
+      case 0x78f9: return yield* this.wave();
+      case 0x7969: return yield* this.wobble();
+      case 0x798f: return yield* this.ripple();
+      case 0x7a0e: throw new NotPortedBattle("07:7A0E (horizontal steps)");
+      case 0x7a61: {
+        yield* this.flashTop();
+        for (let b = 0x3c; b; b--) yield* vsync(this.g);
+        return yield* this.restoreBody();
+      }
+    }
+    throw new NotPortedBattle(`screen effect 07:${addr.toString(16)}`);
+  }
+
+  /** 07:77DB — 9800 saved to DD00, the window copy at 9C00; 3 x 15 frames with the top 64
+   *  lines' BGP shifted left by 2 each round; the top map blanked (D877 = DD). */
+  private *flashTop(): Co {
+    const m = this.m, g = this.g;
+    yield* vramCopy(g, 0x9800, 0xdd00, 0);
+    const hl = yield* vramFill(g, 0x9c00, 0, 0x7f);
+    yield* vramCopy16(g, 0x9900, hl, 0x140);
+    let e = m.rd(0xc3a6);
+    for (let b = 3; b; b--) {
+      e = (e << 2) & 0xff;
+      for (let d = 0x0f; d; d--) {
+        yield* vsync(g);
+        m.wr(0xff47, e);
+        const back = m.rd(0xc3a6);
+        this.raster([0x47], (ly) => [ly === 0x40 ? back : undefined]);
+      }
+    }
+    yield* vsync(g);
+    m.wr(0xff4a, 0);
+    m.wr(0xff4b, 0x07);
+    m.wr(0xff40, m.rd(0xff40) | 0x60);
+    yield* vramFill(g, 0x9800, 0, 0x7f);
+    yield* vsync(g);
+    m.wr(0xff40, m.rd(0xff40) & 0xdf);
+    m.wr(0xd877, 0xdd);
+  }
+
+  /** 07:786B — 4 x: in vblank (LY 91) the LCD off for 32 DIV ticks, back on, 6 frames. */
+  private *lcdFlash(): Co {
+    const m = this.m;
+    for (let b = 4; b; b--) {
+      const v = m.rd(0xff40) & 0x7f;
+      m.wr(0xff40, v);
+      m.wr(0xff04, v);
+      m.wr(0xff40, v | 0x80);
+      for (let k = 6; k; k--) yield* vsync(this.g);
+    }
+  }
+
+  /** 07:7843 — the status area to the window; 2 x (8 frames SCX, 8 frames SCY) from 07:7AE7. */
+  private *shakeScroll(): Co {
+    const m = this.m;
+    yield* this.windowCopy();
+    for (let b = 2; b; b--) {
+      for (const reg of [0xff43, 0xff42]) {
+        for (let i = 0; i < 8; i++) {
+          yield* vsync(this.g);
+          m.wr(reg, m.rd(0x7ae7 + i));
+        }
+      }
+    }
+    yield* this.windowBack();
+  }
+
+  /** 07:7895 — 16 x 4 polled frames of the top 64 lines' BGP inverted every 8 lines from line
+   *  d3 (0, 2, 4, 6), the start value inverted every 4 frames. */
+  private *stripes(): Co {
+    const m = this.m, g = this.g;
+    yield* this.diOn();
+    let d4 = m.rd(0xc3a6);
+    this.hw(0xffd4, d4);
+    let first = true;
+    for (let b = 0x10; b; b--) {
+      for (let d3 = 0; d3 < 8; d3 += 2) {
+        this.hw(0xffd3, d3);
+        this.hw(0xffd2, 1);
+        if (!first) yield* waitLy90(g);
+        first = false;
+        const start = this.hr(0xffd4), base = m.rd(0xc3a6);
+        this.raster([0x47], (ly) => {
+          if (ly > 0x40) return [undefined];
+          if (ly === 0x40) return [base];
+          if (ly < d3 || (ly - d3) % 8) return [undefined];
+          const k = ((ly - d3) >> 3) + 1;
+          return [k & 1 ? (~start & 0xff) : start];
+        });
+        // the last toggle value and the d0 / d1 scratch as the loop leaves them
+        let n = 0;
+        for (let a = d3; a < 0x40; a += 8) { n++; this.hw(0xffd0, a); }
+        this.hw(0xffd1, n & 1 ? (~start & 0xff) : start);
+        m.wr(0xff47, base);
+        this.hw(0xffd1, this.hr(0xffd4));
+        frameTick(g);
+      }
+      d4 = (~this.hr(0xffd4)) & 0xff;
+      this.hw(0xffd3, 0);
+      this.hw(0xffd4, d4);
+    }
+    this.diOff();
+  }
+
+  /** 07:78F9 — the wave: 16 x 4 polled frames of per-line SCX (lines 0-3F) from the 07:7B60
+   *  table rotated by FFD0. */
+  private *wave(): Co {
+    const m = this.m, g = this.g;
+    this.hw(0xffd0, 0);
+    this.waveTable();
+    this.hw(0xffd2, 4);
+    yield* this.diOn();
+    let first = true;
+    for (let b = 0x10; b; b--) {
+      do {
+        if (!first) yield* waitLy90(g);
+        first = false;
+        const t = Array.from({ length: 0x40 }, (_, i) => m.rd(0xd900 + i));
+        this.raster([0x43], (ly) => [ly < 0x3f ? t[ly + 1] : ly === 0x3f ? 0 : undefined]);
+        m.wr(0xff43, 0);
+        frameTick(g);
+        this.hw(0xffd2, this.hr(0xffd2) - 1);
+      } while (this.hr(0xffd2));
+      this.hw(0xffd2, 4);
+      let a = this.hr(0xffd0) + 1;
+      if (a >= 0x40) a = 0;
+      this.hw(0xffd0, a);
+      this.waveTable();
+    }
+    this.diOff();
+  }
+  /** 07:7946 — DA00 = 07:7B60 (64 bytes); D900 = DA00 rotated by FFD0. */
+  private waveTable(): void {
+    const m = this.m;
+    copy(m, 0x7b60, 0xda00, 0x40);
+    let l = this.hr(0xffd0);
+    for (let i = 0; i < 0x40; i++) {
+      m.wr(0xd900 + i, m.rd(0xda00 + l));
+      l++;
+      if (l >= 0x40) l = 0;
+    }
+  }
+
+  /** 07:7969 — 60 polled frames: SCX for the top 64 lines from 07:7B60, 0 below. */
+  private *wobble(): Co {
+    const m = this.m, g = this.g;
+    yield* this.diOn();
+    let hl = 0x7b60;
+    for (let b = 0x3c; b; b--) {
+      if (b !== 0x3c) yield* waitLy90(g);
+      m.wr(0xff43, m.rd(hl++));
+      this.raster([0x43], (ly) => [ly === 0x40 ? 0 : undefined]);
+      frameTick(g);
+    }
+    m.wr(0xff43, 0);
+    this.diOff();
+  }
+
+  /** 07:798F — the status area to the window; 3 x (07:79A5, 3 frames). */
+  private *ripple(): Co {
+    yield* this.windowCopy();
+    for (let b = 3; b; b--) {
+      yield* this.rippleOnce();
+      for (let k = 3; k; k--) yield* vsync(this.g);
+    }
+    yield* this.windowBack();
+  }
+  /** 07:79A5 — 7 steps of 4 polled frames: per-line SCY (written in each line's hblank) from
+   *  D900 (07:79F7: runs of FFD1 = 07:7ACE[step]) + 07:7AC7[step]. */
+  private *rippleOnce(): Co {
+    const m = this.m, g = this.g;
+    yield* this.diOn();
+    let e = 1, d = 0, prevLast = m.rd(0xff42);
+    this.hw(0xffd0, 0xff);
+    const step = (): boolean => {
+      e--;
+      if (e) return true;
+      e = 4;
+      const a = (this.hr(0xffd0) + 1) & 0xff;
+      if (a >= 7) return false;
+      this.hw(0xffd0, a);
+      this.hw(0xffd1, m.rd(0x7ace + a));
+      this.rippleFill();
+      d = m.rd(0x7ac7 + a);
+      return true;
+    };
+    if (!step()) { m.wr(0xff42, 0); return this.diOff(); }
+    for (let first = true; ; first = false) {
+      if (!first) yield* waitLy90(g);
+      const t = Array.from({ length: 0x40 }, (_, i) => m.rd(0xd900 + i));
+      const p = prevLast, dd = d;
+      prevLast = (t[0x3f]! + dd) & 0xff;
+      frameTick(g);
+      const more = step();
+      const exit = !more;
+      this.raster([0x42], (ly) => {
+        if (ly === 0) return [p];
+        if (ly <= 0x40) return [(t[ly - 1]! + dd) & 0xff];
+        if (exit && ly === 0x41) return [0];
+        return [undefined];
+      });
+      if (exit) {
+        m.wr(0xff42, 0);
+        return this.diOff();
+      }
+      m.wr(0xff42, prevLast);
+    }
+  }
+  /** 07:79F7 — D900 (64 entries): 0 x FFD1, 1 x FFD1, ... */
+  private rippleFill(): void {
+    const m = this.m;
+    const e = this.hr(0xffd1);
+    let a = 0, hl = 0xd900;
+    for (let c = 0x40; ; ) {
+      let b = e || 256;
+      let done = false;
+      while (b) {
+        m.wr(hl++, a);
+        c--;
+        if (!c) { done = true; break; }
+        b--;
+      }
+      if (done) break;
+      a++;
+    }
+  }
+
+  // ---------------------------------------------------------------- bank 07: moving sprites
+
+  /** 07:6F1E — the rest of the block's commands as sprite paths started one per frame (D83D of
+   *  them, cycling), each stepping through the commands (D871 frames each) at random points of
+   *  the target groups (07:7004); ends with the block (add sp, 2; jp 6E70). Returns the script
+   *  position after the block. */
+  private *paths(): Co<number> {
+    const m = this.m;
+    let hl = (this.script() - 1) & 0xffff;
+    let de = 0xd861, bc = 0xd871;
+    const n = m.rd(0xd83e);
+    this.hw(0xffd0, n);
+    for (let k = n; k; k--) {
+      m.wr(bc++, m.rd(hl++) & 0x3f);
+      m.wr(de++, hl & 0xff);
+      m.wr(de++, hl >> 8);
+      const cnt = m.rd(hl++) || 256;
+      hl = (hl + 2 * cnt) & 0xffff;
+      this.hw(0xffd0, this.hr(0xffd0) - 1);
+    }
+    this.hw(0xfff0, hl & 0xff);
+    this.hw(0xfff1, hl >> 8);
+    m.wr(0xd876, m.rd(0xd83d));
+    for (let i = 0; i < 4; i++) m.wr(0xd869 + i, 0);
+    m.wr(0xd875, 0);
+    for (let i = 0; i < 4; i++) m.wr(0xd86d + i, 0xff);
+    for (;;) {
+      oamClear(m);
+      if (m.rd(0xd83d) && m.rd(0xd876)) {
+        const c = m.rd(0xd875);
+        if (m.rd(0xd86d + c) === 0xff) {
+          m.wr(0xd86d + c, 0);
+          this.pathStart(c);
+          this.pathTimer(c, 0);
+          m.wr(0xd876, m.rd(0xd876) - 1);
+        }
+      }
+      this.drawPaths();
+      yield* this.oamFrame();
+      const e = m.rd(0xd83e);
+      for (let c = 0; c < e; c++) {
+        const t = m.rd(0xd869 + c);
+        if (!t) continue;
+        m.wr(0xd869 + c, t - 1);
+        if (((t - 1) & 0xff) !== 0) continue;
+        const f = (m.rd(0xd86d + c) + 1) & 0xff;
+        m.wr(0xd86d + c, f);
+        if (f === e) {
+          // 6FAD: finished; while D83D lasts the slot restarts, its timer from D871 + D83D
+          m.wr(0xd86d + c, 0xff);
+          const old = m.rd(0xd83d);
+          if (!old) continue;
+          m.wr(0xd83d, old - 1);
+          this.pathTimer(c, old);
+        } else this.pathTimer(c, f);
+        let a = m.rd(0xd875) + 1;
+        if (a === e) a = 0;
+        m.wr(0xd875, a);
+      }
+      let any = 0;
+      for (let i = 0; i < m.rd(0xd83e); i++) any |= m.rd(0xd869 + i);
+      if (any || m.rd(0xd83d)) continue;
+      break;
+    }
+    oamClear(m);
+    yield* vsync(this.g);
+    oamDma(m);
+    return this.hr(0xfff0) | (this.hr(0xfff1) << 8);
+  }
+  /** 07:6FEF — slot c's timer = the frames of command a (D871 + a). */
+  private pathTimer(c: number, a: number): void {
+    this.m.wr(0xd869 + c, this.m.rd((0xd871 + a) & 0xffff));
+  }
+  /** 07:7004 — slot c's random points in each animated group (x: D841 + 4c, y: D851 + 4c). */
+  private pathStart(c: number): void {
+    this.points(c, 0xd80d, 0xd841);
+    this.points(c, 0xd810, 0xd851);
+  }
+  /** 07:701D / 7054 */
+  private points(c: number, src: number, dst: number): void {
+    const m = this.m;
+    let de = dst + 4 * c;
+    let b = 3, k = 0;
+    if (!m.rd(0xd83c)) {
+      k = m.rd(0xdf80 + this.hr(0xffb1));
+      b = 1;
+    }
+    for (; b; b--, k++) {
+      const a = m.rd(0xd3ea + 2 * k);
+      if (a === 0 || a === 0xff) continue;
+      const e = (m.rd(src + k) - 2) & 0xff;
+      const d = m.rd(src + k + 6);
+      const v = ((rand(m, 0x7062, 0, e) + d) << 3) & 0xff;
+      m.wr(de++, v);
+    }
+  }
+  /** 07:7069 — every active slot's current frame at its points, per animated group. */
+  private drawPaths(): void {
+    const m = this.m;
+    this.hw(0xfff5, 0);
+    this.hw(0xffdc, 0x00);
+    this.hw(0xffdd, 0xc0);
+    this.hw(0xffd2, 0x00);
+    this.hw(0xffd3, 0xc0);
+    for (let b = m.rd(0xd83b); b; b--) {
+      this.hw(0xfff4, 0);
+      for (let s = m.rd(0xd83e); s; s--) {
+        const slot = this.hr(0xfff4);
+        const f = m.rd(0xd86d + slot);
+        if (f !== 0xff) {
+          const p = (0xd861 + ((2 * f) & 0xff)) & 0xffff;
+          this.setScript(m.rd(p) | (m.rd(p + 1) << 8));
+          const o = (this.hr(0xfff4) * 4 + this.hr(0xfff5)) & 0xff;
+          const e = m.rd(0xd841 + o), d = m.rd(0xd851 + o);
+          this.hw(0xfff6, 1);
+          this.drawFrame(d, e, this.hr(0xffd2) | (this.hr(0xffd3) << 8));
+        }
+        this.hw(0xfff4, this.hr(0xfff4) + 1);
+      }
+      const p = ((this.hr(0xffdc) | (this.hr(0xffdd) << 8)) + 0x34) & 0xffff;
+      this.hw(0xffdc, p & 0xff);
+      this.hw(0xffdd, p >> 8);
+      this.hw(0xfff5, this.hr(0xfff5) + 1);
+    }
+  }
+
 }
 
 /** 06:6290 — the restart after a defeat (jp 00:0101). */

@@ -19,13 +19,14 @@ const TRACES: [string, string][] = [
   ["guild1", "the guild: recruit a member (class, name), back to the field"],
   ["care1", "field use of the ability CARE (00:39AA: h never loaded, MBC2 bank selects; HP unchanged)"],
   ["battle1", "a battle (event 8, area 16): intro slide, menus, SABER, the lizards' bites, hit shakes"],
+  ["battle2", "the same battle to victory: gold, the map back"],
 ];
 
 describe.skipIf(!haveRom())("FFL1 scenario parity", () => {
   for (const [name, what] of TRACES) {
     it.skipIf(!haveTrace(name))(`${name}: ${what}`, () => {
       const r = replay(name, { keepGoing: true });
-      const info = `waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} tears ${r.tears}`;
+      const info = `waits ${r.nWaits}/${r.trace.waitFrames.length} busy ${r.busy} tickPhase ${r.tickPhase} late ${r.lateWrites} tears ${r.tears} raster ${r.rasterEdges} blank ${r.lcdBlanks}`;
       if (r.error || r.waits.length || r.diffs.length) console.log(`${name}: ${info} error ${r.error?.message ?? "-"}\n${summarizeWaits(r.waits)}\n${summarize(r.diffs)}`);
       expect(r.error).toBeUndefined();
       expect(r.nWaits).toBe(r.trace.waitFrames.length);

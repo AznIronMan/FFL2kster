@@ -53,12 +53,64 @@ PLANNED = {
                                P("b", 60), ("wait", 30)]),
     # a battle started as event 8 (area 16, the first world zone); A to every prompt
     "battle1": ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * 40 + [("wait", 120)]),
+    # the same battle fought to the end: victory, gold, the map back
+    "battle2": ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * 90 + [("wait", 200)]),
 }
+
+# Battle sweep: a party of four (records poked) with the item under test in slot 0 of each
+# member (uses from the item table), fighting area A (event 8): A every 40 frames. Covers the
+# party-side effect handlers; the areas' monsters cover theirs.
+ITEM_USES = {}
+
+
+def _uses(iid):
+    if not ITEM_USES:
+        rom = open("ffl1/input/original.gb", "rb").read()
+        for i in range(256):
+            ITEM_USES[i] = rom[6 * 0x4000 + 0x3700 + i * 8 + 3]
+    return ITEM_USES[iid]
+
+
+def member(i, items, hp=999, cls=0xB2, flags=0x83, stats=(50, 50, 50, 50), status=0):
+    rec = [status, 0x8A + i, 0xFF, 0xFF, 0xFF, cls, hp & 0xFF, hp >> 8, hp & 0xFF, hp >> 8, flags, *stats]
+    its = []
+    for iid in items:
+        its += [iid, _uses(iid)]
+    its += [0xFF] * (16 - len(its))
+    return [(0xCC00 + 31 * i + k, v) for k, v in enumerate(rec + its)]
+
+
+def battle_pokes(area, members):
+    p = [(0xC3A9, 0x08), (0xC3AA, area), (0xC3AB, 0x01)]
+    for i, m in enumerate(members):
+        p += member(i, **m)
+    return p
+
+
+SWEEP = {
+    # name: (area, [member kwargs] x 4, presses)
+    "bsw01": (16, [dict(items=[0x4B, 0x2E]), dict(items=[0x4E, 0x2E]), dict(items=[0x33, 0x2E]), dict(items=[0x20])], 60),
+    "bsw02": (25, [dict(items=[0x2A]), dict(items=[0x26]), dict(items=[0x34]), dict(items=[0x02, 0x2E])], 60),
+    "bsw03": (39, [dict(items=[0x31]), dict(items=[0x38]), dict(items=[0x37]), dict(items=[0x39])], 60),
+    "bsw04": (48, [dict(items=[0x42]), dict(items=[0x1B]), dict(items=[0x3A]), dict(items=[0x40])], 60),
+    "bsw05": (59, [dict(items=[0x43]), dict(items=[0x49]), dict(items=[0x47]), dict(items=[0x4A])], 60),
+    "bsw06": (44, [dict(items=[0x00, 0x2E]), dict(items=[0x7A, 0x2E]), dict(items=[0x6A]), dict(items=[0x6F])], 60),
+    "bsw07": (77, [dict(items=[0x69]), dict(items=[0x72]), dict(items=[0x93]), dict(items=[0x9B])], 60),
+    "bsw08": (98, [dict(items=[0xAF]), dict(items=[0xF0]), dict(items=[0x6E]), dict(items=[0xC3])], 60),
+    "bsw09": (108, [dict(items=[0x83, 0x2E]), dict(items=[0xC5]), dict(items=[0xEE]), dict(items=[0xF2, 0x2E])], 60),
+    "bsw10": (117, [dict(items=[0xF4, 0x2E]), dict(items=[0xF5, 0x2E]), dict(items=[0x7E]), dict(items=[0xE4])], 60),
+    "bsw11": (121, [dict(items=[0xEA, 0x2E]), dict(items=[0xEB, 0x2E]), dict(items=[0x1C]), dict(items=[0xAB])], 60),
+    "bsw12": (16, [dict(items=[0xD9]), dict(items=[0x2E]), dict(items=[0x2E]), dict(items=[0x2E])], 40),
+}
+for _n, (_area, _ms, _k) in SWEEP.items():
+    PLANNED[_n] = ("town0", FIELD, [("wait", 60)] + [P("a", 40)] * _k + [("wait", 120)])
 
 # Fixture pokes applied at the hook (address, value[, mask]), by the planner and the recorder alike.
 POKES = {
+    **{_n: battle_pokes(_area, _ms) for _n, (_area, _ms, _k) in SWEEP.items()},
     "care1": [(0xCC0F, 0x84), (0xCC10, 0x05), (0xCC06, 0x0A), (0xCC07, 0x00)],
     "battle1": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
+    "battle2": [(0xC3A9, 0x08), (0xC3AA, 0x10), (0xC3AB, 0x01)],
 }
 
 

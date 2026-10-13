@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { Engine } from "@ffl1k/core";
-import { Ppu, regsFromIo, SCREEN_W, SCREEN_H } from "@ffl2k/render";
+import { Ppu, regsFromIo, SCREEN_W, SCREEN_H, type LcdRegs } from "@ffl2k/render";
 
 export const ROOT = resolve(__dirname, "../../../..");
 export const ROM_PATH = process.env.FFL1K_ROM ?? resolve(ROOT, "ffl1/input/original.gb");
@@ -30,15 +30,35 @@ export const buttonBits = (s: string): number => s.split("+").reduce((v, k) => v
 export class Rig {
   readonly engine: Engine;
   readonly ppu: Ppu;
+  /** The registers each line of the last frame was drawn with, and whether a polled raster
+   *  (Game.lineHook) was active during it. */
+  readonly lineRegs: LcdRegs[] = [];
+  raster = false;
+  /** Set when the code switched the LCD off (cleared by the replay before each frame). */
+  lcdOff = false;
   constructor(readonly rom: Uint8Array) {
     this.engine = new Engine(segments(rom), rom);
     const m = this.g.m;
+    m.onLcdc = (v) => { if (!(v & 0x80)) this.lcdOff = true; };
     this.ppu = new Ppu(m.vram, m.oam);
     this.g.onLine = (y) => {
-      if (y === 0) this.ppu.beginFrame();
+      if (y === 0) { this.ppu.beginFrame(); this.raster = false; }
+      if (this.g.lineHook) this.raster = true;
       this.ppu.regs = regsFromIo(m.io);
+      this.lineRegs[y] = this.ppu.regs;
       this.ppu.line(y);
     };
+  }
+  /** The last frame drawn again with line y taking line src's registers. */
+  redraw(y: number, src: number): Uint8Array {
+    const m = this.g.m;
+    const p = new Ppu(m.vram, m.oam);
+    p.beginFrame();
+    for (let k = 0; k < 144; k++) {
+      p.regs = this.lineRegs[k === y ? src : k]!;
+      p.line(k);
+    }
+    return p.frame;
   }
   get g() {
     return this.engine.g;
