@@ -593,3 +593,7 @@ Decisions and assumptions:
   were written). Sync points may be recorded as landmarks only (the port never waits on them):
   all points count as the code's position for the line tears. Each of these fails a trace when
   removed.
+- 1.38.0: a raster handler timed by hblank polls may also be entered late (after the line's hblank
+  began) and make all its writes a line later; the port records those lines (`Game.lateLines`)
+  and the replay accepts either. Traces end before the first unported routine the original
+  reaches (`opening3` stops 48 frames before the field loop).

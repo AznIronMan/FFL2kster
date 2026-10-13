@@ -82,6 +82,17 @@ export class Rig {
     }
     return p.frame;
   }
+  /** The last frame drawn again from the current VRAM and OAM, the lines in `late` with the
+   *  registers of the line before. */
+  redrawLate(late: Set<number>): Uint8Array {
+    const p = new Ppu(this.g.m.vram, this.g.m.oam);
+    p.beginFrame();
+    for (let k = 0; k < 144; k++) {
+      p.regs = late.has(k) && k > 0 ? this.lineRegs[k - 1]! : this.lineRegs[k]!;
+      p.line(k);
+    }
+    return p.frame;
+  }
   get g() {
     return this.engine.g;
   }

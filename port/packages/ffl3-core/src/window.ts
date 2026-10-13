@@ -257,9 +257,12 @@ export function fieldWorkBanked(g: Game): void {
 
 /** 00:3631 — the slide's STAT handler at LYC: through the next four hblanks BGP = FF, 00, FF,
  *  then CDB4 (a bar), and the window on (WX 7) above line 70 or off (WX A5) below it; LYC moves
- *  to the mirror line DC - LYC (the box's bottom edge, then back). */
+ *  to the mirror line DC - LYC (the box's bottom edge, then back). Entered late (the interrupt
+ *  taken once the line's hblank had begun, 00:366E then waits for the next), it all comes a line
+ *  later (`Game.lateLines`). */
 export function slideRaster(g: Game): void {
   const m = g.m;
+  for (let k = 1; k <= 5; k++) if (g.ly + k < 144) g.lateLines.add(g.ly + k);
   g.later(1, () => m.wr(0xff47, 0xff));
   g.later(2, () => m.wr(0xff47, (m.rd(0xff47) + 1) & 0xff));
   g.later(3, () => m.wr(0xff47, (m.rd(0xff47) - 1) & 0xff));

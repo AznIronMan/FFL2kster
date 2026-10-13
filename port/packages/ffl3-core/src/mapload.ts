@@ -221,6 +221,52 @@ export function isTown(m: Memory): boolean {
   return v >= 0x02 && v <= 0x05;
 }
 
+/** 01:5A44 — one bit plane of the tile whose last byte of that plane is at hl, turned a quarter
+ *  clockwise into C801-C808: byte b - 1 takes bit 8 - b of the plane's 8 bytes, bottom row first
+ *  (each shifted into C800 + b). */
+function planeTurn(m: Memory, hl: number): void {
+  for (let b = 1; b <= 8; b++) {
+    let p = hl;
+    do {
+      const q = 0xc800 + b;
+      m.wr(q, ((m.rd(q) << 1) | ((m.rd(p) >> (8 - b)) & 1)) & 0xff);
+      p = (p - 2) & 0xffff;
+    } while ((p & 0x0e) !== 0x0e);
+  }
+}
+
+/** 01:5A18 — the tile at hl turned a quarter clockwise into de (both planes, 01:5A44). */
+function tileTurn(m: Memory, hl: number, de: number): void {
+  for (let k = 0; k < 2; k++) {
+    planeTurn(m, hl + 0x0e + k);
+    for (let j = 0; j < 8; j++) m.wr(de + k + 2 * j, m.rd(0xc801 + j));
+  }
+}
+
+/** 01:5552 — the 2 x 2 tiles at hl (hl, + 10; + 100, + 110) turned a quarter clockwise into de
+ *  (through C810-C840 and C850; hl / de kept at C860 / C862). */
+function blockTurn(m: Memory, hl: number, de: number): void {
+  m.wr16(0xc860, hl);
+  m.wr16(0xc862, de);
+  vramCopy(m, hl, 0xc810, 0x10);
+  vramCopy(m, hl + 0x100, 0xc820, 0x10);
+  vramCopy(m, hl + 0x10, 0xc830, 0x10);
+  vramCopy(m, hl + 0x110, 0xc840, 0x10);
+  for (const [src, to] of [[0xc810, 0x10], [0xc820, 0x00], [0xc830, 0x110], [0xc840, 0x100]] as const) {
+    tileTurn(m, src, 0xc850);
+    vramCopy(m, 0xc850, de + to, 0x10);
+  }
+}
+
+/** 01:5501 — maps 0A / 0B: the 2 x 2 tiles at 9060 turned three times, a quarter each, into 9460,
+ *  94A0, 94C0, 94E0 (the frames of the map animation 01:5601). */
+function tiles0A0B(m: Memory): void {
+  blockTurn(m, 0x9060, 0x9460);
+  blockTurn(m, 0x9460, 0x94a0);
+  blockTurn(m, 0x94a0, 0x94c0);
+  blockTurn(m, 0x94c0, 0x94e0);
+}
+
 /** 00:0535 — tilesets (07:7F5B, 07:7FBC), then the bank-01 extras (01:5501 maps 0A/0B,
  *  01:6092 map B4, 01:6082 maps 02-05: 05:7B90 -> 9600). */
 function mapTiles(g: Game): void {
@@ -231,7 +277,7 @@ function mapTiles(g: Game): void {
   popBank(g);
   pushBank(g, 0x01);
   const map = m.rd(0xc6e8);
-  if (map === 0x0a || map === 0x0b) throw new NotPorted("01:550D (the tiles of maps 0A/0B)");
+  if (map === 0x0a || map === 0x0b) tiles0A0B(m);
   if (map === 0xb4) throw new NotPorted("01:6098 (the tiles of map B4)");
   if (isTown(m)) far0Sync(g, 0x05, () => vramCopy(m, 0x7b90, 0x9600, 0x20));
   popBank(g);

@@ -120,11 +120,15 @@ export class Game {
    *  landed on the other side of the line's drawing (the port does not count the CPU cycles that
    *  decide it); empty when no handler wrote mid-line. */
   readonly scxAlt: (number | undefined)[] = [];
+  /** Lines of the current frame that may show the registers of the line before: a raster handler
+   *  timed by hblank polls, entered late (after the line's hblank had begun), makes its writes a
+   *  line later (the port does not count the cycles that decide it). */
+  readonly lateLines = new Set<number>();
 
   /** Run lines `from`..153 of the current frame. */
   runFrame(from = 0): void {
     const m = this.m, io = m.io;
-    if (from === 0) { this.vblankTaken = false; this.scxAlt.length = 0; }
+    if (from === 0) { this.vblankTaken = false; this.scxAlt.length = 0; this.lateLines.clear(); }
     for (let ly = from; ly < 154; ly++) {
       this.ly = ly;
       io[0x44] = ly;

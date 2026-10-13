@@ -52,6 +52,11 @@ SCENARIOS = {
     "opening2": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
                                 "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
                                 + "a:3,none:37," * 450 + "none:300"),
+    # the opening to its end: the last scenes (maps 0A/0B, slides), up to the field loop 00:0265
+    # (reached at 29,606; the trace stops before it)
+    "opening3": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                                "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
+                                + "a:3,none:37," * 700 + "none:40"),
 }
 
 

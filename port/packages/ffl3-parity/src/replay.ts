@@ -56,7 +56,9 @@ export interface ReplayResult {
    *  frame, or the interrupt-time frame work 00:3557 (hblank-paced copies, e.g. the map animation
    *  01:54A0). Every differing pixel is on such a line and shows an old picture. */
   lineTears: number;
-  /** Frames equal once rows a raster handler wrote SCX on show its other value (`Game.scxAlt`). */
+  /** Frames equal once rows a raster handler wrote SCX on show its other value (`Game.scxAlt`),
+   *  or the lines of a raster handler entered late the registers of the line before
+   *  (`Game.lateLines`). */
   rasterTears: number;
   /** Of these, frames with a line drawn between two chunks of a copy (see `lineTear`). */
   chunkTears: number;
@@ -300,8 +302,10 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
         };
         // a raster handler's SCX write mid-line: each line may show the value before or after it
         // (in the lines the original's code ran, also with the palettes of the frame before)
+        // (or a raster handler entered late: its lines show the registers of the line before)
         let raster = false;
-        if (opts.tears !== false && g.scxAlt.some((v) => v !== undefined)) {
+        if (opts.tears !== false && g.lateLines.size) raster = !screenDiff(exp, rowMix(exp, got, rig.redrawLate(g.lateLines)));
+        if (opts.tears !== false && !raster && g.scxAlt.some((v) => v !== undefined)) {
           const alts = [rig.redrawScx(g.scxAlt)];
           const lcd = (t.meta.frames[f - 1] as { lcd?: number[] } | undefined)?.lcd;
           const spans = mainLines(f);

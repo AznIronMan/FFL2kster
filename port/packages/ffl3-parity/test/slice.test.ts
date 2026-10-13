@@ -16,6 +16,7 @@ const TRACES: [string, string][] = [
   ["newgame3", "the names: letters, cursor wrapping, B, Start (empty: buzzer), back a member; fade into the opening"],
   ["opening1", "after the battle: the opening scene's texts, scripted walks (normal handlers), map animation 1B"],
   ["opening2", "on through the scene: a map change with the wave fades (CA6B = 1, a raster at every line), a screen shake"],
+  ["opening3", "the opening to its end: maps 0A/0B (tiles turned a quarter), the last scenes, up to the field loop"],
 ];
 
 describe.skipIf(!haveRom())("FFL3 scenario parity", () => {

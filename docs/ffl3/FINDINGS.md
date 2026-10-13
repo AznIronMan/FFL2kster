@@ -586,3 +586,22 @@ registers, the mixed boundary row, comparing FFC5, and points as the code's land
 Tried and dropped: writing SCX on the same line when objects were on it (any number, or a
 mode-3 length threshold of 24 or 30) — each left differing frames; deferring the frame work's
 scroll writes to its end — the original writes them about 11 lines earlier.
+
+## 2026-10-13 — Port: the opening to its end (1.38.0)
+
+`opening3` (700 A presses; 29,558 frames, stopping before the field loop 00:0265, which the
+original reaches at 29,606) is wait-exact: 25712/25712 waits, 23422 frame works, 1775 bracket
+polls matched. The whole opening — title, New Game, prologue, names, the simulator battle and the
+scenes after it — now replays wait-exact. Found:
+
+- Maps 0A / 0B load 01:5501: the 2 x 2 tiles at 9060 turned a quarter clockwise three times into
+  9460, 94A0, 94C0, 94E0 (01:5552 per block through C810-C850, 01:5A18 per tile, 01:5A44 per bit
+  plane: byte b - 1 of the turned plane takes bit 8 - b of the 8 rows, bottom first), the frames
+  of the map animation 01:5601.
+- The slide's STAT handler (00:3631) waits for the next hblank start (00:366E); entered late
+  (at 20560/83 the interrupt was taken in mode 3, the hblank begun by the first poll) all its
+  writes come a line later. The port records the lines that may show the line before's
+  registers (`Game.lateLines`); the replay accepts that frame as a raster tear.
+
+Falsification (ffl3/scratch/mut6.sh): the turn's direction, the block placement, one turn less,
+and the late-slide alternative removed each fail `opening3`.
