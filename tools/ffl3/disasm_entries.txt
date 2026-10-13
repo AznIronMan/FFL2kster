@@ -59,3 +59,6 @@
 00:121D   # STAT handler
 00:3631   # STAT handler of the text window slide (installed at C0BC by 00:35F0)
 00:366E   # wait for the next hblank (used by 00:3631)
+# battle script native found at run time (not reached by tools/ffl3/bscript.py's walk) and its target
+0C:6B7F
+02:4000

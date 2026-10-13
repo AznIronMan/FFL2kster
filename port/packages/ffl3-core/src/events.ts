@@ -7,6 +7,7 @@ import { NotPorted } from "./irq.js";
 import { loadMap, leaderLook } from "./mapload.js";
 import { windowClose } from "./window.js";
 import { printText } from "./text.js";
+import { battleEvent } from "./battle.js";
 
 /** 0B:6C4C — text codes handled as scene events: code -> event type. */
 const SCENE_TYPE: Record<number, number> = { 0x32: 0x26, 0x3d: 0x28, 0x3b: 0x27, 0x13: 0x1d, 0x12: 0x1c, 0x3f: 0x1b,
@@ -65,6 +66,7 @@ export function* dispatch(g: Game): Co {
     case 0x0d: m.wr(0xca59, 1); yield* door(g); break;
     case 0x0e: yield* door(g); break;
     case 0x12: yield* special(g); break;
+    case 0x1b: yield* battleEvent(g); break;
     case 0x06: case 0x07: break;
     default:
       if (t >= 0x2d && t !== 0x2f && t !== 0x3f) break;

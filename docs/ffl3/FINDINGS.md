@@ -458,3 +458,44 @@ line-tear olds include the port's picture with the previous frame's palettes (a 
 after a long interrupt-time work: newgame2 frame 1055). Falsification: the cursor's right / left
 wrap, the grid row stride (9 -> 8), a box corner (F7 -> F8), the level byte (C503 -> C504), the
 DMA hold point and the back-a-member flag (CDEA) each fail the traces.
+
+## 2026-10-13 — Port P1, fourth checkpoint: the opening battle (1.34.0)
+
+The opening script 09:6015 starts with event 1B (scene code 3F 01): a battle (00:19D0) with
+formation 01 (0B:758B + 5 l -> CC59). 00:1126 runs 00:1D62: the screen (0B:6CEE: windows mode 0
+0B:5BDF, the background blank, SCY 40), then the battle 0B:4000: music CC5C bits 4-5 + 1, the
+backdrop 0B:405A (formation layout 0B:5A18, monster pictures decompressed 0B:40BF, group maps
+0B:4205), the entities 0B:4444 (party records -> D000.., enemy groups through D680), the map state
+C6E0 -> DD00, the members' figures 0C:6001, effect 15, the opening slide 0B:780A (32 steps; each
+shown by 0B:783B, a raster loop that, with the interrupts off, writes SCY/SCX for lines 0-40 as LY
+reaches them), then the battle script at 0C:4A2D run by the interpreter 0C:4000, then effect 16.
+
+The battle is a bytecode script in bank 0C (tools/ffl3/bscript.py lists it: 2,376 statements
+from 0C:4A2D, 43 native routines): statements of an opcode (low 5 bits) and an operand type (top 3
+bits) over variables in page C9 and a 24-bit accumulator CC05-CC07 (CC01-CC04 the target, its
+type and a condition; CC0C-CC0E the left side of a comparison; a call stack of script addresses
+from CC11 through CC0F). Opcode 03 calls a native routine (bank 0C or 0); `rst $30` (00:38D4)
+calls a routine of another bank through the trampoline C0B2 (jp C0B4:C0B3, written by the
+caller). The disassembler now follows `rst $30`, `ld hl,TABLE` + `jp/call $373B` jump tables and
+the script's natives; one native (0C:6B7F -> 02:4000, the action display) is reached only through
+script data and is listed in tools/ffl3/disasm_entries.txt.
+
+Timing: the script's own CPU time decides at which frame each random number is drawn (00:39D5
+mixes FF93 into FF90); the traces now record FF93 at every draw and the replay feeds it to the
+port's generator (battle2: 29 draws). A frame work run by the code itself at a bracket entry
+(00:1E38) keeps the code until it ends, with the interrupts on when the work turned them on
+(01:5730's reti): a STAT meanwhile nests (only the sound) — without this a pending STAT ran the
+frame work once more at the next bracket (an extra party-figure step). The divide 00:1C9C keeps
+its stack pointer in C0C1/C0C2 (self-modifying code at C0C0): the script's divides leave CFC7.
+
+Results: `battle1` (to the command menu, 2,018 frames) 1539/1539 waits and `battle2` (Fight and a
+full round: four members' commands and targets, the actions, 3,174 frames) 2530/2530 waits
+identical; screens equal or counted (battle2: 19 busy-frame tears, 112 line tears, 1 late-object
+frame; 4 transient OAM waits where the arrow objects were hidden a frame early). Falsification:
+the script's add as a subtract, the random rotation (rrca -> rlca), the slide's step (1 -> 2), the
+random re-timing removed, and a 3-byte store shifted each fail the battle traces.
+
+Method note: the battle routines were ported in parallel by sub-agents from the disassembly (each
+file reviewed against its listing and type-checked), then integrated and checked only by the
+replays; routines no trace reaches yet are unverified (bank 0E effect code is not disassembled:
+effect 14 and one branch of effect 12 are NotPorted).

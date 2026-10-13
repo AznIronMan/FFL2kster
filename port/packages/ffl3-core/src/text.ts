@@ -10,10 +10,11 @@
  *  (00:3357); without it each tile appears after the text delay (00:338E, 00:3593). */
 import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
-import { textBegin, textEnd, far0, fill, vramCopy, pushBank, popBank, copyB, wait1, farcall } from "./sys.js";
+import { farSync, textBegin, textEnd, far0, fill, vramCopy, pushBank, popBank, copyB, wait1, farcall } from "./sys.js";
 import { NotPorted } from "./irq.js";
+import { textCode } from "./textcodes.js";
 import { scriptRef, sceneCode } from "./events.js";
-import { windowToggle, boxFrame } from "./window.js";
+import { windowToggle, boxFrame, windowOpen } from "./window.js";
 
 const CD = (k: number) => 0xcd00 + k;
 
@@ -270,10 +271,17 @@ function* control(g: Game, c: number, hl: number): Co<number> {
     yield* dictionary(g, c);
     return hl;
   }
-  throw new NotPorted(`text control code ${c.toString(16).padStart(2, "0")}`);
+  const [h] = yield* textCode(g, c, hl, 0, 0);
+  return h;
 }
 
 export interface TextResult { hl: number; de: number }
+
+/** 0B:6C87 — the box frame (0F:78BA); CD34 bit 3: the window opened (00:35AF). */
+function* boxOpen(g: Game): Co {
+  farSync(g, 0x0f, () => boxFrame(g));
+  if (g.m.rd(0xcd34) & 0x08) yield* windowOpen(g);
+}
 
 /** 00:3211 — draw the text at hl (bank as selected) with mode a, position e (x), d (y), size
  *  c x b. Returns hl after the terminator and de = the cursor (y, x). */
@@ -290,7 +298,7 @@ export function* printText(g: Game, a: number, hl: number, de: number, bc: numbe
     m.wr(CD(2), de & 0xff); m.wr(CD(3), de >> 8);
     m.wr(CD(0), bc & 0xff); m.wr(CD(1), bc >> 8); m.wr(CD(0x0a), bc >> 8);
     lineReset(m);
-    if (m.rd(0xcd34) & 0x28) throw new NotPorted("0B:6C87 (text box frame)");
+    if (m.rd(0xcd34) & 0x28) yield* farcall(g, 0x0b, () => boxOpen(g));
     m.wr(CD(1), m.rd(CD(1)) & 0xfe);
     if (m.rd(0xcd34) & 0x01) {
       m.wr(CD(7), m.rd(CD(2)) - 1);

@@ -32,6 +32,14 @@ SCENARIOS = {
                                 "start:3,none:20,a:3,none:20,start:3,none:60,"
                                 "b:3,none:60,a:3,none:20,start:3,none:60,"
                                 "a:3,none:10,a:3,none:20,start:3,none:30"),
+    # the default names (Start x 4), the opening script's simulator battle (event 1B) up to its
+    # command menu, idle
+    "battle1": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                               "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:700"),
+    # the opening battle's first round: Fight, then A through every member's command and target
+    "battle2": ("boot", TITLE, "none:40,down:3,none:20,a:3,none:100,a:800,none:160,"
+                               "start:3,none:60,start:3,none:60,start:3,none:60,start:3,none:200,"
+                               + "a:3,none:60," * 12 + "none:900"),
 }
 
 

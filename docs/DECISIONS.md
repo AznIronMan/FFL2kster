@@ -571,3 +571,8 @@ Decisions and assumptions:
   where a replay shows the original's CPU time changing what an interrupt sees. Frames before a
   bracket entry or a point count as busy frames (tears allowed: every pixel new, old, or the
   port's objects over the last wait's VRAM).
+- 1.34.0: the random generator's only time-dependent input, FF93, is taken from the trace at each
+  draw (counted; in play the current FF93). The battle script is interpreted from ROM (the port
+  ports the interpreter and the native routines, not the 2,376 statements); natives are registered
+  by address and an unported one stops the replay with its address. Routines ported by
+  sub-agents count as verified only where a replay reaches them.

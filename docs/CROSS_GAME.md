@@ -102,3 +102,6 @@ both ROMs; differences are listed first because they are the valuable part.
   frames are taken at the wait's start because Legend III's copies span several frames.
   Legend III's interrupt-time frame work (00:3557, up to ~90 lines of hblank-paced copies) can
   nest a second STAT (only the sound runs, CDC5 set); the replay takes its end from the trace.
+  Legend III's battle flow is a bytecode script (0C:4000 interpreting 0C:4A2D, natives by
+  address), not native code as in Legend I/II; its random draws depend on the interpreter's CPU
+  time, so the replay supplies the frame counter at each draw.

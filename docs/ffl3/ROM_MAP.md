@@ -246,3 +246,23 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0B:6DE4 / 0B:6E33 | member slot a from the starting record 0B:7573[b] (CE00 + 4 a cleared); slot a emptied (C503 + record = FF) | verified (3, 2 / 4) |
 | 0F:79D4 / 00:2499 | per member 0-3: (L + 4)(L + 1)^2 (L = C503 + record; 99: 0) -> CD9D + 3 k, 16 x 16 multiply in CD46-CD49 | verified (RAM at waits) |
 | 00:023F | start code after the title: story flag 31 clear -> fade in, opening script 09:6015 (box 1,1 18 x 6), flag 31 set, LYC 0, field loop 00:0265 | probable (port runs to the script's first event) |
+
+## Battle (port P1)
+
+| Location | What | Status |
+|---|---|---|
+| 00:19D0 | event 1B: objects hidden, a frame, bank 01, music kept (FFA0), sound 36 (00:10D7/10E1, 00:3A60 a sound tick from code), battle CA28 (FFCA = CA28 + 80; FF: from the zone 00:10F5), story flag 31: the map back (00:1151) | verified (parity battle1/2) |
+| 00:1126 / 00:1D62 | formation l & 7F (0B:758B + 5 l -> CC59), CA14 set; 0B:6CEE, 0B:4000, bracket left; again while CEDA = FF | verified |
+| 00:38D4 (rst $30) | far call through C0B2 (C3, C0B3/C0B4 written by the caller) with bank a | verified |
+| 0B:6CEE / 0B:5BDF | battle screen: bracket, CE88 = 0, windows (0B:5BDF modes 0 battle start, 1 command menu, 2 end), 9800 blank, SCY 40 | verified (modes 0, 1) |
+| 0B:4000 | the battle: music, backdrop 0B:405A, entities 0B:4444, C6E0 -> DD00, DDFF = 4/5, figures 0C:6001, effect 15, slide 0B:780A, script 0C:4A2D (0C:4000), effect 16 | verified |
+| 0B:5A18 / 0B:40BF / 0B:4205 | formation layout CC30-CC58; monster pictures (0B:4301 sheet/size, 0B:43CC, 0B:43E4 -> decompress banks 0D/0E/0F to D000/D400, tiles to D800); group tile maps in D000 | verified (formation 01) |
+| 0B:4444 | entities: party records -> D000 + 0x80 k, enemies (0E:7533 names, 0B:4A19 battle, 0B:533D abilities, 0B:470D class) through D680, 0B:708B ability flags | verified |
+| 0B:780A / 0B:783B | opening slide: 32 steps of a bend table (0B:78D5) in DE40-DEBF; per frame, interrupts off, SCY/SCX for lines 0-40 as LY reaches them | verified |
+| 0C:4000 | battle script interpreter (opcode table 0C:4320, expression codes 0C:433C, skip table 0C:437C; operand fetch 0C:43C0) | verified (statements reached by battle1/2) |
+| 0C:4A2D | the battle script (tools/ffl3/bscript.py) | data |
+| 02:4394 / 02:4364 | battle effects 00-17 by DE00 (14 and part of 12 jump into bank 0E) | verified for 15, 16, 17 and those battle2 reaches |
+| 02:4000 | action display (C9BD effect or member/enemy action, 02:53EE action data) | verified (battle2) |
+| 00:3175 | text control-code table (0x4E words); menu-mode output 00:3114 / 00:3168 | verified for the codes battle1/2 print |
+| 00:39D5 / 00:1D2E | random byte FF90 = ror((FF93 + FF90) ^ 1) + FF90; below d | verified |
+| 00:1C9C | 16-bit divide through the RAM code C0C0 (SP kept in C0C1/C0C2) | verified |

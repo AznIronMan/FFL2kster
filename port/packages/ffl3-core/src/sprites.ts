@@ -4,6 +4,7 @@
 import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
 import { pushBank, popBank, farSync, memberOffset, far0Sync, vramCopy } from "./sys.js";
+import { battleFigures } from "./bfigures.js";
 import { NotPorted } from "./irq.js";
 
 /** 0B:6DC7 — a member's sprite code from its record at hl (C50D + offset): byte 0 & 7 = 2 adds
@@ -120,7 +121,7 @@ export function frameSprites(g: Game): void {
   const m = g.m;
   if (m.rd(0xcd37)) {
     if (m.rd(0xcbff)) return;
-    throw new NotPorted("00:2247 (battle figures)");
+    battleFigures(g);
   }
   cursorStep(g);
   const b = m.hram[0x13]!;

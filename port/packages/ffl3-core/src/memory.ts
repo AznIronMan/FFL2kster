@@ -21,6 +21,9 @@ export class Memory {
   bank = 1;
   sramEnabled = false;
   onSoundWrite: ((reg: number, v: number) => void) | null = null;
+  /** The frame counter FF93 as the random generator 00:39D5 reads it (parity re-timing: the
+   *  original's value at that call, which depends on CPU time); null in play. */
+  onRandom: (() => number | undefined) | null = null;
   /** LCDC writes (the parity rig notes the LCD switched off). */
   onLcdc: ((v: number) => void) | null = null;
   /** Diagnostics (parity): every write to the LCD registers FF40-FF4B. */

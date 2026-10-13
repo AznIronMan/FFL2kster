@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.33.0`
+Version: `1.34.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,13 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.34.0` — Legend III port P1, fourth checkpoint: the opening simulator battle. The battle runs
+  as a bytecode script (2,376 statements, 0C:4000) whose interpreter is ported, with its native
+  routines, the battle set-up (entities, formation, monster pictures, the opening slide raster),
+  the command and target menus, the text codes the menus print with, and the bank-02 action
+  effects. Two battle traces (`battle1` to the command menu, `battle2` a full round of actions)
+  are wait-exact; the random generator reads the frame counter the original had at each draw.
+  New analysis tool: `tools/ffl3/bscript.py` lists the battle script.
 - `1.33.0` — Legend III port P1, third checkpoint: the rest of the prologue and the name entry —
   text codes 08/0B/0C (wait for A, timed pause), the menu box renderer every menu uses (09:4FEF:
   boxes from 7-byte descriptors drawn row by row, member names, class names, member figures),

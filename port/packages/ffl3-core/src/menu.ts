@@ -8,6 +8,7 @@ import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
 import { copy, copyB, fill, vramCopy, wait1, pushBank, popBank, memberOffset } from "./sys.js";
 import { NotPorted } from "./irq.js";
+import { textCode } from "./textcodes.js";
 
 // ---------------------------------------------------------------- menu text codes
 
@@ -122,7 +123,12 @@ function menuCode(g: Game, c: number, hl: number, de: number, b: number): [numbe
     }
     case 0x1f: r = memberText(g, hl, de, b); break;
     case 0x43: r = [placeSprite(g, hl), de, b]; break;
-    default: throw new NotPorted(`menu text code ${c.toString(16).padStart(2, "0")}`);
+    default: { // the text engine's handler (00:3175), which must not wait inside a menu
+      const it = textCode(g, c, hl, de, b);
+      let n = it.next();
+      while (!n.done) { if (n.value !== undefined) throw new NotPorted(`menu text code ${c.toString(16)} waited`); n = it.next(); }
+      r = n.value;
+    }
   }
   return [r[0], (r[1] - 1) & 0xffff, (r[2] + 1) & 0xff];
 }

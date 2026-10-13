@@ -65,13 +65,14 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 | Phase | Status | Evidence |
 |---|---|---|
 | P0 importer | done (1.30.0) | `@ffl3k/importer` = the Python data package for every record, script, layout, patch list and music stream, and the graphics/map-buffer hashes (`tools/ffl3/golden_export.py`); `importFfl3Rom` hash gate (verified / labelled unverified), 16 bank segments; golden test skipped without the ROM |
-| P1 vertical slice | in progress (1.31.0, 1.32.0, 1.33.0 checkpoints) | `@ffl3k/core` runtime (frame clock, interrupts, VRAM bracket, bank stack, copies, decompressor, fades), title 01:7C79, menu input 00:1E51 + key repeat; 1.32.0: New Game 01:7D40, text engine (dictionary, control and scene codes), script references 00:2EF8, events 00:1236 (doors, specials), map load 00:027D, window slide 00:35AF/35D2, field frame work 00:3575 (map animations 01:54A0, objects 00:01A0); 1.33.0: text codes 08/0B/0C, the menu boxes 09:4FEF, the name entry 0F:7A44 (x 4) and 01:7D75-7DD7, the start code to the opening script 09:6015; `@ffl3k/parity` replay: title1 373/373, title2 313/313, newgame1 1117/1117, newgame2 868/868, newgame3 1318/1318 waits identical (5 traces, 5,064 frames) |
+| P1 vertical slice | in progress (1.31.0-1.34.0 checkpoints) | `@ffl3k/core` runtime (frame clock, interrupts, VRAM bracket, bank stack, copies, decompressor, fades), title 01:7C79, menu input 00:1E51 + key repeat; 1.32.0: New Game 01:7D40, text engine (dictionary, control and scene codes), script references 00:2EF8, events 00:1236 (doors, specials), map load 00:027D, window slide 00:35AF/35D2, field frame work 00:3575 (map animations 01:54A0, objects 00:01A0); 1.33.0: text codes 08/0B/0C, the menu boxes 09:4FEF, the name entry 0F:7A44 (x 4) and 01:7D75-7DD7, the start code to the opening script 09:6015; `@ffl3k/parity` replay: title1 373/373, title2 313/313, newgame1 1117/1117, newgame2 868/868, newgame3 1318/1318 waits identical (5 traces, 5,064 frames); 1.34.0: the battle (event 1B 00:19D0, 00:1126, 0B:6CEE, 0B:4000), the battle script interpreter 0C:4000 and its natives, menus 0B:5BDF, text codes 00:3175, bank-02 effects and actions; battle1 1539/1539, battle2 2530/2530 waits identical (7 traces, 10,256 frames) |
 | P2-P5 | not started | |
 
 ## Log
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
 - 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).
+- 2026-10-13 (1.34.0): P1 fourth checkpoint — the opening battle (set-up, script, menus, a round of actions) wait-exact; tests/ffl3 63 passed (20 emulator).
 - 2026-10-13 (1.33.0): P1 third checkpoint — prologue end, menu boxes, name entry; newgame2/newgame3 wait-exact; tests/ffl3 63 passed (20 emulator).
 - 2026-10-13 (1.32.0): P1 second checkpoint — New Game to the prologue map, text window and text, wait-exact (newgame1); tests/ffl3 63 passed (20 emulator).
 - 2026-10-13 (1.31.0): P1 first checkpoint — the title frame-exact (2 traces).

@@ -9,11 +9,13 @@ Legend III conventions (from the ROM, 2026-10-13; docs/ffl3/ROM_MAP.md):
     bit 3 clear: the bank-0 routine 00:38C4[x & 7] with bank x >> 4 selected (if not 0);
     bit 3 set:   entry (x & F0) | 2 (x & 7) of the table at 00:3806 (lo) / 00:3807 (hi): bank
                  00:3802[hi >> 6], address (hi & 3F | 40) << 8 | lo.
-- `call $373A` + a word per case: a jump table (followed until the lowest target is reached).
+- `call $373A` + a word per case: a jump table (followed until the lowest target is reached); also
+  `ld hl,TABLE` + `jp/call $373B` (the same jump with the table in hl).
 - `call $1E51` (or rst $18 x=05, the same routine): wait for a button, then jump through the 8
   words that follow the call, indexed by the lowest set button bit (A, B, -, Start, Right, Left,
   Up, Down; 00:1EE7); the handlers end with `pop hl` x2 + ret or return into the loop at 1E57.
-- rst $30 (00:38D4): call the RAM trampoline C0B2 (jp set by the caller) with bank a: not followed.
+- rst $30 (00:38D4): call the RAM trampoline C0B2 with bank a pushed: the target is the address the
+  code wrote to C0B3 (lo) / C0B4 (hi) with `ld a,N` + `ld [$C0B3],a` before; followed when known.
 - interrupts: vblank -> C0B9, STAT -> C0BC (RAM vectors; their handlers are found from where the
   code installs them, listed in tools/ffl3/disasm_entries.txt).
 Usage: python tools/ffl3/disasm.py [BB:AAAA ...]"""
@@ -66,6 +68,8 @@ def crawl(entries):
         if is_func:                          # a bank-0 routine inherits its caller's bank context
             labels[(bank if pc >= 0x4000 else 0, pc)] = "F"
         ctx, last_lda = bank, None
+        tramp = [None, None]
+        last_ldhl = None
         while pc < 0x8000:
             key = (ctx if pc >= 0x4000 else 0, pc)
             if key in code:
@@ -92,13 +96,15 @@ def crawl(entries):
             if t == "call $1e51":
                 _table(code, todo, xref, key, ctx, pc + 3, 8)
                 break
-            if t == "call $373a":                    # jump table: a word per case follows the call
-                tbl, n, first = pc + 3, 0, 0x10000
+            hl_table = t in ("jp $373b", "call $373b") and last_ldhl is not None
+            if t == "call $373a" or hl_table:        # jump table: a word per case follows the call
+                tbl, n, first = (last_ldhl if hl_table else pc + 3), 0, 0x10000
                 while n < 64 and tbl + 2 * n < first:
                     w = rom[off(ctx, tbl + 2 * n)] | rom[off(ctx, tbl + 2 * n) + 1] << 8
                     if not (0x100 <= w < 0x8000) or (w >= 0x4000 and ctx == 0):
                         break
-                    first = min(first, w) if (w >= 0x4000) == (tbl >= 0x4000) else first
+                    if not hl_table:                 # an inline table runs up to the first case
+                        first = min(first, w) if (w >= 0x4000) == (tbl >= 0x4000) else first
                     tb = ctx if w >= 0x4000 else 0
                     todo.append((ctx if w < 0x4000 else tb, w, False))
                     xref.setdefault((tb, w), set()).add(key)
@@ -106,7 +112,12 @@ def crawl(entries):
                 for k in range(n):
                     code[(ctx if tbl >= 0x4000 else 0, tbl + 2 * k)] = (2, "dw $%04x" % (
                         rom[off(ctx, tbl + 2 * k)] | rom[off(ctx, tbl + 2 * k) + 1] << 8))
-                break
+                if t != "call $373b":
+                    break
+            if t.startswith("ld hl,$") and len(t) == 11:
+                last_ldhl = int(t[7:], 16)
+            elif not t.startswith("ld a,") and t not in ("jp $373b", "call $373b"):
+                last_ldhl = None
             if op == "rst":
                 v = int(t.split("$")[1], 16)
                 if v == 0x20 and last_lda is not None:
@@ -114,6 +125,16 @@ def crawl(entries):
                 todo.append((0, v, True))
             if op == "call" and tg == 0x38E1 and last_lda is not None:
                 ctx = last_lda                       # `ld a,N` + `call $38E1`: same as rst $20
+            if t == "ld [$c0b3],a":
+                tramp[0] = last_lda
+            if t == "ld [$c0b4],a":
+                tramp[1] = last_lda
+            if t == "rst $30" and last_lda is not None and None not in tramp:
+                tgt = tramp[1] << 8 | tramp[0]
+                tb = last_lda if tgt >= 0x4000 else 0
+                code[key] = (l, f"rst $30 ; call {last_lda:02X}:{tgt:04X}")
+                todo.append((tb, tgt, True))
+                xref.setdefault((tb, tgt), set()).add(key)
             if t.startswith("ld a,$") and len(t) == 8:
                 last_lda = int(t[6:], 16)
             elif op not in ("rst", "push", "pop"):
@@ -137,6 +158,9 @@ def main():
                 b, a = line.split(":")
                 extra.append((int(b, 16), int(a, 16)))
     extra += [(int(a.split(":")[0], 16), int(a.split(":")[1], 16)) for a in sys.argv[1:]]
+    sys.path.insert(0, "tools/ffl3")
+    from bscript import natives                      # the battle script's native routines
+    extra += natives()
     code, labels, xref = crawl(BASE + extra)
     for k in xref:
         labels.setdefault(k, "L")

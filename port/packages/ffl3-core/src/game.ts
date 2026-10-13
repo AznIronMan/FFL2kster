@@ -226,6 +226,18 @@ export class Game {
     yield* this.until_(this.onPoint?.(addr));
   }
 
+  /** Poll LY until it equals ly (a busy loop, no interrupt needed): this frame if the line is
+   *  still ahead or current, else the next frame. */
+  *untilLine(ly: number): Co {
+    if (this.ly === ly) return;
+    yield* this.until_([this.ly < ly ? this.frame : this.frame + 1, ly]);
+  }
+
+  /** A frame work is still running and has enabled the interrupts (01:5730's reti). */
+  get workIrq(): boolean {
+    return !!this.work && !this.work.holds;
+  }
+
   /** From the code itself (not an interrupt): the frame work it just ran (00:1E38) goes on until
    *  the end the replay gave (`handlerBusy`). */
   *workDone(): Co {

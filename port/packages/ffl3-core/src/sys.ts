@@ -141,7 +141,13 @@ export function decompress(m: Memory, hl: number, end: number, dest: number): nu
 function* bracketWork(g: Game): Co {
   if (!g.m.rd(0xcd3d)) return;
   g.hooks.statWork?.(g);
-  yield* g.workDone();
+  if (g.workIrq) {
+    // the work turned the interrupts on (01:5730's reti) until its di (00:356B): a STAT
+    // meanwhile nests (CDC5 set: the sound only)
+    g.ime = true;
+    yield* g.workDone();
+    g.ime = false;
+  } else yield* g.workDone();
 }
 
 /** 00:1D9E — enter the VRAM bracket (nested: CDCE counts): di; the first level saves IE, STAT,

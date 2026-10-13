@@ -65,6 +65,8 @@ export interface ReplayResult {
   latePolls: number; nPolls: number;
   /** Sync points (see `Game.onPoint`) the port reached after the original (should be 0). */
   latePoints: number; nPoints: number;
+  /** Random numbers drawn (00:39D5) by the port. */
+  nRand: number;
   /** Frames equal to the port's picture drawn with the original's objects of that frame, in or
    *  right after a busy stretch: the original's code wrote the OAM buffer after that frame's DMA
    *  (CPU time). The objects are compared byte for byte at every wait. */
@@ -170,6 +172,9 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePoints++;
     return p;
   };
+  // the random generator reads the frame counter the original had at that call
+  let nRand = 0;
+  m.onRandom = () => t.rand[nRand++]?.[2];
   // the frame work's runs end when the original's did (hblank-paced copies)
   let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0;
   /** Where the port ran each work (in no time: its VRAM writes are all on that line). */
@@ -277,7 +282,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   }
   waits.push(...oamPending);
   waits.sort((a, b) => a.wait - b.wait);
-  return { trace: t, diffs, waits, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, lineTears, chunkTears, workMismatch, nWorks, error };
+  return { trace: t, diffs, waits, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, workMismatch, nWorks, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {
