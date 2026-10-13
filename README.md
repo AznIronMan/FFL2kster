@@ -80,7 +80,8 @@ src/ffl2kster rom/header, build engine, schemas (enemies, items, text, encounter
 tools/        reverse-engineering helpers (text decoder, scans, explorer, controlled changes)
 tests/        pytest suite incl. PyBoy acceptance test (marker: emu)
 docs/         ROM_MAP.md, FINDINGS.md, DECISIONS.md, PROGRESS.md, BATTLE_RULES.md,
-              EVENTS.md, MUSIC.md, PORT_READINESS.md, CAPS.md, PLATFORMS.md, EXTRAS.md
+              EVENTS.md, MUSIC.md, PORT_READINESS.md, CAPS.md, PLATFORMS.md, EXTRAS.md,
+              VARIANTS.md
 data/         processed data package (see data/README.md)
 port/         web port (TypeScript): importer, engine, renderer, sound, web app — see port/README.md
 build/        generated output only (ROMs, states, analysis, test-artifacts/)
