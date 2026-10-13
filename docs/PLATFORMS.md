@@ -33,9 +33,11 @@ Android/iOS web view's app storage. Removing the app removes them; export saves 
 
 ## Input
 
-Keyboard (arrows, Z = A, X = B, Enter = Start, Shift/Backspace = Select, F11 = fullscreen, M =
-mute), every connected gamepad (W3C "standard" mapping: south = A, east = B, back = Select, start
-= Start, D-pad or left stick), and on-screen touch controls (shown by default on touch devices and
+Keyboard, two layouts at once by physical key: arrows + Z (A) / X (B), or WASD + K (A) / J (B);
+Enter or Space = Start, Shift or Backspace = Select, F11 = fullscreen, M = mute. Every connected
+gamepad (W3C "standard" mapping, which Xbox, PlayStation and Switch Pro controllers report: south
+face button / Xbox A = A, east / Xbox B = B, View/Back = Select, Menu/Start = Start, D-pad or left
+stick), and on-screen touch controls (shown by default on touch devices and
 in the mobile shells; toggle in the player bar). A press is held at least 4 frames, so taps never
 get lost. The game pauses while the app or tab is hidden and saves are flushed first.
 

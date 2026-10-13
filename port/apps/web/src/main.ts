@@ -157,7 +157,7 @@ function showSummary(pkg: DataPackage) {
     el("h1", {}, TITLE),
     el("p", { class: "lead" }, verified ? "Game data is ready on this device." : "Game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showPlayer(pkg), "primary"),
-      el("span", { class: "muted" }, "Arrows move, Z = A, X = B, Enter = Start, Shift = Select, F11 = fullscreen. Gamepads and touch work too."))),
+      el("span", { class: "muted" }, "Arrows + Z (A) / X (B), or WASD + K (A) / J (B); Enter or Space = Start, Shift = Select; F11 = fullscreen, M = mute. Xbox and other gamepads and touch work too."))),
     savesPanel(),
     el("section", { class: "panel" }, dl),
     el("section", { class: "panel" }, el("div", { class: "row" }, "Monster graphic #", pick), view),

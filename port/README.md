@@ -31,7 +31,8 @@ One web build runs everywhere; the shells only wrap it. Builds for all six targe
 Common to all: ROM import with the native picker (verified, or **unverified** on request for
 other revisions and patched builds), game data and battery RAM in IndexedDB (the shells keep it in
 the app's data directory), **portable saves** (export/import of the 8 KiB `.sav`, the same file on
-every platform and in Game Boy emulators), keyboard, every connected gamepad (standard mapping),
+every platform and in Game Boy emulators), keyboard (arrows + Z/X or WASD + K/J), every connected
+gamepad (standard mapping: Xbox, PlayStation, Switch Pro),
 on-screen touch controls, fullscreen, pause while hidden.
 
 Signing: macOS sign + notarize turn on in CI when the repository has the Apple secrets listed in

@@ -14,9 +14,15 @@ const MIN_PRESS = 4;
 /** DMG-like greens are an optional extra; default is the plain 4 greys. */
 const PALETTE = [[0xff, 0xff, 0xff], [0xaa, 0xaa, 0xaa], [0x55, 0x55, 0x55], [0x00, 0x00, 0x00]];
 
+/** Two keyboard layouts, usable at the same time (physical key codes, so they work on any
+ *  keyboard layout): arrows + Z (A) / X (B), or WASD + K (A) / J (B). Start: Enter or Space;
+ *  Select: Shift or Backspace. */
 const KEYS: Record<string, number> = {
   ArrowUp: BTN.UP, ArrowDown: BTN.DOWN, ArrowLeft: BTN.LEFT, ArrowRight: BTN.RIGHT,
-  KeyZ: BTN.A, KeyX: BTN.B, Enter: BTN.START, ShiftRight: BTN.SELECT, ShiftLeft: BTN.SELECT, Backspace: BTN.SELECT,
+  KeyW: BTN.UP, KeyS: BTN.DOWN, KeyA: BTN.LEFT, KeyD: BTN.RIGHT,
+  KeyZ: BTN.A, KeyX: BTN.B, KeyK: BTN.A, KeyJ: BTN.B,
+  Enter: BTN.START, NumpadEnter: BTN.START, Space: BTN.START,
+  ShiftRight: BTN.SELECT, ShiftLeft: BTN.SELECT, Backspace: BTN.SELECT,
 };
 
 export interface PlayerUi {
@@ -195,8 +201,9 @@ export class Player {
 }
 
 /** Every connected gamepad (any can play). The "standard" mapping (Chrome, Edge, Safari, Firefox,
- *  the Android and iOS web views): south face button A, east B, back/view Select, start/menu
- *  Start, D-pad 12-15, left stick with a dead zone. Pads without that mapping use the same
+ *  the Android and iOS web views), which Xbox, PlayStation and Switch Pro controllers report:
+ *  south face button (Xbox A) = A, east (Xbox B) = B, back/view = Select, start/menu = Start,
+ *  D-pad 12-15 or the left stick (dead zone 0.5). Pads without that mapping use the same
  *  indexes, which most report anyway. */
 export function gamepads(): number {
   let v = 0;

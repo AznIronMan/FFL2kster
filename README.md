@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `0.6.0`
+Version: `0.6.1`
 Status: **Port P4 (platforms) complete.** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
@@ -93,6 +93,7 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `0.6.1` — WASD + K/J keyboard layout alongside arrows + Z/X; Space also Start.
 - `0.6.0` — Port P4 platforms: installable builds for web (PWA), Windows, macOS, Linux (Tauri 2),
   Android and iOS (Capacitor 8) from CI; touch controls, all gamepads, portable `.sav` saves,
   unverified ROM import; original app icon.
