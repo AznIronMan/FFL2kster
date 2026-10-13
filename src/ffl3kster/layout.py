@@ -10,6 +10,8 @@ byte, a bit mask (MSB first: 1 = the next literal byte, 0 = the fill) and the li
 0B:78F5 then applies flag patches for the current map: 0B:7982 (47 map ids), 0B:79B1 (story
 flag or FF = always), 0B:79E0 (pointer): x, y, one rectangle (byte: width << 4 | height, then
 the rows; 00 = none). With y = 0 the game advances rows from a stale C801/C802 (none in the data).
+Map 11's two flag-30 patches (0B:7AE9, 0B:7C66; y 10, 7 rows) reach row 16 of a 16-row layout:
+the game writes that row past the buffer (D200-), so it is not part of the map and is dropped here.
 """
 
 from __future__ import annotations
@@ -99,7 +101,8 @@ def apply_patches(rom: bytes, buf: bytearray, width: int, map_id: int, flags_c76
             continue
         w, h, o, row = wh >> 4, wh & 0x0F, o + 3, x + y * width
         for _ in range(h):
-            buf[row:row + w] = rom[o:o + w]
+            n = max(0, min(w, len(buf) - row))   # rows past the buffer land in RAM after it (map 11)
+            buf[row:row + n] = rom[o:o + n]
             o += w
             row += width
 

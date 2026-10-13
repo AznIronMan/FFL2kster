@@ -523,3 +523,18 @@ Decisions and assumptions:
 - Raw ROM bytes stay out of the repository: the SQLite store keeps decoded field values with
   provenance, not record hex dumps (the extractor's `raw` column is dropped on import).
 - Version: one repository version; each Legend III milestone is a minor bump (1.21.0 = M1).
+
+## 2026-10-13 — Legend III port P0 (`@ffl3k/importer`)
+
+- The importer mirrors ffl3kster module by module (rom, text, tables, layout, music, gfx,
+  package); the Python toolkit stays the reference and the golden test compares the TypeScript
+  output with `ffl3/data` (records, maps, layouts, text, music) and with hashes from
+  `tools/ffl3/golden_export.py` (font, 192 map tilesets, 194 monster pictures, 31 tile maps,
+  every map buffer with no / all story flags). ROM-dependent tests skip without the ROM.
+- Table field layouts are data (name, offset, encoding); meanings, status and evidence live once,
+  in the Python schema, not duplicated in TypeScript.
+- The data package keeps all 16 banks as segments (the engine reads original addresses), as for
+  Legend I; it is built on the device and never leaves it.
+- A Python behaviour the port exposed is fixed in Python first, with an emulator test, before the
+  port is made to agree (map 11: patch rows past the map are dropped; the game writes them after
+  the buffer).

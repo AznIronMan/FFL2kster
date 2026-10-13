@@ -292,6 +292,14 @@ spans are contiguous per bank; the decoder equals the game's D000 buffer at all 
 the intro (maps 17, 1A, 55, 1A, 16, 02, 0A, 0B, 10, 0B), 1,024-4,096 tiles each, 0 differences
 (`tests/ffl3/test_layout_emu.py`).
 
+Patches past the map (found by the TypeScript importer's golden test, 1.30.0): map 11 (layout 5,
+32 × 16 tiles) has two flag-30 patches (0B:7AE9, 0B:7C66: x 8 and 22, y 10, 2 × 7) whose last row
+is row 16, outside the map. Emulator (door 12 pointed at map 11, flag 30 forced clear / set in
+C766): the game writes that row to D208-D209 and D216-D217 (2C 2D) after the 512-byte map only
+with the flag set, and D000-D1FF equals the decoder either way. The decoder drops rows past the
+buffer; the Python reference had grown its buffer by 4 bytes there (bytearray slice assignment),
+which the importer's fixed-size buffer exposed.
+
 ## 2026-10-13 — Graphics (M6)
 
 Map tilesets (07:7F5B): the header's layout byte indexes 03:731C (pointers to 6-byte records);

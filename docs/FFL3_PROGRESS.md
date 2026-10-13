@@ -51,7 +51,7 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 
 | Milestone | Status | Evidence |
 |---|---|---|
-| M2 items/abilities, growth | M2a (1.22.0) and M2b (1.23.0) done; item use and spells in the field wait for shops (M5); level-up open | names (00:1E8F), five record tables in bank 09 (09:5D87), 17/17 controlled changes (loads, boundaries, controls, power → damage); armor via the Equip menu 11/11 (every nibble named from the status screen); stats = Attack/Defence/Agility/Magic, value 2 = MP; EXP = mean of class byte 1, 9/9 |
+| M2 items/abilities, growth | M2a (1.22.0) and M2b (1.23.0) done; item use and spells in the field wait for shops (M5); level-up open | names (00:1E8F), five record tables in bank 09 (09:5D87), 17/17 controlled changes (loads, boundaries, controls, power → damage); armor via the Equip menu 11/11 (every nibble named from the status screen); stats = Attack/Defence/Agility/Magic, value 2 = MP; EXP from class byte 1 (corrected in M4) |
 | M3 text | done (1.24.0) | one script interpreter, 80-entry dictionary, 1,639 scripts in 7 spans, all references/pointers on script starts, byte and semantic round trips 1,639/1,639, reinsertion visible in PyBoy; `text-export` |
 | M4 encounters/drops | done (1.25.0); GP source open | rate/zone/threshold/formation chain 14/14; EXP = floor(sum of class byte 1 / 4), 14/14 |
 | M5 maps/events | done (1.26.0-1.27.0); shop prices and in-game shop use open | 171 records framed exactly; 8/8 emulator changes (header, object, doors); layout decoder equal to D000 at 10/10 map loads |
@@ -62,12 +62,16 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 
 ## Port P0–P5 (Legend III import target)
 
-Not started.
+| Phase | Status | Evidence |
+|---|---|---|
+| P0 importer | done (1.30.0) | `@ffl3k/importer` = the Python data package for every record, script, layout, patch list and music stream, and the graphics/map-buffer hashes (`tools/ffl3/golden_export.py`); `importFfl3Rom` hash gate (verified / labelled unverified), 16 bank segments; golden test skipped without the ROM |
+| P1-P5 | not started | |
 
 ## Log
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
 - 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).
+- 2026-10-13 (1.30.0): P0 — `@ffl3k/importer` golden-equal to the Python reference; map 11 patch overflow found and verified; tests/ffl3 63 passed (20 emulator; the 1.28.0/1.29.0 lines overstated by one each: 1.29.0 was 61 / 19).
 - 2026-10-13 (1.29.0): M7 music and the data package; tests/ffl3 62 passed (21 emulator).
 - 2026-10-13 (1.28.0): M6 graphics; tests/ffl3 56 passed (19 emulator).
 - 2026-10-13 (1.27.0): M5 layouts — decoder equal to the game's tile buffer; tests/ffl3 48 passed (12 emulator).

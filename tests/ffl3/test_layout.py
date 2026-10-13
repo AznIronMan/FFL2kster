@@ -22,3 +22,23 @@ def test_every_layout_decompresses_to_its_size(ffl3_rom):
 def test_patches(ffl3_rom):
     assert len(L.patches(ffl3_rom, 0x10)) == 6 and all(f != 0xFF for f, _ in L.patches(ffl3_rom, 0x10))
     assert [f for f, _ in L.patches(ffl3_rom, 0x0B)] == [0xFF, 0xFF]
+
+
+def test_patched_maps_keep_their_size(ffl3_rom):
+    from ffl3kster.schema.maps import MAP_COUNT
+    for flags in (bytes(32), b"\xff" * 32):
+        for m in range(MAP_COUNT):
+            try:
+                tiles, w = L.map_tiles(ffl3_rom, m, flags)
+            except ValueError:
+                continue
+            assert len(tiles) % w == 0 and len(tiles) == len(L.tilemap(ffl3_rom, ffl3_rom[_map_off(ffl3_rom, m)] & 0x7F))
+    # map 11's flag-30 patches reach row 16 of a 16-row layout: that row is dropped
+    full, w = L.map_tiles(ffl3_rom, 0x11, b"\xff" * 32)
+    assert len(full) == 512 and w == 32
+
+
+def _map_off(rom, m):
+    from ffl3kster import rom as R
+    from ffl3kster.schema.maps import map_pointer
+    return R.bank_to_file(0x06, map_pointer(rom, m))
