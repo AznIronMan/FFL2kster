@@ -13,6 +13,7 @@
  *  d + 1 (`hblankOf`). Writes made twice in one line (02:47F5) or in the middle of a line cannot be
  *  shown at a finer grain than the line. */
 import type { Game, Co } from "./game.js";
+import type { Memory } from "./memory.js";
 import { NotPorted } from "./irq.js";
 import { pushBank, popBank, farSync, far0Sync, copy, copyB, fill, vramCopy } from "./sys.js";
 import { randomBelow } from "./math.js";
@@ -66,7 +67,7 @@ function* effectDispatch(g: Game, a: number): Co {
     case 0x11: yield* numbersMark(g); return;
     case 0x12: yield* monsterEffect(g); return;
     case 0x13: yield* monsterSwap(g); return;
-    case 0x14: throw new NotPorted("02:41A0 (rst $30 to 0E:7DBF through 00:3740; bank 0E is not disassembled)");
+    case 0x14: yield* rst30(g, 0x0e, 0x3740, () => bigMonsterEffect(g)); return; // 02:41A0
     case 0x15: yield* figuresOn(g); return;
     case 0x16: yield* figuresOff(g); return;
     case 0x17: figureMask(g); return;
@@ -2033,3 +2034,75 @@ nativeRoutines.set(0x6b64, function* (g) { itemLoadNative(g); });
 nativeRoutines.set(0x6b6c, (g) => numbersEffect(g));
 nativeRoutines.set(0x6b71, (g) => battleEffectCall(g));
 nativeRoutines.set(0x6b7f, (g) => battleActionCall(g));
+
+// ---------------------------------------------------------------- effect 14 (bank 0E)
+
+/** 0E:7DAD — the 8 bits of the mask byte at de (MSB first): each set bit stores tile c at hl
+ *  (c + 1); hl + 1 a bit. Returns [hl, de, c]. */
+function maskByte(m: Memory, hl: number, de: number, c: number): [number, number, number] {
+  let a = m.rd(de);
+  de = (de + 1) & 0xffff;
+  for (let b = 8; b; b--) {
+    const bit = a & 0x80;
+    a = (a << 1) & 0xff;
+    if (bit) { m.wr(hl, c); c = (c + 1) & 0xff; }
+    hl = (hl + 1) & 0xffff;
+  }
+  return [hl, de, c];
+}
+
+/** 0E:7D6C — bc picture bytes hl -> 9000 (00:20FF); DF00-DFFF = FF (00:3921); the map from the
+ *  mask de (8 rows of 2 bytes, 0E:7DAA twice a row, rows 20 apart from DF02): set bits get tiles
+ *  0, 1, ..; DF00-DFFF -> 9800 (00:20FF). */
+function pictureFromMask(m: Memory, hl: number, de: number, bc: number): void {
+  vramCopy(m, hl, 0x9000, bc);
+  fill(m, 0xdf00, 0x0100, 0xff);
+  hl = 0xdf02;
+  let c = 0;
+  for (let b = 8; b; b--) {
+    [hl, de, c] = maskByte(m, hl, de, c);
+    [hl, de, c] = maskByte(m, hl, de, c);
+    hl = (hl + 0x10) & 0xffff;
+  }
+  vramCopy(m, 0xdf00, 0x9800, 0x0100);
+}
+
+/** 0E:7DBF — battle effect 14 (bank 0E): the entity C91B below 78 with its slot shape CC51[C9D6 -
+ *  5] & 57 = 57: SCY 40, the picture 0E:7E86 (E0 bytes, mask 0E:7E56, 0E:7D6C), then 16 steps of 3
+ *  frames: SCY, WY from 0E:7E66 (sound 10 at the 11th); else a frame, SCY C0, SCX 28, the 4 tiles
+ *  0E:6CCF (+ 40 for C91B below 77) -> 9000 (00:20FF), a frame, the map 9889/988A = 0/2,
+ *  98A9/98AA = 1/3, then steps of 3 frames: SCY from 0E:7E1F, SCX - 4 until 0. */
+function* bigMonsterEffect(g: Game): Co {
+  const m = g.m;
+  const e = m.rd(0xc91b);
+  if (e < 0x78) {
+    const s = m.rd((0xcc51 + ((m.rd(0xc9d6) - 5) & 0xff)) & 0xffff) & 0x57;
+    if (s >= 0x57) { // 0E:7E29
+      m.wr(0xff42, 0x40);
+      pictureFromMask(m, 0x7e86, 0x7e56, 0x00e0);
+      let hl = 0x7e66;
+      for (let b = 0x10; b; b--) {
+        yield* g.wait(3);
+        m.wr(0xff42, m.rd(hl)); hl++;
+        m.wr(0xff4a, m.rd(hl)); hl++;
+        if (b === 0x06) m.hram[0x3c] = 0x10;
+      }
+      return;
+    }
+  }
+  yield* g.wait(1); // 0E:7DD6
+  m.wr(0xff42, 0xc0);
+  m.wr(0xff43, 0x28);
+  vramCopy(m, e < 0x77 ? 0x6d0f : 0x6ccf, 0x9000, 0x0040);
+  yield* g.wait(1);
+  m.wr(0x9889, 0x00);
+  m.wr(0x988a, 0x02);
+  m.wr(0x98a9, 0x01);
+  m.wr(0x98aa, 0x03);
+  let hl = 0x7e1f;
+  do {
+    yield* g.wait(3);
+    m.wr(0xff42, m.rd(hl)); hl++;
+    m.wr(0xff43, (m.rd(0xff43) - 4) & 0xff);
+  } while (m.rd(0xff43));
+}

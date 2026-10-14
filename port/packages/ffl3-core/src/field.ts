@@ -3,6 +3,7 @@
  *  the companion (01:4F24), the objects (01:4F66, 00:01A0), a frame, the map animation (01:54A0).
  *  Runs with bank 01 selected. */
 import type { Game, Co } from "./game.js";
+import type { Memory } from "./memory.js";
 import { wait1, far0, pushBank, popBank } from "./sys.js";
 import { NotPorted } from "./irq.js";
 import { fget, fset, setSlot, testFlag } from "./objects.js";
@@ -11,8 +12,10 @@ import { mapAnimation, windowClose } from "./window.js";
 import { printText } from "./text.js";
 import { fieldMenu } from "./fieldmenu.js";
 import { dispatch } from "./events.js";
+import { encounter } from "./battle.js";
 import { companionFollow, objectsUpdate, layerSwitch, leaderStartDown, leaderStartUp, leaderStartRight,
-  leaderStartLeft, leaderDown, leaderUp, leaderRight, leaderLeft, leaderNext } from "./events2.js";
+  leaderStartLeft, leaderDown, leaderUp, leaderRight, leaderLeft, leaderNext, leaderFace, leaderStepOn,
+  stepSpeed } from "./events2.js";
 
 /** 00:08F3 — the map's pending events: CA52 -> event 2B; else with CA56 (a step was made) and
  *  the leader on foot (C6E3 0 or 2, or 3+ on cell EA) a C0-type cell C2F0 -> its event (C2F0 &
@@ -45,10 +48,69 @@ function map01Push(g: Game): void {
   throw new NotPorted("01:63AD (map 01: the vehicle pushed out)");
 }
 
-/** 01:4BF6 — the leader on a moving cell (C2F0 8x): carried (not ported); else on. */
-function movingCell(g: Game): void {
+/** 01:4D79 / 4D89 / 4D9C — the step speed C6F0 from the moving cell's C2F0 bits 3-2 (as it is,
+ *  one faster up to 3, one slower down to 0), then C6F4 (00:0165). */
+function cellSpeed(m: Memory, d: number): void {
+  let a = (fget(m, "c2f0") & 0x0c) >> 2;
+  a = Math.min(3, Math.max(0, a + d));
+  m.wr(0xc6f0, a);
+  stepSpeed(m);
+}
+
+/** 01:4BF6 — the leader on a moving cell (C2F0 bits 7-6 = 2): false (z, the field step ends
+ *  there) after carrying it; else true. Map 01 with flag AD: true (00:101F). Map 50: C280 = 30,
+ *  C320 = 1B. CA13 = 0; by C2F0 & 3 the cell carries the leader up (01:4C3D), right (01:4D2A),
+ *  down (01:4C8C) or left (01:4CDB): the button held the other way faces it that way and slows
+ *  the step (01:4D9C), with the carrying way speeds it (01:4D89); across, a step of its own
+ *  (01:441D / 44A8 / 4520 / 4599) and, when none starts, the face that way and the carried step;
+ *  else the carried step facing that way (01:442F / 44BA / 4532 / 45AB). */
+function movingCell(g: Game): boolean {
   const m = g.m;
-  if ((fget(m, "c2f0") & 0xc0) === 0x80) throw new NotPorted("01:4BFF (a moving cell)");
+  if ((fget(m, "c2f0") & 0xc0) !== 0x80) return true;
+  if (m.rd(0xc6e8) === 0x01 && testFlag(m, 0xad)) return true;
+  if (m.rd(0xc6e8) === 0x50) {
+    fset(m, "c280", 0x30);
+    fset(m, "c320", 0x1b);
+  }
+  m.wr(0xca13, 0);
+  const held = () => m.hram[0x0a]!;
+  // [carried way, its back button, the two cross buttons with their step starts, its own button]
+  const carry = [0x00, 0x40, 0x80, 0xc0][fget(m, "c2f0") & 0x03]!;
+  const across = (start: (g: Game) => void, face: number): boolean => {
+    start(g);
+    if (m.rd(0xc6ef)) return false;
+    cellSpeed(m, 0);
+    leaderFace(m, face);
+    leaderStepOn(g, carry);
+    return false;
+  };
+  const h = held();
+  if (carry === 0x00) { // 01:4C3D
+    if (h & 0x80) { cellSpeed(m, -1); leaderFace(m, 0x80); leaderStepOn(g, 0x00); return false; }
+    if (h & 0x20) return across(leaderStartLeft, 0xc0);
+    if (held() & 0x10) return across(leaderStartRight, 0x40);
+    if (held() & 0x40) cellSpeed(m, 1); else cellSpeed(m, 0);
+    leaderFace(m, 0x00); leaderStepOn(g, 0x00);
+  } else if (carry === 0x80) { // 01:4C8C
+    if (h & 0x40) { cellSpeed(m, -1); leaderFace(m, 0x00); leaderStepOn(g, 0x80); return false; }
+    if (h & 0x20) return across(leaderStartLeft, 0xc0);
+    if (held() & 0x10) return across(leaderStartRight, 0x40);
+    if (held() & 0x80) cellSpeed(m, 1); else cellSpeed(m, 0);
+    leaderFace(m, 0x80); leaderStepOn(g, 0x80);
+  } else if (carry === 0xc0) { // 01:4CDB
+    if (h & 0x10) { cellSpeed(m, -1); leaderFace(m, 0x40); leaderStepOn(g, 0xc0); return false; }
+    if (h & 0x40) return across(leaderStartUp, 0x00);
+    if (held() & 0x80) return across(leaderStartDown, 0x40); // 01:4D12: the right-facing list
+    if (held() & 0x20) cellSpeed(m, 1); else cellSpeed(m, 0);
+    leaderFace(m, 0xc0); leaderStepOn(g, 0xc0);
+  } else { // 01:4D2A
+    if (h & 0x20) { cellSpeed(m, -1); leaderFace(m, 0xc0); leaderStepOn(g, 0x40); return false; }
+    if (h & 0x40) return across(leaderStartUp, 0x00);
+    if (held() & 0x80) return across(leaderStartDown, 0x80);
+    if (held() & 0x10) cellSpeed(m, 1); else cellSpeed(m, 0);
+    leaderFace(m, 0x40); leaderStepOn(g, 0x40);
+  }
+  return false;
 }
 
 /** 01:4395 — an object (slots 2-F, C200 set) on the cell C800-C803, on C804's layer (C2E0 & 3;
@@ -125,11 +187,11 @@ function* fieldStep(g: Game): Co {
     return;
   }
   yield* layerSwitch(g);
-  if (m.rd(0xca2c)) throw new NotPorted("00:10C2 (an encounter)");
+  if (m.rd(0xca2c)) yield* encounter(g);
   m.hram[0x16] = 0;
   yield* pendingEvents(g);
   map01Push(g);
-  movingCell(g);
+  if (!movingCell(g)) return;
   if (!m.rd(0xc6e3)) {
     // 00:07DC — on foot: the leader's tile base and kind back from C330 / C340, its sprite
     setSlot(m, 0);

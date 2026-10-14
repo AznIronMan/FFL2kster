@@ -34,3 +34,5 @@ export * from "./menuitems.js";
 export * from "./menuitems2.js";
 export * from "./menuitems3.js";
 export * from "./equip.js";
+export * from "./ship.js";
+export * from "./wipe.js";

@@ -87,3 +87,13 @@
 01:6313
 01:6374
 01:6FD4
+# the ship console (event 23, 01:7972): the A handler continue 7A6B, the four items through 7A82 (rst $00), 79E9, 7A3E
+01:7A6B
+01:7AB2
+01:7AE9
+01:7B19
+01:7B42
+01:79E9
+01:7A3E
+# battle effect 14 (02:41A0: rst $30, bank 0E, 00:3740 = jp hl)
+0E:7DBF

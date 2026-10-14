@@ -11,7 +11,7 @@ import { entityOffset, entityField, itemRecordPlain, itemBonusByte, itemSlot, si
 
 /** 00:24C7 — CD46-CD49 / CD4A-CD4B (restoring division, 32 steps over CD46-CD4B): the quotient in
  *  CD46-CD49, the remainder in CD4A-CD4B. */
-function div32(m: Memory): void {
+export function div32(m: Memory): void {
   const e = m.rd(0xcd4a);
   m.wr(0xcd4a, 0);
   const d = m.rd(0xcd4b);

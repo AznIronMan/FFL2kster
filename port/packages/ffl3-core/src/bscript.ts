@@ -17,6 +17,11 @@ export const nativeRoutines = new Map<number, (g: Game) => Co>();
 /** The stack pointer the original has at 00:1C9C when the script divides (C0C1/C0C2 keep it). */
 export const SCRIPT_DIVIDE_SP = 0xcfcf; // C0C1/C0C2 = CFC7 in the traces
 
+/** How much shallower the stack is in the battle being run than in a battle from an event
+ *  (00:19D0 via the event dispatch, where SCRIPT_DIVIDE_SP and FORMATION_LAYOUT_SP were measured):
+ *  an encounter (00:10C2 from the field step) runs 1E bytes shallower (trace enc1, C0C1 E5). */
+export const battleStack = { shallower: 0 };
+
 const type = (b: number) => (b >> 5) & 0x07;
 
 class Script {
@@ -180,7 +185,7 @@ class Script {
       }
       case 0x02: { // 0C:428A divide (signed)
         this.signs();
-        const r = divide(this.g, m.rd16(0xcc05), m.rd16(0xcc08), SCRIPT_DIVIDE_SP);
+        const r = divide(this.g, m.rd16(0xcc05), m.rd16(0xcc08), SCRIPT_DIVIDE_SP + battleStack.shallower);
         let e = r.hl & 0xff, d = r.hl >> 8, l = 0;
         if (m.rd(0xcc0b) & 0x80) {
           l = 0xff;

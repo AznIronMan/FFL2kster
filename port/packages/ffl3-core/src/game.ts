@@ -172,6 +172,11 @@ export class Game {
       if (bit === 1) this.vblankTaken = true;
       const vec = bit === 1 ? 0xc0b9 : bit === 2 ? 0xc0bc : -1;
       if (vec < 0) throw new Error(`interrupt ${bit} not modelled`);
+      if (m.rd(vec) === 0xc9) { // a `ret` vector (01:5EB8): the interrupts stay off (no reti)
+        this.ime = false;
+        took = true;
+        continue;
+      }
       if (m.rd(vec) !== 0xc3) throw new Error(`no jp at ${vec.toString(16)}`);
       const addr = m.rd16(vec + 1);
       const h = this.handlers.get(addr);

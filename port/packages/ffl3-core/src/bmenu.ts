@@ -213,7 +213,7 @@ function statusIndex(m: Memory, a: number): [number, number] {
  *  to C090 and three times to C050-C07F; then (09:4127) the walking figures. */
 function* resetSpritesAll(g: Game): Co {
   const m = g.m;
-  farSync(g, 0x0b, () => loadSpriteTiles(g, 0));
+  yield* farcall(g, 0x0b, () => loadSpriteTiles(g, 0));
   g.ime = false;
   let hl = 0xc000;
   for (let c = 0; c < 0x24; c++) {

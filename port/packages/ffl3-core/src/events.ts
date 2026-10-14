@@ -20,6 +20,7 @@ import { normalHandlers, restoreHandlers, objectEvent, walkEvent, shiftEvent, ob
   flashFrames, stepDown, stepUp, exitBack, fallStep, stackFromTable, followerAtLeader, followerPlace, mapText,
   tileMorph, freeSlotsOf, boardVehicle, highestItemFlag, leaveVehicleEvent, disembark } from "./events2.js";
 import { wornOutBack } from "./equip.js";
+import { shipConsole } from "./ship.js";
 
 /** 0B:6C4C — text codes handled as scene events: code -> event type. */
 const SCENE_TYPE: Record<number, number> = { 0x32: 0x26, 0x3d: 0x28, 0x3b: 0x27, 0x13: 0x1d, 0x12: 0x1c, 0x3f: 0x1b,
@@ -101,7 +102,7 @@ export function* dispatch(g: Game): Co {
     case 0x20: yield* hurtAll(g); break;
     case 0x21: reviveAll(g); break;
     case 0x22: yield* rest(g); break;
-    case 0x23: menuEvent(g); break;
+    case 0x23: yield* menuEvent(g); break;
     case 0x24: m.wr(0xca51, 1); yield* rest(g); break; // 00:1A7F
     case 0x25: yield* rockEvent(g); break;
     case 0x26: farSync(g, 0x01, () => objectEvent(m)); break; // 00:1B0A
@@ -649,10 +650,15 @@ function* itemEvent(g: Game): Co {
   farSync(g, 0x0f, () => setFlag(m, m.rd((0x7c7e + ((a - 0x61) & 0xff)) & 0xffff)));
 }
 
-/** 00:19B8 — event 23 (01:7972, a menu; then 01:63E6 / 01:642E by CA57). */
-function menuEvent(g: Game): void {
+/** 00:19B8 — event 23, the ship's console: bank 01 pushed, the console (01:7972), then by CA57:
+ *  0 nothing, 1 01:63E6 (departing), 2 01:642E (an item chosen); the bank popped (00:19CE). */
+function* menuEvent(g: Game): Co {
   pushBank(g, 0x01);
-  throw new NotPorted("01:7972 (event 23's menu)");
+  yield* shipConsole(g);
+  const a = g.m.rd(0xca57);
+  if (a === 1) throw new NotPorted("01:63E6 (event 23: departing)");
+  if (a === 2) throw new NotPorted("01:642E (event 23: a console item chosen)");
+  popBank(g);
 }
 
 // ---------------------------------------------------------------- scene effects
@@ -780,8 +786,8 @@ function* rest(g: Game): Co {
 }
 
 /** 00:1A95 — event 25, CA58 + 1: even, a step down (00:1AC3; up when C6EE = 0, 00:1ADE); odd,
- *  bank 0B: four flashes (00:1AEA) and the patch 0B:79E0[4] (down) / [5] (up) (0B:7926), then the
- *  step. */
+ *  bank 0B: four flashes (00:1AEA) and the patch 0B:79E0[4] (down) / [5] (up) (0B:7926), then two
+ *  steps (`call $1AC3` and the fall into it). */
 function* rockEvent(g: Game): Co {
   const m = g.m;
   const n = (m.rd(0xca58) + 1) & 0xff;
@@ -792,6 +798,8 @@ function* rockEvent(g: Game): Co {
     yield* flash4(g);
     patchAt(g, tableWord(m, 0x79e0, up ? 5 : 4));
     popBank(g);
+    if (up) yield* stepUp(g);
+    else yield* stepDown(g);
   }
   if (up) yield* stepUp(g);
   else yield* stepDown(g);

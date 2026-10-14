@@ -2,14 +2,21 @@
  *  0B:6CEE, 0B:4000) and its screens. The battle itself runs as a script of bank 0B read by the
  *  interpreter 0C:4000; effects go through 02:4394. */
 import type { Game, Co } from "./game.js";
-import { pushBank, popBank, farSync, farcall, fill, fillBC, copyB, vramCopy, bracketEnter, bracketLeave } from "./sys.js";
-import { NotPorted } from "./irq.js";
+import { pushBank, popBank, farSync, farcall, fill, fillBC, copyB, vramCopy, bracketEnter, bracketLeave, fadeIn } from "./sys.js";
+import { NotPorted, scroll } from "./irq.js";
+import type { Memory } from "./memory.js";
+import { random, multiply } from "./math.js";
+import { layout, mapPatches, loadTiles, drawView } from "./mapload.js";
+import { drawObjects } from "./actors.js";
+import { battleWipe } from "./wipe.js";
+import { mul16, levelValues } from "./names.js";
+import { div32 } from "./equip.js";
 import { oamHideAll, testFlag } from "./objects.js";
 import { battleEntities } from "./benemy.js";
-import { formationLayout, monsterPictures, monsterMaps } from "./bpics.js";
+import { formationLayout, monsterPictures, monsterMaps, FORMATION_LAYOUT_SP } from "./bpics.js";
 import { battleEffect } from "./banim.js";
 import { memberTiles } from "./sprites.js";
-import { battleScript, nativeRoutines } from "./bscript.js";
+import { battleScript, nativeRoutines, battleStack } from "./bscript.js";
 import { windowsAll } from "./bmenu.js";
 
 // ---------------------------------------------------------------- small helpers
@@ -56,7 +63,7 @@ function* battleSounds(g: Game): Co {
   pushBank(g, 0x01);
   m.hram[0x3c] = 0x36;
   yield* soundMain(g);
-  if (testFlag(m, 0x31)) throw new NotPorted("01:5EB8 (the battle wipe)");
+  if (testFlag(m, 0x31)) yield* battleWipe(g);
   popBank(g);
 }
 
@@ -69,11 +76,72 @@ export function* battleEvent(g: Game): Co {
   pushBank(g, 0x01);
   yield* battleSounds(g);
   const f = m.rd(0xca28);
-  if (f === 0xff) throw new NotPorted("00:19EE (a battle from the zone)");
-  m.hram[0x4a] = f | 0x80;
-  yield* battle(g, f | 0x80);
-  if (testFlag(m, 0x31)) throw new NotPorted("00:1151 (the map after a battle)");
+  if (f === 0xff) { // 00:19EE
+    m.wr(0xca2d, 0);
+    yield* battle(g, zoneFormation(g, 0));
+  } else {
+    m.hram[0x4a] = f | 0x80;
+    yield* battle(g, f | 0x80);
+  }
+  if (testFlag(m, 0x31)) yield* afterBattle(g);
   popBank(g);
+}
+
+/** 00:10C2 — a random encounter (CA2C set by a step): bank 01, the sounds (00:10D7), the
+ *  formation of zone CA2D (00:10F5), the battle (00:1126), the map back (00:1151). */
+export function* encounter(g: Game): Co {
+  const m = g.m;
+  pushBank(g, 0x01);
+  yield* battleSounds(g);
+  const l = zoneFormation(g, m.rd(0xca2d));
+  battleStack.shallower = 0x1e;
+  try { yield* battle(g, l); } finally { battleStack.shallower = 0; }
+  yield* afterBattle(g);
+  popBank(g);
+}
+
+/** 00:1186 — the zone row: e + 1 in vehicle 1 or 4 and above, + 2 in vehicle 2. */
+function zoneRow(m: Memory, e: number): number {
+  const v = m.rd(0xc6e3);
+  if (v === 0x01 || v >= 0x04) return (e + 1) & 0xff;
+  if (v === 0x02) return (e + 2) & 0xff;
+  return e;
+}
+
+/** 00:10F5 — the formation of zone a (bank 03): its row (00:1186) of 7 formations at 03:76C2,
+ *  the column the first of the 6 thresholds 03:76BC a random byte (00:39D5) is not below (6: none
+ *  is); FFCA = the formation, returned (l). */
+function zoneFormation(g: Game, a: number): number {
+  const m = g.m;
+  pushBank(g, 0x03);
+  const e = zoneRow(m, a);
+  const hl = (0x76c2 + multiply(0x0007, e).de) & 0xffff;
+  const r = random(m);
+  let c = 0;
+  for (let p = 0x76bc, b = 6; b; b--, p++, c++) if (r >= m.rd(p)) break;
+  const l = m.rd((hl + c) & 0xffff);
+  m.hram[0x4a] = l;
+  popBank(g);
+  return l;
+}
+
+/** 00:1151 — the map back after a battle: FFBA = 0, CA2C = 0, the layout (bank 07 / 08 by CA15,
+ *  00:0F42), the flag patches (0B:78F5), the music FFBA = FFA0, the tiles (00:0150), the view
+ *  (00:0E34), the objects (00:01A0), the scroll (00:3D2B), fade in (00:3A0C). */
+function* afterBattle(g: Game): Co {
+  const m = g.m;
+  m.hram[0x3a] = 0;
+  m.wr(0xca2c, 0);
+  layout(g);
+  farSync(g, 0x0b, () => mapPatches(g));
+  m.hram[0x3a] = m.hram[0x20]!;
+  yield* bracketEnter(g);
+  yield* loadTiles(g);
+  yield* bracketLeave(g);
+  yield* drawView(g);
+  drawObjects(g);
+  scroll(m);
+  yield* fadeIn(g);
 }
 
 /** 00:1126 — battle l (formation l & 7F: 0B:758B + 5 l -> CC59), CA14 set meanwhile; again with
@@ -143,7 +211,7 @@ function* battleBackdrop(g: Game): Co {
   const m = g.m;
   farSync(g, 0x0f, () => { fill(m, 0x9800, 0x0400, 0xff); });
   yield* bracketEnter(g);
-  formationLayout(g);
+  formationLayout(g, FORMATION_LAYOUT_SP + battleStack.shallower);
   monsterPictures(g);
   vramCopy(m, 0xd800, 0x9000, 0x07c0);
   fillBC(m, 0xd000, 0x0400, 0xff);
@@ -159,7 +227,7 @@ function* figures(g: Game): Co {
   let hl = 0xd00d, de = 0x86c0;
   for (let k = 0; k < n; k++) {
     const h = hl, d = de;
-    farSync(g, 0x0b, () => memberTiles(g, 2, h, d));
+    yield* farcall(g, 0x0b, () => memberTiles(g, 2, h, d));
     de = (de + 0x40) & 0xffff;
     hl = (hl + 0x80) & 0xffff;
   }
@@ -282,3 +350,11 @@ nativeRoutines.set(0x6b67, function* () { /* ret */ });
 nativeRoutines.set(0x6b68, function* (g) { g.m.wr(0xde00, 0x11); yield* rst30(g, 0x02, 0x4394, () => battleEffect(g)); });
 /** 0C:6B3E — farcall 0B:6ED9 (as 00:1D74). */
 nativeRoutines.set(0x6b3e, (g) => nativeRoutines.get(0x1d74)!(g));
+
+/** 00:2499 as a battle script native (opcode 03): CD46-CD49 = CD48/CD49 x CD46/CD47. */
+nativeRoutines.set(0x2499, function* (g) { mul16(g); });
+/** 00:24C7 as a battle script native: CD46-CD49 / CD4A-CD4B (quotient CD46-CD49, remainder
+ *  CD4A-CD4B). */
+nativeRoutines.set(0x24c7, function* (g) { div32(g.m); });
+/** 00:1E46 as a battle script native: the members' level values (farcall 0F:79D4). */
+nativeRoutines.set(0x1e46, function* (g) { farSync(g, 0x0f, () => levelValues(g)); });

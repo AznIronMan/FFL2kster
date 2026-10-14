@@ -610,3 +610,8 @@ Decisions and assumptions:
   while removing it fails a trace: 09:427E (1.41.0) and 09:442F were dropped once 09:504F / 09:5044
   re-timed the same CPU time. Routines ported more than once (0B:6683 in three files) are merged
   when one copy is completed (`equip.ts`).
+- 1.43.0: code that drives the screen line by line from the main program (the battle wipe) runs
+  at each line and puts its register and VRAM writes on the next line (`Game.later`), as a write
+  in the hblank shows. Interrupt vectors holding `ret` are modelled (the interrupts stay off until
+  the code's `ei`). The stack depth the battle's divisions store (C0C1) depends on how the battle
+  was entered; it is a measured offset per entry (`battleStack.shallower`), not a guess.

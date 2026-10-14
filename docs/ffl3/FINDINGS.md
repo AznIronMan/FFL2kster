@@ -699,3 +699,43 @@ Falsification (ffl3/scratch/mut9.py): each of these fails a trace — C888 = 15 
 here; a target confirmed reaches 09:521A, not ported), an item used from item 0 (09:521A), the
 repair of a bad save copy, the clearing of BFFA-BFFF (zero already), the hang guards (a copy that
 never verifies).
+
+## 2026-10-14 — Port: the ship, the warp and a random encounter (1.43.0)
+
+The cockpit console (event 23, 01:7972; `ship.ts`, ported by a sub-agent from the listing after
+adding its jump-table targets to tools/ffl3/disasm_entries.txt) opens when the leader steps onto
+the console cell: Depart is refused here (flags 05 / 0E / 0F / E1), Engine and Warp answer "no
+units", Weapon sets the Cannon (C6FB), B closes it through 01:7023 (now exported). `ship1` (Depart,
+the cursor wrapping, B) and `ship2` (the four items) are wait-exact.
+
+Up from the ship a strip of moving cells (01:4BF6, `field.ts`) carries the leader to a platform;
+holding the carried way speeds it up, the back button slows it and faces back, across it tries a
+step of its own. On the way, event 25 (00:1A95) on an odd count makes two steps: its `call $1ADE`
+falls into 00:1ADE again (the port made one; `warp1` showed it). The spiral warps to map 0A; its
+stairs lead out to the world map (map 02). `warp1`, `warp2` (each button on the strip) and
+`world1` are wait-exact.
+
+A step on the world map rolls an encounter (00:10C2): the zone's formation (00:10F5), the battle
+(00:1126) and the map back (00:1151). Since story flag 31 every battle opens with a wipe (01:5EB8):
+the view is drawn into the window map and blanked tile by tile, one tile per hblank, then each
+line's hblank slides the window and the background sideways from a growing table. It turns the
+interrupt vectors into `ret`, so the first interrupt switches them off until its `ei`; the port's
+interrupt dispatch now models such vectors, and the wipe runs line by line with its writes on the
+next line (`Game.later`). `enc1` (two waves, Hooligans and an F-Drake, A every 40 frames; a member
+falls; level ups; the Cyborg parts declined; 10,225 frames) is wait-exact, and with it battle effect
+14 (0E:7DBF, a monster entering by scroll steps), the bank-0 natives 00:2499 / 00:24C7 / 00:1E46,
+and a fallen member's figure: its tiles are copied raw, read back, their low plane cleared and
+copied back over many lines, so one frame shows the raw half (sync point 0B:7E7A).
+
+Found: the battle's divisions store the stack pointer (C0C1 = SP - 8): an encounter runs 1E bytes
+shallower than a battle from an event (E5 against C7).
+
+Falsification (ffl3/scratch/mut10.py, mut11.py): each fails a trace — the Weapon item stored ^ 1,
+the cursor wrap, CA57 + 2 (ship1, ship2); the wipe's row growth 2, its mirror at 46 (enc1,
+world1); the encounter stack 1C, effect 14's SCX step 2, the 0B:7E7A point removed, the 00:24C7
+and 00:1E46 natives emptied (enc1); the carried way not faster (all four); the back button facing
+up, the cross step not faced (warp2); event 25 with one step (all four). Survivors (unverified):
+the wipe's row-start and fill-end sync points (dropped), its 22 tiles a row and the line its
+writes show on, the zone thresholds' equality, the flag patches after a battle (none on map 02),
+the console's Option mask, the key items, the template length. Not ported: Depart (01:63E6) and an
+item chosen at the console (01:642E), map 01's AD case (00:101F), the other moving cell kinds.

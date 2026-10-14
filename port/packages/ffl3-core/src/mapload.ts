@@ -511,7 +511,7 @@ function cellPointer(m: Memory, d: number, e: number, c: number): void {
 }
 
 /** 00:0DE4 — the BG map address (98xx | CA2A) of the screen cell (c, b) with the scroll. */
-function bgAddr(m: Memory, c: number, b: number): number {
+export function bgAddr(m: Memory, c: number, b: number): number {
   const e = m.rd(0xca2a);
   const l = ((((m.hram[0x11]! & 0xf8) + c) & 0xff) >> 3) & 0xff;
   const h = 0x98 | e;

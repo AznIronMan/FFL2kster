@@ -321,7 +321,7 @@ function* slotsShow(g: Game): Co<boolean> {
     }
     const rec = (hl + 0x0d) & 0xffff;
     const de = (0x8140 + ((((k << 4) | (k >> 4)) & 0xff) << 2)) & 0xffff;
-    farSync(g, 0x0b, () => memberTiles(g, 0x01, rec, de));
+    yield* farcall(g, 0x0b, () => memberTiles(g, 0x01, rec, de));
   }
   yield* figures(g);
   return (((m.rd(0xc503) & m.rd(0xc563) & m.rd(0xc5c3)) + 1) & 0xff) === 0;

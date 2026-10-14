@@ -469,33 +469,49 @@ function leaderBlocked(g: Game): boolean {
 /** The start of a leader step (01:441D / 44A8 / 4520 / 4599): CA30 = 0, CA56 = 1, C6F0 = C6F1,
  *  the speed, the sprite list (table), C6EE = dir; blocked: CA30 = 1; else CA51 = 0, C6EF = 10,
  *  the target C290 / C2B0 one cell on, then the first frame. */
-function leaderStart(g: Game, table: number, dir: number, frame: (m: Memory) => void): void {
+function leaderStart(g: Game, table: number, dir: number): void {
   const m = g.m;
   m.wr(0xca30, 0);
   m.wr(0xca56, 1);
   m.wr(0xc6f0, m.rd(0xc6f1));
   stepSpeed(m);
   leaderSprite(m, table);
+  leaderStepOn(g, dir);
+}
+
+/** The leader's sprite lists by facing (01:4490 down 6ABE, 01:451A up 6AFE, 01:4593 right 6B7E,
+ *  01:4637 left 6B3E). */
+export const LEADER_SPRITE: Record<number, number> = { 0x80: 0x6abe, 0x00: 0x6afe, 0x40: 0x6b7e, 0xc0: 0x6b3e };
+
+/** 01:4490 / 451A / 4593 / 4637 — the leader's sprite list for facing dir (01:4493). */
+export function leaderFace(m: Memory, dir: number): void {
+  leaderSprite(m, LEADER_SPRITE[dir]!);
+}
+
+/** 01:4432 / 44BD / 4535 / 45AE — the step part of a leader step (also entered by a moving cell):
+ *  C6EE = dir; blocked (01:4645): CA30 = 1; else CA51 = 0, C6EF = 10, the target C290 / C2B0 one
+ *  cell on, then the first frame (01:445F / 44E9 / 4562 / 45DB). */
+export function leaderStepOn(g: Game, dir: number): void {
+  const m = g.m;
   m.wr(0xc6ee, dir);
   if (leaderBlocked(g)) { m.wr(0xca30, 1); return; }
   m.wr(0xca51, 0);
   m.wr(0xc6ef, 0x10);
   setSlot(m, 0);
-  if (dir === 0x80) addField(m, "c290", 0x10, 0xca04);
-  else if (dir === 0x00) addField(m, "c290", -0x10, 0xca04);
-  else if (dir === 0x40) addField(m, "c2b0", 0x10, 0xca05);
-  else addField(m, "c2b0", -0x10, 0xca05);
-  frame(m);
+  if (dir === 0x80) { addField(m, "c290", 0x10, 0xca04); leaderDown(m); }
+  else if (dir === 0x00) { addField(m, "c290", -0x10, 0xca04); leaderUp(m); }
+  else if (dir === 0x40) { addField(m, "c2b0", 0x10, 0xca05); leaderRight(m); }
+  else { addField(m, "c2b0", -0x10, 0xca05); leaderLeft(m); }
 }
 
 /** 01:441D — the leader starts a step down (sprite table 01:6ABE, C6EE 80). */
-export function leaderStartDown(g: Game): void { leaderStart(g, 0x6abe, 0x80, leaderDown); }
+export function leaderStartDown(g: Game): void { leaderStart(g, 0x6abe, 0x80); }
 /** 01:44A8 — the leader starts a step up (01:6AFE, C6EE 00). */
-export function leaderStartUp(g: Game): void { leaderStart(g, 0x6afe, 0x00, leaderUp); }
+export function leaderStartUp(g: Game): void { leaderStart(g, 0x6afe, 0x00); }
 /** 01:4520 — the leader starts a step right (01:6B7E, C6EE 40). */
-export function leaderStartRight(g: Game): void { leaderStart(g, 0x6b7e, 0x40, leaderRight); }
+export function leaderStartRight(g: Game): void { leaderStart(g, 0x6b7e, 0x40); }
 /** 01:4599 — the leader starts a step left (01:6B3E, C6EE C0). */
-export function leaderStartLeft(g: Game): void { leaderStart(g, 0x6b3e, 0xc0, leaderLeft); }
+export function leaderStartLeft(g: Game): void { leaderStart(g, 0x6b3e, 0xc0); }
 
 /** The forced leader step (01:5C02 / 5C22 / 5C43 / 5C64): C6EE = dir, C6EF = 10, the target one
  *  cell on (no check, the sprite list kept), then the first frame. */

@@ -42,7 +42,7 @@ export function* entryScreen(g: Game, a: number): Co {
   const m = g.m;
   const off = (0x60 * a) & 0xffff;
   far0Sync(g, 0x07, () => copyB(m, (0x7a81 + off) & 0xffff, 0xc680, 0x60));
-  farSync(g, 0x0b, () => loadSpriteTiles(g, 0));
+  yield* farcall(g, 0x0b, () => loadSpriteTiles(g, 0));
   copyB(m, 0x7b90, 0xc8b0, 0x17);
   yield* menu(g);
   m.wr(0xc080, 0x40);

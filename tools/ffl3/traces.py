@@ -68,6 +68,27 @@ SCENARIOS = {
     # walking in the field: down through the door into the ship, then steps in each direction
     "field2": ("field_start", FIELD, "none:100,down:64,none:20,right:64,none:20,down:64,"
                                      "none:20,left:96,none:20,down:48,none:20,right:120,none:20,up:16,none:120"),
+    # the ship's cockpit: into the ship, a step up onto the console cell: the console menu (event
+    # 23), Depart (the buzzer), the cursor down and up, B out
+    "ship1": ("field_start", FIELD, "none:100,down:64,none:60,up:24,none:80,a:3,none:40,down:3,none:20,down:3,none:20,"
+                                    "down:3,none:20,down:3,none:20,down:3,none:20,up:3,none:20,up:3,none:20,b:3,none:100"),
+    # the cockpit's four items: Engine, Warp, Weapon, Option each chosen (A), their texts, A back;
+    # B out
+    "ship2": ("field_start", FIELD, "none:100,down:64,none:60,up:24,none:80,down:3,none:20,a:3,none:80,a:3,none:60,"
+                                    "down:3,none:20,a:3,none:80,a:3,none:60,down:3,none:20,a:3,none:80,a:3,none:60,"
+                                    "down:3,none:20,a:3,none:80,a:3,none:60,b:3,none:100"),
+    # up from the ship onto the platform in space, into the spiral: the warp to map 0A, down a step
+    "warp1": ("field_start", FIELD, "none:60,up:160,none:30,up:200,none:300,down:60,none:60"),
+    # the moving cells up to the platform with each button: back (down: slower, facing down), none,
+    # across (left, right: own steps where free), with (up: faster)
+    "warp2": ("field_start", FIELD, "none:60,up:96,down:16,none:8,left:6,none:8,right:6,none:200"),
+    # through the warp, down map 0A's stairs out onto the world map (map 02) by the temple, steps
+    "world1": ("field_start", FIELD, "none:60,up:160,none:30,up:200,none:300,down:200,none:30,down:60,none:30,"
+                                     "left:32,none:30,right:64,none:60"),
+    # world1 on to the random encounter (00:10C2) and the battle with A held down every 40 frames
+    # (the default commands), to the map back (00:1151)
+    "enc1": ("field_start", FIELD, "none:60,up:160,none:30,up:200,none:300,down:200,none:30,down:60,none:30,"
+                                   "left:32,none:30,right:64,none:60," + "a:3,none:37," * 212 + "b:3,none:60," * 3 + "none:300"),
     # the menu (Start, 09:4000): open, the cursor down / up (wrapping), B to close
     "menu1": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,up:3,none:20,"
                                     "up:3,none:20,up:3,none:20,b:3,none:60"),

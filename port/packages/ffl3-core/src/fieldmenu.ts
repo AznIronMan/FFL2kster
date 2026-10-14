@@ -198,7 +198,7 @@ export function* menuRedraw(g: Game): Co {
   m.wr(0xcd1c, 0);
   if (!m.rd(0xcd3c)) return;
   m.wr(0xcd3c, 0);
-  farSync(g, 0x0b, () => loadSpriteTiles(g, 0));
+  yield* farcall(g, 0x0b, () => loadSpriteTiles(g, 0));
 }
 
 /** 09:40D3 — the menu screen: fade out (00:39F3), the bracket with CD3D (00:1D98), the window at
@@ -258,7 +258,7 @@ function* fieldRestore(g: Game): Co {
 /** 01:7023 — the menu screen closed: CD42 = 0, fade out (00:39F3), objects hidden (00:20CF),
  *  window off (00:3A4B), the bracket left (00:1DF3), WY 50, the field restored (01:7E49), fade in
  *  (00:3A0C). */
-function* menuClose(g: Game): Co {
+export function* menuClose(g: Game): Co {
   const m = g.m;
   m.wr(0xcd42, 0);
   yield* fadeOut(g);

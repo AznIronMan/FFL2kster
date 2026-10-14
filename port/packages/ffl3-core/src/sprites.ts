@@ -3,7 +3,7 @@
  *  C000 (DMA'd every vblank). */
 import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
-import { pushBank, popBank, farSync, memberOffset, far0Sync, vramCopy } from "./sys.js";
+import { pushBank, popBank, farSync, farcall, memberOffset, far0Sync, vramCopy } from "./sys.js";
 import { battleFigures } from "./bfigures.js";
 import { NotPorted } from "./irq.js";
 
@@ -133,7 +133,7 @@ export function frameSprites(g: Game): void {
  *  at (code & 3F | 40) << 8, + 40 for a member with status (C501 & FC | C502 & E0), mirrored then
  *  (each plane pair: low plane shifted out, high plane rotated, 0B:7E5F); CD4D = a (2: + 40).
  *  Returns de after. */
-export function memberTiles(g: Game, a: number, hl: number, de: number): number {
+export function* memberTiles(g: Game, a: number, hl: number, de: number): Co<number> {
   const m = g.m;
   m.wr(0xcd4d, a);
   const st = (m.rd(hl - 12) & 0xfc) | (m.rd(hl - 11) & 0xe0);
@@ -155,19 +155,22 @@ export function memberTiles(g: Game, a: number, hl: number, de: number): number 
     m.wr(p, lo);
     m.wr(p + 1, hi);
   }
+  // the copies before are hblank-paced and the plane loop is long: the raw tiles show until the
+  // copy back starts (CPU time; sync point 0B:7E7A)
+  yield* g.point(0x0b7e7a);
   far0Sync(g, 0, () => vramCopy(m, 0xc880, de, 0x40));
   return de2;
 }
 
 /** 0B:7DCA — a = 0: the five members' sprite tiles from 8000, then the shared sprite tiles of
  *  bank 03 (5700 x 40, 5740 x 40, 5780 x 10 twice, 5790, 57A0, 57B0 x 10) from 8180. */
-export function loadSpriteTiles(g: Game, a: number): void {
+export function* loadSpriteTiles(g: Game, a: number): Co {
   if (a) throw new NotPorted("0B:7DCA with a member");
   const m = g.m;
   let de = 0x8000;
   for (let k = 0; k < 5; k++) {
     const hl = (memberOffset(m, k) + 0xc50d) & 0xffff;
-    de = memberTiles(g, 0, hl, de);
+    de = yield* memberTiles(g, 0, hl, de);
   }
   de = (de + 0x40) & 0xffff;
   for (const [src, n] of [[0x5700, 0x40], [0x5740, 0x40], [0x5780, 0x10], [0x5780, 0x10], [0x5790, 0x10], [0x57a0, 0x10], [0x57b0, 0x10]] as const) {
@@ -179,7 +182,7 @@ export function loadSpriteTiles(g: Game, a: number): void {
  *  with tiles 0-35; then 4 more with y 0), then (09:4127) the walking figures. */
 export function* resetSprites(g: Game): Co {
   const m = g.m;
-  farSync(g, 0x0b, () => loadSpriteTiles(g, 0));
+  yield* farcall(g, 0x0b, () => loadSpriteTiles(g, 0));
   g.ime = false;
   let hl = 0xc000;
   for (let c = 0; c < 0x24; c++) {
