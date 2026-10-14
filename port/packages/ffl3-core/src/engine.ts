@@ -8,6 +8,7 @@ import { fieldWorkBanked, slideRaster } from "./window.js";
 import { fadeIn, far0, farSync, copy, fill } from "./sys.js";
 import { printText } from "./text.js";
 import { waveRaster } from "./wave.js";
+import { quakeVblank, quakeRaster } from "./events3.js";
 import { fieldLoop } from "./field.js";
 import { menuFrameWork } from "./fieldmenu.js";
 import { testFlag, setFlag } from "./objects.js";
@@ -30,6 +31,8 @@ export class Engine {
     installInterrupts(this.g, (g) => this.frameWork(g));
     this.g.handlers.set(0x3631, slideRaster);
     this.g.handlers.set(0x7ec2, waveRaster);
+    this.g.handlers.set(0x11e4, quakeVblank);
+    this.g.handlers.set(0x121d, quakeRaster);
     const sound = new SoundDriver(this.g);
     this.g.hooks.soundTick = () => sound.tick(); // 0F:4006 (the callers select bank 0F)
   }

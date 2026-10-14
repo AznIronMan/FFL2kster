@@ -121,3 +121,6 @@ both ROMs; differences are listed first because they are the valuable part.
   requests are written by code whose CPU time the port does not spend: the replay times the writes
   from a record of them (a list per request byte) rather than with sync points that would hold the
   code.
+- 1.47.0: Legend III's earthquake (event 2C) is a raster effect — an hblank STAT interrupt on every
+  visible line rewriting SCY — so the port models hblank requests line by line for it; its ending
+  runs the credits through the battle screen and the opening's slide code.

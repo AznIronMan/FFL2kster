@@ -22,6 +22,8 @@ import { nativeRoutines } from "./bscript.js";
 import { enemyRecordC91B, clearEnemyRecord, enemyBaseRecord } from "./benemy.js";
 import { entityResist, entityStats, entityOffset } from "./bstats.js";
 import { itemLoad } from "./bitems.js";
+import { monsterTransform, abilityRecordStray } from "./banim2.js";
+import "./misc4.js"; // the battle script natives 0C:499B, 6B4F, 6B55, 7E35 (registered at load)
 
 // ---------------------------------------------------------------- tables of bank 02
 
@@ -1282,7 +1284,7 @@ function* monsterEffect(g: Game): Co {
   switch (m.rd(0xcc5c) & 0x03) {
     case 0: yield* monsterDissolve(g); return;
     case 1: yield* monsterBlinds(g); return;
-    case 2: throw new NotPorted("02:50ED (03:7E74, then rst $30 to 0E:7D63 through 00:3740; bank 0E is not disassembled)");
+    case 2: yield* monsterTransform(g); return; // 02:50ED
     default: yield* monsterShatter(g); return;
   }
 }
@@ -1907,7 +1909,8 @@ function abilityRecord(g: Game): void {
       return;
     }
     default:
-      throw new NotPorted(`09:5466 (table ${k}: the jump 09:5479 + 3 k lands inside code)`);
+      abilityRecordStray(g, k, c); // 09:5466: the jump 09:5479 + 3 k lands inside code
+      return;
   }
 }
 

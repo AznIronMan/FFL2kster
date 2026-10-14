@@ -7,6 +7,7 @@ import type { Memory } from "./memory.js";
 import { pushBank, popBank, far0, farcall, farSync, far0Sync, copy, copyB, fill, vramCopy, memberOffset, fadeIn, fadeOut,
   wait1 } from "./sys.js";
 import { NotPorted } from "./irq.js";
+import { quake, ending } from "./events3.js";
 import { loadMap, leaderLook, layout, mapPatches, patchAt, drawView } from "./mapload.js";
 import { windowClose } from "./window.js";
 import { printText } from "./text.js";
@@ -522,7 +523,7 @@ function* party(g: Game): Co {
     case 0xc: m.wr(0xca59, 1); yield* farcall(g, 0x01, () => disembark(g)); return; // 00:14EB
     case 0xd: copy(m, 0xc6e4, 0xc6e9, 5); return; // 00:15E6
     case 0xe: yield* placeBack(g); return;
-    default: throw new NotPorted("06:7F69 (event 10 F)");
+    default: yield* farcall(g, 0x06, () => ending(g)); return; // 00:15EF — 06:7F69, the ending
   }
 }
 
@@ -885,5 +886,6 @@ function* quakeEvent(g: Game): Co {
   yield* flash4(g);
   pushBank(g, 0x01);
   yield* wait1(g);
-  throw new NotPorted("01:5B4D (event 2C: the raster quake, vblank 00:11E4 / STAT 00:121D)");
+  yield* quake(g); // 01:5B4D
+  popBank(g); // rst $28
 }

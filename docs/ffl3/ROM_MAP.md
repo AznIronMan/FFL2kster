@@ -316,3 +316,9 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:3175 | text control-code table (0x4E words); menu-mode output 00:3114 / 00:3168 | verified for the codes battle1/2 print |
 | 00:39D5 / 00:1D2E | random byte FF90 = ror((FF93 + FF90) ^ 1) + FF90; below d | verified |
 | 00:1C9C | 16-bit divide through the RAM code C0C0 (SP kept in C0C1/C0C2) | verified |
+| 01:5B4D | event 2C's quake (rasters 01:5C97 on / 01:5CB8 off; vblank 00:11E4, hblank STAT 00:121D) | ported, unverified |
+| 06:7F69 | the ending (credits 0B:6C96, last text 0E:7C94, loop 06:7FC8) | ported, unverified |
+| 02:50ED | a monster's transformation (03:7E74 picture to objects, 0E:7D63 new picture) | ported, unverified |
+| 09:410C | battle OAM rows from 09:412F (C090, C050, C060, C070) | ported, unit test |
+| 0B:6E15 | member slot 3, number 6: C680 kept aside at C620 | ported, unverified |
+| 0C:499B / 0C:6B4F / 0C:6B55 / 0C:7E35 | natives: group slot fill, groups rebuilt (0B:44A8), D888 half step (0B:7E96), 999999 | 499B/6B55/7E35 unit test; 6B4F unverified |

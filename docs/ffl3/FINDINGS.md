@@ -843,3 +843,41 @@ the opening's buttons and then a seeded walk for 90,000 frames, no engine error.
 (vite build served locally, the ROM given by ?rom= from the same machine) the title, New Game, the
 names, the opening battle, the opening scene, the field menu with an item used, the field and the
 moving floor played without an error.
+
+## 2026-10-14 — Port: the last reachable branches (1.47.0)
+
+An audit of every `throw new NotPorted` in `@ffl3k/core` against the listing (table lengths, the
+values each selector's writers store, a walk of every battle script from both interpreter entries
+and the computed tables 0C:7CEA, 0C:7503, 0C:7E53, 0C:5A92) left these reachable, now ported:
+- 01:5B4D, event 2C's quake: a raster effect — vblank 00:11E4 (OAM DMA, CA22 += CA24, the scroll,
+  the sound tick; no joypad) and an hblank STAT handler 00:121D per visible line (SCY from CA23).
+  `Game.runFrame` raises STAT only at LYC, so `rasterOn` (01:5C97) adds the hblank requests line by
+  line while STAT bit 3 is set; `rasterOff` (01:5CB8) stops them.
+- 06:7F69, event 10 F: the ending — the credits (0B:6C96) over the battle screen and the opening's
+  slides, the last text (0E:7C94), then the endless loop 06:7FC8.
+- 02:50ED, effect 12 with CC5C & 3 = 2: a monster's transformation — the old picture turned into
+  24 objects (03:7E74), the new one drawn (0E:7D63), 0x7F shaking frames, a flash.
+- 09:410C (battle OAM rows from 09:412F), 0B:7DCA with a member (jp 0B:7E17), 0B:6E15 (record
+  C680 kept aside at C620, its level from 07:7BA4, then 0F:79D4), 09:5466 tables 6-F (the jump
+  lands inside the table code: each entry's run decoded), and menu text codes that wait (09:519C
+  calls the text handler 00:3175 directly: the menu rows are generators now).
+- Battle-script natives the scripts reach only through computed jumps: 0C:499B (action 20: a
+  monster copied into its group's first slot that left), 0C:6B4F (0B:44A8, monster groups rebuilt;
+  scene state 1 of monsters C1 / C2), 0C:6B55 (0B:7E96, the status scene's steps 0 / 1), 0C:7E35
+  (action 21: C985-C987 = 999999).
+
+Audited unreachable (the throw stays, naming why): 0C:4186 codes (all 32 handled), 0C:437C (opcodes
+00-0D, 1F only), 01:7A6A (C080 rows 1-4), 00:0864 (C6E3 0-8), the sound commands (all 64 words),
+01:54A0 (map header byte 3 is 00-23 in all 192 headers), 09:4031, 00:16BC / 00:196C, 01:706E,
+09:52E4, 09:4D87, 01:63C7, 01:6431, 02:4397 (one possible way in: ability record 29 of 09:5A50
+gives animation 70, one past 02:53EE — not seen used), 0B:5DBF (sub-menus 0-9 only), 01:4F79
+(object kinds 00-20 only), and the endless loops.
+
+Evidence: `routines.test.ts` checks 0C:499B, 0C:6B55, 0C:7E35 and 09:410C on a synthetic cartridge
+(no game content); a mutation of each fails it. No recorded trace reaches the others yet
+(unverified): the quake, the ending, the transformation, 0B:6E15, 0B:7DCA with a member, 0C:6B4F,
+09:5466 tables 6-F, menu text codes that wait. Slice 39/39, field sweep 412/425 unchanged.
+
+Replay: a frame whose STAT handler ran in the visible lines (the trace's `stat` record) counts as
+one where the interrupts were on (`onCrossing`): b33, b44, b57, b71, b76 now wait-exact (battle
+sweep 105/125). b23 (2 frames late at wait 2425) and b6a (4 pixels) remain.

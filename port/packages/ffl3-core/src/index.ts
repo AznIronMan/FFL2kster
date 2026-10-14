@@ -43,3 +43,7 @@ export * from "./fieldfx.js";
 export * from "./ship2.js";
 export * from "./textmore.js";
 export * from "./sound.js";
+export * from "./banim2.js";
+export * from "./events3.js";
+export * from "./misc3.js";
+export * from "./misc4.js";

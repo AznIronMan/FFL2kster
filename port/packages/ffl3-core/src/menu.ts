@@ -7,8 +7,7 @@
 import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
 import { copy, copyB, fill, vramCopy, wait1, pushBank, popBank, memberOffset } from "./sys.js";
-import { NotPorted } from "./irq.js";
-import { textCode } from "./textcodes.js";
+import { menuTextCode } from "./misc3.js";
 import { monsterNameMenu } from "./textmore.js";
 
 // ---------------------------------------------------------------- menu text codes
@@ -109,7 +108,7 @@ function placeSprite(g: Game, hl: number): number {
 /** 09:519C — a control code in a box row: the text engine's handler (00:3175 table) with hl the
  *  text after the code, de the line position and b the row's count, then 09:51BA (de - 1, b + 1:
  *  no column). Returns [hl, de, b]. */
-function menuCode(g: Game, c: number, hl: number, de: number, b: number): [number, number, number] {
+function* menuCode(g: Game, c: number, hl: number, de: number, b: number): Co<[number, number, number]> {
   const m = g.m;
   m.wr(0xcd13, hl & 0xff);
   m.wr(0xcd14, hl >> 8);
@@ -124,12 +123,7 @@ function menuCode(g: Game, c: number, hl: number, de: number, b: number): [numbe
     }
     case 0x1f: r = memberText(g, hl, de, b); break;
     case 0x43: r = [placeSprite(g, hl), de, b]; break;
-    default: { // the text engine's handler (00:3175), which must not wait inside a menu
-      const it = textCode(g, c, hl, de, b);
-      let n = it.next();
-      while (!n.done) { if (n.value !== undefined) throw new NotPorted(`menu text code ${c.toString(16)} waited`); n = it.next(); }
-      r = n.value;
-    }
+    default: r = yield* menuTextCode(g, c, hl, de, b); // the text engine's handler (00:3175), waits included
   }
   return [r[0], (r[1] - 1) & 0xffff, (r[2] + 1) & 0xff];
 }
@@ -138,7 +132,7 @@ function menuCode(g: Game, c: number, hl: number, de: number, b: number): [numbe
 
 /** 09:5143 — a code row: borders FB, the box's text (CD10) read for its codes only (the letters
  *  were blanked by the row fill); flags bit 0 set (the next row shows the letters). */
-function codeRow(g: Game, de: number): void {
+function* codeRow(g: Game, de: number): Co {
   const m = g.m;
   m.wr(de, 0xfb);
   de = (de + 1) & 0xffff;
@@ -147,7 +141,7 @@ function codeRow(g: Game, de: number): void {
   do {
     const a = m.rd(hl);
     hl = (hl + 1) & 0xffff;
-    if (a < 0x88) [hl, de, b] = menuCode(g, a, hl, de, b);
+    if (a < 0x88) [hl, de, b] = yield* menuCode(g, a, hl, de, b);
     de = (de + 1) & 0xffff;
     b = (b - 1) & 0xff;
   } while (b);
@@ -157,7 +151,7 @@ function codeRow(g: Game, de: number): void {
 
 /** 09:5169 — a letter row: borders FB, the box's letters and codes; the text pointer CD10 moves
  *  on, flags bit 0 cleared. Returns the text pointer. */
-function letterRow(g: Game, de: number): number {
+function* letterRow(g: Game, de: number): Co<number> {
   const m = g.m;
   m.wr(de, 0xfb);
   de = (de + 1) & 0xffff;
@@ -167,7 +161,7 @@ function letterRow(g: Game, de: number): number {
     const a = m.rd(hl);
     hl = (hl + 1) & 0xffff;
     if (a >= 0x88) m.wr(de, a);
-    else [hl, de, b] = menuCode(g, a, hl, de, b);
+    else [hl, de, b] = yield* menuCode(g, a, hl, de, b);
     de = (de + 1) & 0xffff;
     b = (b - 1) & 0xff;
   } while (b);
@@ -187,7 +181,7 @@ function fillWidth(m: Memory, hl: number, a: number): number {
  *  drawn (and back after); the top border F7 FC.. F9 on row y - 1, the bottom F8 FC.. FA on row
  *  y + h, inside FB (blank) FB with the text; below the first box the menu background (tiles
  *  04 05 / 06 07 row by row; battle: blank). */
-function boxRow(g: Game, desc: number, buf: number): void {
+function* boxRow(g: Game, desc: number, buf: number): Co {
   const m = g.m;
   copy(m, desc, 0xcd0c, 7);
   const de = (buf + ((m.rd(0xcd0c) - 1) & 0xff)) & 0xffff;
@@ -224,11 +218,11 @@ function boxRow(g: Game, desc: number, buf: number): void {
       if (rec && m.rd(rec) === 0xff) { m.wr(hl, 0xfb); m.wr(de, 0xfb); empty = true; }
     }
     if (!empty) {
-      if (!(m.rd(0xcd12) & 0x01)) codeRow(g, de);
+      if (!(m.rd(0xcd12) & 0x01)) yield* codeRow(g, de);
       else {
-        const p = letterRow(g, de);
+        const p = yield* letterRow(g, de);
         const a = m.rd(p);
-        if (a === 0x05 || (a === 0x4c && m.rd((p + 1) & 0xffff) === 0x05)) codeRow(g, de);
+        if (a === 0x05 || (a === 0x4c && m.rd((p + 1) & 0xffff) === 0x05)) yield* codeRow(g, de);
       }
     }
   }
@@ -243,7 +237,7 @@ function* menuRows(g: Game): Co {
   let c = m.rd(0xcd37) ? 0x0a : 0x12;
   do {
     yield* g.point(0x09504f);
-    for (let hl = 0xc8ce; m.rd(hl) | m.rd(hl + 1); hl += 7) boxRow(g, hl, 0xc880);
+    for (let hl = 0xc8ce; m.rd(hl) | m.rd(hl + 1); hl += 7) yield* boxRow(g, hl, 0xc880);
     const r = m.rd(0xcd0b);
     vramCopy(m, 0xc880, (0x9e40 + r * 20) & 0xffff, 0x14);
     m.wr(0xcd0b, r + 1);

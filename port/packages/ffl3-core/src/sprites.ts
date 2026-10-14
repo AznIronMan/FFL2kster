@@ -5,7 +5,7 @@ import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
 import { pushBank, popBank, farSync, farcall, memberOffset, far0Sync, vramCopy } from "./sys.js";
 import { battleFigures } from "./bfigures.js";
-import { NotPorted } from "./irq.js";
+import { battleOam } from "./misc3.js";
 
 /** 0B:6DC7 — a member's sprite code from its record at hl (C50D + offset): byte 0 & 7 = 2 adds
  *  the rotated high bits of byte 0 to byte 1; the code is 0B:748F[that]. */
@@ -171,8 +171,8 @@ export function* memberTiles(g: Game, a: number, hl: number, de: number): Co<num
 
 /** 0B:7DCA — a = 0: the five members' sprite tiles from 8000, then the shared sprite tiles of
  *  bank 03 (5700 x 40, 5740 x 40, 5780 x 10 twice, 5790, 57A0, 57B0 x 10) from 8180. */
-export function* loadSpriteTiles(g: Game, a: number): Co {
-  if (a) throw new NotPorted("0B:7DCA with a member");
+export function* loadSpriteTiles(g: Game, a: number, hlIn = 0, deIn = 0): Co {
+  if (a) { yield* memberTiles(g, a, hlIn, deIn); return; } // jp nz,$7E17
   const m = g.m;
   let de = 0x8000;
   for (let k = 0; k < 5; k++) {
@@ -196,7 +196,7 @@ export function* resetSprites(g: Game): Co {
     m.wr(hl++, 0); m.wr(hl++, 0); m.wr(hl++, c); m.wr(hl++, 0);
   }
   for (let k = 0; k < 4; k++) { m.wr(hl, 0); hl += 4; }
-  if (m.rd(0xcd37)) throw new NotPorted("09:410C (battle OAM)");
+  if (m.rd(0xcd37)) battleOam(g); // 09:410C
   g.ime = false;
   partySprites(g, m.hram[0x13]!);
   yield* g.reti();

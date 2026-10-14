@@ -274,7 +274,8 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   };
   // a poll that ended in the next frame (entered on line 153): at its top if the original ran
   // anything in that frame's visible lines (its code, or a frame work: the interrupts were on)
-  g.onCrossing = (f) => mainLines(f).length > 0 || t.works.some((w) => w[0] === f && w[1] < 144);
+  g.onCrossing = (f) => mainLines(f).length > 0 || t.works.some((w) => w[0] === f && w[1] < 144)
+    || (t.stat ?? []).some((w) => w[0] === f && w[1] < 144); // (its STAT handler ran in the visible lines: the interrupts were on)
   g.onWaitDone = () => {
     // a wait ended by the last frame's vblank: the recording stopped before the code resumed
     if (nWaits >= wf.length && g.frame >= n - 1) return;

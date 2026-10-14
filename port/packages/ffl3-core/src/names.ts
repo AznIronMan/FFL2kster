@@ -9,7 +9,7 @@ import { loadSpriteTiles } from "./sprites.js";
 import { windowTop, menuInput } from "./title.js";
 import { printText } from "./text.js";
 import { menu } from "./menu.js";
-import { NotPorted } from "./irq.js";
+import { slotKeptAside } from "./misc3.js";
 
 /** 00:20CF — the first 36 objects of the OAM buffer hidden (y 0). */
 export function oamClear(g: Game): void {
@@ -176,12 +176,12 @@ export function* names(g: Game): Co {
 }
 
 /** 0B:6DE4 — member slot a (here 3, b = 2): CE00 + 4 a cleared (4 bytes), then its record (C500 +
- *  0x60 a) from the starting records, number 0B:7573[b] (07:7A81 + 0x60 n). (b = 6: the record
- *  kept aside at C620, not ported.) */
+ *  0x60 a) from the starting records, number 0B:7573[b] (07:7A81 + 0x60 n). (b = 6: 0B:6E15, the
+ *  record C680 kept aside at C620.) */
 export function memberFromTable(g: Game, a: number, b: number): void {
   const m = g.m;
   fill(m, (0xce00 + 4 * a) & 0xffff, 4, 0);
-  if (a === 3 && b === 6) throw new NotPorted("0B:6E15 (member slot 3 kept aside)");
+  if (a === 3 && b === 6) { slotKeptAside(g); return; } // 0B:6E15
   const n = m.rd(0x7573 + b);
   far0Sync(g, 0x07, () => copyB(m, (0x7a81 + 0x60 * n) & 0xffff, (0xc500 + 0x60 * a) & 0xffff, 0x60));
 }

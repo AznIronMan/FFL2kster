@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.46.1`
+Version: `1.47.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,14 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.47.0` — Legend III port: every branch that stopped the engine (`NotPorted`) on the game's own
+  data is ported — the raster quake of event 2C (01:5B4D with its vblank 00:11E4 and hblank
+  00:121D handlers), the ending (06:7F69: the credits and the last screen), a monster's
+  transformation (02:50ED), the battle OAM rows (09:410C), a member's sprite tiles (0B:7DCA), the
+  name entry's record kept aside (0B:6E15), menu text codes that wait, the stray ability tables
+  (09:5466) and four battle-script natives (0C:499B, 6B4F, 6B55, 7E35). The throws left are reached
+  only through values no writer stores (each audited against the listing). The replay counts a
+  STAT handler run in the visible lines as a frame's work: battle sweep 105/125.
 - `1.46.1` — the app knows which games' data are on the device also when a ROM is given by
   `?rom=` (its summary offers the others); Legends I, II and III imported and played side by side in
   one browser profile.

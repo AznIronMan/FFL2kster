@@ -42,6 +42,15 @@ it.skipIf(!NAME || !haveRom() || !haveTrace(NAME))(`debug ${NAME}`, () => {
           if (rig.g.frame === f0) console.log(`state f${f0}: waiting ${gg.waiting} lineAt ${gg.lineAt?.join(",")} work ${JSON.stringify(gg.work)}`);
         };
       }
+      if (process.env.FFL3K_MEMW) { // writes of one address through Memory.wr in a frame range: FFL3K_MEMW=addr,from,to
+        const [x, a, b] = process.env.FFL3K_MEMW.split(",").map((v, i) => (i ? Number(v) : parseInt(v, 16))) as [number, number, number];
+        const m = rig.g.m, wr = m.wr.bind(m);
+        m.wr = (addr: number, v: number) => {
+          if ((addr & 0xffff) === x && rig.g.frame >= a && rig.g.frame <= b)
+            console.log(`memw ${x.toString(16)}=${(v & 0xff).toString(16)} f${rig.g.frame} ly${rig.g.ly}: ${(new Error().stack ?? "").split("\n").filter((l) => l.includes("ffl3-core")).slice(1, 6).map((l) => l.trim().replace(/\(.*src\//, "(").replace(/^at /, "")).join(" < ")}`);
+          wr(addr, v);
+        };
+      }
       if (process.env.FFL3K_TICKLOG) { // each sound tick in a frame range: FFL3K_TICKLOG=from,to
         const [a, b] = process.env.FFL3K_TICKLOG.split(",").map(Number) as [number, number];
         const tick = rig.g.hooks.soundTick;

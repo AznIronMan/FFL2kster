@@ -627,3 +627,8 @@ Decisions and assumptions:
   original did (the STAT handler entered, the next bracket call's time), never by a guess; without
   a trace the port takes the side the listing makes likely. Traces recorded before a record
   existed keep the older comparison (`SOUND_KNOWN` lists the residuals, checked to still differ).
+- 1.47.0: a `NotPorted` throw stays only where the listing shows the original cannot reach it with
+  the game's data (past a table no writer's values reach, an endless loop); its text says why.
+  Routines no trace reaches are checked, where their effect is a memory transform, by a ROM-free
+  test on a synthetic cartridge (`routines.test.ts`), each with a failing mutation; the rest are
+  listed unverified in docs/ffl3/FINDINGS.md.
