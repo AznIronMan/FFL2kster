@@ -970,3 +970,37 @@ tb3_6, tb8_2), the busy-frame lines dropped (ta7_3), the OAM buffer at 00:0275 i
 Falsification (ffl3/scratch/mut18.py): each fails a trace — no point 00:1B50 (opening2: 8
 sound diffs), no point 01:5F12 (ending1: a frame late from wait 0). Field 425/425, battle 125/125,
 slice 41/41 (quake1, ending1 added), all with the sound state compared; all traces re-recorded.
+
+## 2026-10-14 — The last boss, the remaining routines (1.51.0)
+
+- **Pokes at a frame wait** (`WAIT_POKES` in tools/ffl3/traces.py, `wait_pokes` in
+  `Recorder.record`, `waitPokes` in trace.json): pokes applied as wait n ends, after its snapshot
+  (or the first wait ending in frame f or later); the replay applies them to the port at the same
+  wait, after comparing it. State the story would build over hours is set where both sides stand
+  still.
+- **The last boss (formation 7D, C1).** Its script (0C:7E42, scene state C9DA by 0C:7E53) resets
+  its HP to 60000 every turn; from round 2 (C980 = 2) the scene state 1 (0C:7E7F) waits for
+  C920 <= D897 (D897 from CF08, + 1000 a round up to 59000); then 0C:7EB3 turns C1 into Xagor:
+  effect 12 with CC5C 62 (the transformation 02:50ED: 03:7E74, 0E:7D63), CC59 = C2, CC5C = E3, the
+  groups rebuilt (native 0C:6B4F, 0B:44A8) and the fight goes on. `trans1` (HP poked to 1 at wait
+  190: the transformation) and `xagor1` (D897 poked at frame 8000: the scripted way, 14,401 waits
+  over 16,690 frames, the Xagor fight included) replay wait-exact and screen-exact as ported in
+  1.47.0. They join the slice.
+- **Formation 7E** (Xagor alone) is never a battle's start: Xagor's picture sheet (19) begins with
+  FF, so 00:3D76's block size is 0 and the original never comes back from 0B:40BF (hooked: 3D76
+  entered, then no vblank serviced, PyBoy's frame never ends — the recording's "hang"). No zone or
+  script names it; Xagor appears only through 0C:7EB3 (`xagor1`). The battle sweep keeps it out.
+- **0B:6E15** (member slot 3 from entry 6: the record kept aside) is event 10 2-1 (00:1508, entry
+  1523[0] = 6): `member1` replays it exactly (events.ts `memberSlot`; the copy in names.ts
+  `memberFromTable` is only called with b = 2).
+- **Audited unreachable** (no trace can reach them): 09:5466 tables 6-F (every writer of C99B
+  stores 00, 01, 10, 11, 20, 30, 40 or FF, the command records' high nibble is 0-3, and FF returns
+  at 0C:4F54 before any 0C:6B49); menu text codes that wait (every text a menu box row can show —
+  the templates of all 22 callers of 09:4FEF / 00:1E49, the pointer lists, the name-entry grid
+  D000 — holds only codes 00, 05, 06, 09, 11, 1D-26, 28, 29, 2B-2F, 33-35, 43, 4C, none of which
+  waits). 0B:7DCA with a member is reached only as 0B:7E17 called directly (09:44CC, 0C:6015),
+  which every battle and menu trace covers.
+
+Falsification (ffl3/scratch/mut19.py): each fails a trace — the transformation's SCY 40 written as
+41 (trans1), the ability flags left out of 0B:44A8 (xagor1), C623's level byte left out of 0B:6E15
+(member1). Slice 44/44, field 425/425, battle 125/125.

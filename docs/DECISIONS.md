@@ -645,3 +645,7 @@ Decisions and assumptions:
 - 1.50.0: late-story code with no save state is verified from field_start by poking its map
   event (POKES), as the battle sweep does for formations: quake1 (event 2C), ending1 (event 10 F).
   Such traces verify the code they reach, not the story's way there.
+- 1.51.0: state the story would build over hours (a boss's threshold, its HP) is poked at a frame
+  wait, after the wait's comparison, on both sides (`WAIT_POKES` / `waitPokes`); the code that runs
+  afterwards is the game's own. A routine is "verified" when a trace reaches it and a mutation of
+  it fails that trace, else "audited unreachable" when the listing shows no game data can reach it.

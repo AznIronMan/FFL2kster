@@ -147,7 +147,9 @@ export class Rig {
 
 export interface Trace {
   name: string;
-  meta: { state: string; plan: string; hook: string; start: { regs: Record<string, number>; frame: number; ly: number }; frames: { btn: string }[] };
+  meta: { state: string; plan: string; hook: string; start: { regs: Record<string, number>; frame: number; ly: number }; frames: { btn: string }[];
+    /** Pokes the recording applied as frame wait n ended ("ADDR=VV[/MASK]"). */
+    waitPokes?: [number, string[]][] };
   start: Uint8Array;
   screens: Uint8Array;
   hram: Uint8Array;

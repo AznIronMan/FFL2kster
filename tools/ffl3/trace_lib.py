@@ -64,8 +64,12 @@ class Recorder:
         self.e.__exit__(None, None, None)
 
     def record(self, name, state, steps, hook=(1, 0x7C79), pokes=(), plan="", max_pre=3000, meta=None,
-               marks=(), stop_after=None, switch=None, save=None, hook_vblank=False):
-        """Load STATE, run to HOOK (apply POKES there, snapshot), then one button set per frame."""
+               marks=(), stop_after=None, switch=None, save=None, hook_vblank=False, wait_pokes=()):
+        """Load STATE, run to HOOK (apply POKES there, snapshot), then one button set per frame.
+        WAIT_POKES: ((n, pokes), ...) applied as frame wait n ends, after its snapshot (the replay
+        applies them to the port at the same wait, after comparing it); n = ("frame", f): the first
+        wait that ends in frame f or later (trace.json keeps the wait's number)."""
+        wait_pokes = [list(wp) for wp in wait_pokes]
         pb = self.pb
         out = f"ffl3/build/traces/{name}"
         os.makedirs(out, exist_ok=True)
@@ -187,6 +191,14 @@ class Recorder:
                 wait_frames.append(f)
                 wait_starts.append(arm_at[0])
                 wait_ends.append([nframes[0], pb.memory[0xFF44]])
+                for wp in wait_pokes:
+                    if isinstance(wp[0], tuple) and recording[0] and f >= wp[0][1]:
+                        wp[0] = len(waits) - 1
+                    n, pks = wp
+                    if n == len(waits) - 1:
+                        for pk in pks:
+                            mask = pk[2] if len(pk) > 2 else 0xFF
+                            pb.memory[pk[0]] = (pb.memory[pk[0]] & ~mask & 0xFF) | (pk[1] & mask)
         mark_mem, mark_meta = bytearray(), []
 
         def mk_mark(bank, addr):
@@ -318,7 +330,10 @@ class Recorder:
                    "starts": wait_starts, "ends": wait_ends, "points": points, "sfx": sfx, "song": song, "stat": stat,
                    "rand": rand, "paced": paced}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
-                   "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k not in ("mem", "sram")},
+                   "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes],
+                   **({"waitPokes": [[n, [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pks]]
+                                     for n, pks in wait_pokes]} if wait_pokes else {}),
+                   "start": {k: v for k, v in start.items() if k not in ("mem", "sram")},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))
         return len(frames), len(wait_frames)
 

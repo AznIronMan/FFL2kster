@@ -324,6 +324,16 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     const exp = t.waits.subarray(i * 0x8000, (i + 1) * 0x8000);
     const got = m.snapshotFull();
     opts.watch?.(i, wf[i] ?? -1, exp, got);
+    // the recording's pokes at this wait, after its snapshot: the port's too, after the comparison
+    for (const [n, pks] of t.meta.waitPokes ?? []) {
+      if (n !== i) continue;
+      for (const pk of pks) {
+        const [a, rest] = pk.split("=") as [string, string];
+        const [v, mk] = rest.split("/");
+        const addr = parseInt(a, 16), mask = mk ? parseInt(mk, 16) : 0xff;
+        m.wr(addr, (m.rd(addr) & ~mask & 0xff) | (parseInt(v!, 16) & mask));
+      }
+    }
     const diff: number[] = [];
     for (let a = 0; a < 0x8000; a++) {
       const addr = 0x8000 + a;

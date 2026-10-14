@@ -47,6 +47,9 @@ const TRACES: [string, string][] = [
   ["menu9", "menu item 6 left by B while the menu's rows are shown (hblank-paced copies, sync point 09:5044) on a 16th frame (the walking figures)"],
   ["quake1", "map event 2C poked at field_start: the raster quake (01:5B4D, its vblank 00:11E4 and hblank STAT 00:121D handlers)"],
   ["ending1", "map event 10 F poked at field_start: the ending (06:7F69): the wipe, the credits over the battle screen, the last screen, its endless loop"],
+  ["member1", "map event 10 2-1 poked at field_start: slot 3 takes the record kept aside (0B:6E15: C680 -> C620, its level, the level values), then the status page"],
+  ["trans1", "formation 7D (the last boss's first form) with its HP poked to 1 at wait 190 (waitPokes): defeated, its end is the transformation (effect 12, 02:50ED: 03:7E74, 0E:7D63)"],
+  ["xagor1", "formation 7D fought to its scripted end (D897 poked at frame 8000): the scene states (0C:7E42), the transformation into Xagor, the groups rebuilt (0C:6B4F), the fight with Xagor"],
 ];
 
 describe.skipIf(!haveRom())("FFL3 scenario parity", () => {

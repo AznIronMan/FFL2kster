@@ -12,6 +12,8 @@ from trace_lib import Recorder, plan_steps  # noqa: E402
 TITLE = (1, 0x7C79)   # 01:7C79, the title (called by the start code 00:0200 at 00:023C)
 START = (0, 0x0200)   # 00:0200, the start code (power-on: 00:0100 jp 0200)
 FIELD = (0, 0x0265)   # 00:0265, the field loop (each iteration)
+# a battle fought with A every 40 frames (the default commands and targets), shorter
+PLAN_BATTLE_SHORT = "none:10," + "a:3,none:37," * 60 + "none:600"
 
 # name: (state, hook, plan[, state saved at the end])
 # (POKES: the scenario's pokes at the hook, (address, value[, mask]))
@@ -99,6 +101,17 @@ SCENARIOS = {
     # endless loop)
     "quake1": ("field_start", FIELD, "none:600"),
     "ending1": ("field_start", FIELD, "none:200," + ",".join(["a:3,none:57"] * 72)),
+    # formation 7D (the last boss's first form; CC5C & 3 = 2) with its HP set to 1 once the battle
+    # is up (WAIT_POKES): defeated by the first hit, its end is the transformation (effect 12,
+    # 02:50ED)
+    "trans1": ("field_start", FIELD, PLAN_BATTLE_SHORT),
+    # map event 10 2-1 (00:1508): slot 3 from entry 1523[0] = 6, the record kept aside (0B:6E15:
+    # C680 -> C620, its level 07:7BA4, the level values 0F:79D4); then the menu's status page
+    "member1": ("field_start", FIELD, "none:60,start:3,none:60,down:3,none:10,down:3,none:10,down:3,none:10,a:3,none:80,b:3,none:40,b:3,none:60"),
+    # formation 7D fought to its scripted end: from round 2 the scene state 1 (C9DA, 0C:7E7F) waits
+    # for C920 <= D897; D897 poked to FFFF once there, the next round turns C1 into Xagor (0C:7EB3:
+    # effect 12, the groups rebuilt with C2, native 0C:6B4F) and the fight goes on with Xagor
+    "xagor1": ("field_start", FIELD, "none:10," + "a:3,none:37," * 412 + "none:200"),
     "select1": ("field_start", FIELD, "none:30," + "select:3,none:24," * 5 + "right:16,none:20,left:16,none:40"),
     # Continue on the title (09:4964) with the save menu8 left (slots 1 and 3?): the slot list,
     # the cursor both ways, an empty slot refused, a game loaded (01:7DC5), the saved map (00:025C)
@@ -208,7 +221,16 @@ def map_pokes(mp, b1, b2):
             (0xC7C0, mp), (0xC6EE, face), (0xC2F0, 0xC4), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
 
 
+# name: ((wait n, pokes), ...): applied as frame wait n ends (Recorder.record's wait_pokes)
+WAIT_POKES = {
+    "trans1": ((190, ((0xD290, 0x01), (0xD291, 0x00))),),   # the boss's current HP (entity D280 + 10) = 1
+    "xagor1": ((("frame", 8000), ((0xD897, 0xFF), (0xD898, 0xFF))),),   # D897 (the scene's threshold) = FFFF
+}
+
 POKES = {
+    "member1": ((0xC2F0, 0xD0), (0xCA28, 0x21), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)),   # map event 10, 2-1
+    "xagor1": ((0xC2F0, 0xDB), (0xCA28, 0x7D), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)),   # formation 7D
+    "trans1": ((0xC2F0, 0xDB), (0xCA28, 0x7D), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)),   # map event 1B, formation 7D
     "quake1": ((0xC2F0, 0xEC), (0xCA28, 0x00), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)),   # map event 2C
     "ending1": ((0xC2F0, 0xD0), (0xCA28, 0xF0), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)),  # map event 10, F
     "ship3": ((0xC760, 0x04, 0x04),),   # story flag 05
@@ -265,7 +287,10 @@ PLAN_BATTLE = "none:10," + "a:3,none:37," * 120 + "b:3,none:40," * 4 + "none:200
 
 def battle_sweep():
     return {f"b{k:02x}": ("field_start", FIELD, PLAN_BATTLE, ((0xC2F0, 0xDB), (0xCA28, k), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
-            for k in range(0x7E) if k != 0x42}   # (7E: the recording does not finish; to look into)
+            for k in range(0x7E) if k != 0x42}
+# (7E, Xagor alone, is never a battle's start: its picture sheet 19 begins with FF, so 00:3D76's
+# block size is 0 and the original never comes back from 0B:40BF; no zone or script names it.
+# Xagor appears through the transformation of 7D's C1, effect 12 / 0E:7D63: trace trans1.)
 
 
 def main(names):
@@ -284,7 +309,8 @@ def main(names):
             else:
                 state, hook, plan, *save = SCENARIOS[name]
                 n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, pokes=POKES.get(name, ()),
-                                  save=save[0] if save else None, hook_vblank=len(state) == 3 and state[0] == "m")
+                                  save=save[0] if save else None, hook_vblank=len(state) == 3 and state[0] == "m",
+                                  wait_pokes=WAIT_POKES.get(name, ()))
             print(f"{name}: {n} frames, {w} waits")
     finally:
         rec.close()
