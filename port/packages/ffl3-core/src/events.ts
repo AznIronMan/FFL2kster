@@ -19,6 +19,7 @@ import { entityOffset } from "./bstats.js";
 import { normalHandlers, restoreHandlers, objectEvent, walkEvent, shiftEvent, objectsUpdate, spawnSequence,
   flashFrames, stepDown, stepUp, exitBack, fallStep, stackFromTable, followerAtLeader, followerPlace, mapText,
   tileMorph, freeSlotsOf, boardVehicle, highestItemFlag, leaveVehicleEvent, disembark } from "./events2.js";
+import { wornOutBack } from "./equip.js";
 
 /** 0B:6C4C — text codes handled as scene events: code -> event type. */
 const SCENE_TYPE: Record<number, number> = { 0x32: 0x26, 0x3d: 0x28, 0x3b: 0x27, 0x13: 0x1d, 0x12: 0x1c, 0x3f: 0x1b,
@@ -556,38 +557,13 @@ function bagTake(m: Memory): void {
   m.wr(0xce91, 0xff);
 }
 
-/** 0B:6683 — for members 0-4 (CD36, kept) with no record kind (C500 & 0F) and a temporary item at
- *  C540: C540 = FF and the item taken back (CE26, CE25 = 1, 0B:7124); then the bag C6FF: a count
- *  of 0 makes both bytes FF. */
-function tempItemsBack(m: Memory): void {
-  const saved = m.rd(0xcd36);
-  m.wr(0xcd36, 0);
-  do {
-    const hl = (entityOffset(m) + 0xc540) & 0xffff;
-    if (!(m.rd((hl - 0x40) & 0xffff) & 0x0f)) {
-      const a = m.rd(hl);
-      if (a !== 0xff) {
-        m.wr(hl, 0xff);
-        m.wr(0xce26, a);
-        m.wr(0xce25, 1);
-        throw new NotPorted("0B:7124 (a temporary item taken back)");
-      }
-    }
-    m.wr(0xcd36, m.rd(0xcd36) + 1);
-  } while (m.rd(0xcd36) < 5);
-  m.wr(0xcd36, saved);
-  for (let hl = 0xc700, b = 0; b < 0x18; b++, hl += 2) {
-    if (m.rd(hl) === 0) { m.wr(hl, 0xff); m.wr(hl - 1, 0xff); }
-  }
-}
-
 /** 00:15D3 — event 13, item CA28 used up: CE91 = CA28, one taken from the bag (0B:706C), the
  *  temporary items back (0B:6683). */
 function itemTaken(g: Game): void {
   const m = g.m;
   m.wr(0xce91, m.rd(0xca28));
   farSync(g, 0x0b, () => bagTake(m));
-  farSync(g, 0x0b, () => tempItemsBack(m));
+  farSync(g, 0x0b, () => wornOutBack(g));
 }
 
 /** 00:1993 — event 16, text CA28 - 1 of the table 0A:4004 (mode 8: the window opened, box (1,1)

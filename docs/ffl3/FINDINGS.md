@@ -661,3 +661,41 @@ the frame work of that frame does not rotate yet; sync point 09:40B1.
 Falsification (ffl3/scratch/mut8.sh): the 09:40B1 point removed, the 0B:7CDD frame work removed,
 and the rotation step removed each fail `menu1`; the rotation's carry into 90C0 taken from the
 wrong byte survives (equal bits in these tiles): unverified. The 7 menu items stop with NotPorted.
+
+## 2026-10-14 — Port: the field menu items (1.42.0)
+
+The seven items of the field menu (09:4034: 4350, 435E, 4A4A, 4377, 439F, 43B1, 43F0) are
+ported (`menuitems.ts` items 0-1, `menuitems2.ts` items 2 and 4, `menuitems3.ts` items 3, 5, 6;
+written by sub-agents from the listing, integrated and checked by the replay). 0B:7124 (an
+item's stats on or off) is complete, so 0B:6683 (the worn-out weapons) no longer stops; its three
+copies (battle menu, event 13, field menu) are now one (`equip.ts`).
+
+Traces from field_start: `menu2` (item 0), `menu3` (item 1), `menu4` (item 2: the rows and
+columns, the buzzer at both ends), `menu5` (two status boxes), `menu6` (the weapon 30 of member 0
+taken off into the bag — 0B:7124 with CE25 = 1 —, the helm slot refused, the weapon put on again —
+CE25 = 0 —, refused swaps), `menu7` (auto-battle marks toggled), `menu8` (the save: B, an empty
+slot saved, the used slot asked: B, then A, saved; the menu closed), `menu9` (a slot saved, the
+save screen left by B). All are wait-exact.
+
+The save: slot k at A000 + 2D8 k with a second copy at + B60 (slot 3 is a stash of the game kept
+while the slots' leaders are loaded into members 0-2 to be shown); a copy holds the magic C6 62 83,
+a checksum (the 8-bit sum of the 2D2 bytes and the 16-bit count of its carries) and C500-C7D1.
+Each copy is written until it reads back equal; on load a bad copy is repaired from the other and
+counted in BFFA-BFFC. The recorder now keeps the cartridge RAM at the start and the end of every
+trace (`sram.bin`); the replay starts from the first and compares the second (equal in all 22).
+
+Found: the menu rows are shown by 09:5020 through 00:20FF, whose copies wait for hblank windows —
+frames of CPU time. When a 16th frame's walking figures (00:2192) fall in them, the original still
+has CD3C = 1 from the save screen (the three slot figures) while the port had already cleared it
+(`menu9`); sync point 09:5044 (the end of 09:5020). With 09:504F (each row drawn, needed by
+`menu3` / `menu5`) and 09:5044 in place, the 09:427E point of 1.41.0 and a 09:442F point (after
+the slot loads) are no longer needed: removing either passes every trace, so both were dropped.
+
+Falsification (ffl3/scratch/mut9.py): each of these fails a trace — C888 = 15 x the bonus
+(`menu6`), the 0B:726E constant 4A (`menu6`), the checksum counting carries twice (`menu8`,
+`menu9`), the second copy at + B50 (`menu8`, `menu9`), the auto-battle mark on bit 6 (`menu7`),
+09:5044 removed (`menu9`), 09:504F removed (`menu3`, `menu5`), item 2's lower end at row 2
+(`menu4`), the status box copied short (`menu5`). Unverified: item 2's A (every C548 byte is FF
+here; a target confirmed reaches 09:521A, not ported), an item used from item 0 (09:521A), the
+repair of a bad save copy, the clearing of BFFA-BFFF (zero already), the hang guards (a copy that
+never verifies).

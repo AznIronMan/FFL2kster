@@ -71,6 +71,37 @@ SCENARIOS = {
     # the menu (Start, 09:4000): open, the cursor down / up (wrapping), B to close
     "menu1": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,up:3,none:20,"
                                     "up:3,none:20,up:3,none:20,b:3,none:60"),
+    # menu item 0 (the items, 09:4350): the list, the cursor, an item picked and put back, B out
+    "menu2": ("field_start", FIELD, "none:30,start:3,none:60,a:3,none:60,down:3,none:20,down:3,none:20,up:3,none:20,"
+                                    "right:3,none:20,left:3,none:20,a:3,none:30,b:3,none:30,b:3,none:40,b:3,none:60"),
+    # menu item 1 (the abilities, 09:435E): a member chosen, the list, B back twice, B out
+    "menu3": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40,a:3,none:60,down:3,none:20,"
+                                    "b:3,none:40,down:3,none:20,a:3,none:60,b:3,none:40,b:3,none:40,b:3,none:60"),
+    # menu item 2 (09:4A4A, a member's 8 bytes C548-C54F): a member chosen, the rows and columns moved (both
+    # ends: the buzzer), B back, B out
+    "menu4": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,a:3,none:40,a:3,none:60,up:3,none:20,down:3,none:20,down:3,none:20,"
+                                    "down:3,none:20,down:3,none:20,right:3,none:20,up:3,none:20,left:3,none:20,b:3,none:40,down:3,none:20,a:3,none:60,"
+                                    "b:3,none:40,b:3,none:40,b:3,none:60"),
+    # menu item 3 (09:4377, the status): two members' status boxes, B out
+    "menu5": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,down:3,none:20,a:3,none:40,a:3,none:80,a:3,none:40,down:3,none:20,"
+                                    "a:3,none:80,b:3,none:40,b:3,none:40,b:3,none:60"),
+    # menu item 4 (09:439F, the equipment): a member, the weapon slot, the bag list scrolled, the weapon taken off;
+    # the helm slot (refused), the weapon put on again, a refused swap, B out
+    "menu6": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,a:3,none:40,a:3,none:60,a:3,none:60,down:3,none:20,"
+                                    "down:3,none:20,up:3,none:20,a:3,none:80,a:3,none:80,a:3,none:60,down:3,none:20,a:3,none:80,"
+                                    "down:3,none:20,a:3,none:80,a:3,none:60,b:3,none:40,b:3,none:40,b:3,none:40,b:3,none:60"),
+    # menu item 5 (09:43B1, the auto-battle marks): two members toggled, one twice, B out
+    "menu7": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,a:3,none:40,a:3,none:40,down:3,none:20,a:3,none:40,"
+                                    "a:3,none:40,b:3,none:40,b:3,none:60"),
+    # menu item 6 (09:43F0, the save): the slots, down, B back; again: A on an empty slot, saved; again: A on
+    # the used slot, asked: B (no), A again, asked: A (yes), saved
+    "menu8": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,a:3,none:80,down:3,none:20,up:3,none:20,b:3,none:80,"
+                                    "a:3,none:80,down:3,none:20,a:3,none:100,a:3,none:80,down:3,none:20,a:3,none:60,"
+                                    "b:3,none:60,a:3,none:60,a:3,none:120,b:3,none:60"),
+    # menu item 6 again: a slot saved, the save screen entered again and left by B; the menu's rows
+    # are shown (hblank-paced copies) while a 16th frame redraws the walking figures (CD3C)
+    "menu9": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,down:3,none:20,a:3,none:80,down:3,none:20,up:3,none:20,b:3,none:80,"
+                                    "a:3,none:80,down:3,none:20,a:3,none:60,a:3,none:120,b:3,none:60"),
 }
 
 

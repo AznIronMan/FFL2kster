@@ -9,7 +9,7 @@
 import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
 import { copy, far0, far0Sync, farcall, farSync, pushBank, popBank, vramCopy, fadeIn, fadeOut, textBegin,
-  textEnd, windowOff, bracketEnter, bracketLeave, soundBuzz, memberOffset } from "./sys.js";
+  textEnd, windowOff, bracketEnter, bracketLeave, soundBuzz, memberOffset, wait1 } from "./sys.js";
 import { NotPorted } from "./irq.js";
 import { oamClear } from "./names.js";
 import { windowTop, menuInput } from "./title.js";
@@ -17,9 +17,13 @@ import { resetSprites, loadSpriteTiles, memberLimit } from "./sprites.js";
 import { drawMenu } from "./menu.js";
 import { entityOffset } from "./bstats.js";
 import { printText } from "./text.js";
+import { menuItem0, menuItem1 } from "./menuitems.js";
+import { menuItem2, menuItem4 } from "./menuitems2.js";
+import { menuItem3, menuItem5, menuItem6 } from "./menuitems3.js";
 import { leaderLook, loadTiles } from "./mapload.js";
 import { drawObjects, tableWord } from "./actors.js";
 import { setSlot, fset, testFlag } from "./objects.js";
+import { wornOutBack } from "./equip.js";
 
 // ---------------------------------------------------------------- small helpers
 
@@ -29,7 +33,7 @@ const offsetOf = (m: Memory, a: number): number => memberOffset(m, a & 0x7f);
 /** 00:29EF — the status index of member a (CD37 clear: the first set bit of C501 & FC, 1-6;
  *  CD37 set: of the entity CD36, C501 bits 7-6 -> 1-2, C502 bits 7-5 -> 7-9, C501 bits 5-2 ->
  *  3-6); 0 when none. Returns [index (a), hl = 6D73 + 4 index]. */
-function statusIndex(m: Memory, a: number): [number, number] {
+export function statusIndex(m: Memory, a: number): [number, number] {
   const scan = (v: number, e: number, d: number): [boolean, number] => {
     for (;;) {
       e = (e + 1) & 0xff;
@@ -61,45 +65,19 @@ function statusIndex(m: Memory, a: number): [number, number] {
 }
 
 /** 0F:7DB4 — bit 7 of C500 + the record of CD36 (00:1FC4): set? (nz) */
-function recordBit7(m: Memory): boolean {
+export function recordBit7(m: Memory): boolean {
   return !!(m.rd((entityOffset(m) + 0xc500) & 0xffff) & 0x80);
 }
 
 /** 0F:78B2 — the list cursors off (C088 = C08C = 0). */
-function listCursorsOff(m: Memory): void {
+export function listCursorsOff(m: Memory): void {
   m.wr(0xc088, 0);
   m.wr(0xc08c, 0);
 }
 
 /** 09:490E — the 12 cursor objects from C050 hidden (y 0). */
-function cursorsHide(m: Memory): void {
+export function cursorsHide(m: Memory): void {
   for (let k = 0; k < 0x0c; k++) m.wr(0xc050 + 4 * k, 0);
-}
-
-/** 0B:6683 — for members 0-4 (CD36, kept) with no record kind (C500 & 0F) and a temporary item at
- *  C540: C540 = FF and the item taken back (CE26, CE25 = 1, 0B:7124); then the inventory C6FF
- *  (24 pairs id, count): a count of 0 makes both bytes FF. */
-function tempItemsBack(g: Game): void {
-  const m = g.m;
-  const saved = m.rd(0xcd36);
-  m.wr(0xcd36, 0);
-  do {
-    const hl = (entityOffset(m) + 0xc540) & 0xffff;
-    if (!(m.rd((hl - 0x40) & 0xffff) & 0x0f)) {
-      const a = m.rd(hl);
-      if (a !== 0xff) {
-        m.wr(hl, 0xff);
-        m.wr(0xce26, a);
-        m.wr(0xce25, 1);
-        throw new NotPorted("0B:7124 (a temporary item taken back)");
-      }
-    }
-    m.wr(0xcd36, m.rd(0xcd36) + 1);
-  } while (m.rd(0xcd36) < 5);
-  m.wr(0xcd36, saved);
-  for (let hl = 0xc700, b = 0; b < 0x18; b++, hl += 2) {
-    if (m.rd(hl) === 0) { m.wr(hl, 0xff); m.wr(hl - 1, 0xff); }
-  }
 }
 
 // ---------------------------------------------------------------- frame tiles (bank 0B)
@@ -133,14 +111,14 @@ function* frameTiles(g: Game): Co {
 // ---------------------------------------------------------------- the status words CDEC
 
 /** 09:4573 — hl = CDEC + 4 CD36 (the status word of member CD36). */
-function statusWord(m: Memory): number {
+export function statusWord(m: Memory): number {
   return (0xcdec + ((m.rd(0xcd36) * 4) & 0xff)) & 0xffff;
 }
 
 /** 09:4593 — the status word of member CD36: a status index 1-2 (00:29EF): its 4 bytes 0E:6D73 +
  *  4 index; else C500 bit 7 (0F:7DB4): the 4 bytes 09:6E04; else a status index 3+: 0E:6D73 + 4
  *  index; none: the first byte 0. */
-function statusWordSet(g: Game): void {
+export function statusWordSet(g: Game): void {
   const m = g.m;
   let [e, hl] = statusIndex(m, m.rd(0xcd36));
   if (!e || e >= 0x03) {
@@ -157,7 +135,7 @@ function statusWordSet(g: Game): void {
 }
 
 /** 09:457D — the status words of members 4..0 (09:4593; CD36 kept). */
-function statusWords(g: Game): void {
+export function statusWords(g: Game): void {
   const m = g.m;
   const saved = m.rd(0xcd36);
   for (let a = 4; a >= 0; a--) {
@@ -170,7 +148,7 @@ function statusWords(g: Game): void {
 // ---------------------------------------------------------------- the menu screen
 
 /** 09:4264 — the cursor C080 = 20 + 10 CD15 (y), C081 = CD16 ? 08 + (swap CD16 >> 1) : 0 (x). */
-function cursorPlace(m: Memory): void {
+export function cursorPlace(m: Memory): void {
   m.wr(0xc080, (((m.rd(0xcd15) << 4) | (m.rd(0xcd15) >> 4)) + 0x20) & 0xff);
   let a = m.rd(0xcd16);
   if (a) a = (((((a << 4) | (a >> 4)) & 0xff) >> 1) + 0x08) & 0xff;
@@ -184,7 +162,7 @@ function cursorPlace(m: Memory): void {
  *  else 09:431E, 09:4317, the end 09:4325; over the end: CD35 set: 09:4347 (9), else by CD16
  *  (3: 09:4327, C: 09:4337, 16 bytes; 0: none); drawn (09:4FEF); CD1C = 0; CD3C set: CD3C = 0
  *  and the sprite tiles (0B:7DCA). */
-function* menuRedraw(g: Game): Co {
+export function* menuRedraw(g: Game): Co {
   const m = g.m;
   m.wr(0xcd39, 1);
   statusWords(g);
@@ -249,7 +227,7 @@ function leaderKeep(m: Memory): void {
 function* menuOpen(g: Game): Co {
   const m = g.m;
   yield* farcall(g, 0x09, () => menuScreen(g));
-  farSync(g, 0x0b, () => tempItemsBack(g));
+  farSync(g, 0x0b, () => wornOutBack(g));
   yield* g.point(0x0940b1); // after the screen's tile work (CPU time): a frame work before it sees CD42 0
   m.wr(0xcd15, 0);
   m.wr(0xcd42, 1);
@@ -320,7 +298,17 @@ function* menuA(g: Game): Co {
   const k = m.rd(0xcd15);
   const at = items[k];
   if (at === undefined) throw new NotPorted(`09:4031 (menu item ${k}: past the table)`);
-  throw new NotPorted(`09:${at.toString(16).toUpperCase()} (menu item ${k})`);
+  if (k === 0) yield* menuItem0(g);
+  else if (k === 1) yield* menuItem1(g);
+  else if (k === 2) yield* menuItem2(g);
+  else if (k === 3) yield* menuItem3(g);
+  else if (k === 4) yield* menuItem4(g);
+  else if (k === 5) yield* menuItem5(g);
+  else if (k === 6) yield* menuItem6(g);
+  else throw new NotPorted(`09:${at.toString(16).toUpperCase()} (menu item ${k})`);
+  // the return addresses pushed by 09:401F: a frame (00:358B), then the menu redrawn (09:427E)
+  yield* wait1(g);
+  yield* menuRedraw(g);
 }
 
 /** 09:4056 — Right: (CD16 0: nothing) CD16 C -> 0, else -> C; redrawn (09:427E). */

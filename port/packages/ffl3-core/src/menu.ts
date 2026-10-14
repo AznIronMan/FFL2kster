@@ -234,11 +234,14 @@ function boxRow(g: Game, desc: number, buf: number): void {
   copy(m, 0xcd0c, desc, 7);
 }
 
-/** 09:5045 — rows 0-17 (battle: 0-9), every box, each row to 9E40 + 20 r (00:20FF). */
-function menuRows(g: Game): void {
+/** 09:5045 — rows 0-17 (battle: 0-9), every box, each row to 9E40 + 20 r (00:20FF). Each row
+ *  starts at the original's time (sync point 09:504F): the rows take CPU time, and an object a
+ *  box places (00:2FBF) may come before or after a frame work's walking figures. */
+function* menuRows(g: Game): Co {
   const m = g.m;
   let c = m.rd(0xcd37) ? 0x0a : 0x12;
   do {
+    yield* g.point(0x09504f);
     for (let hl = 0xc8ce; m.rd(hl) | m.rd(hl + 1); hl += 7) boxRow(g, hl, 0xc880);
     const r = m.rd(0xcd0b);
     vramCopy(m, 0xc880, (0x9e40 + r * 20) & 0xffff, 0x14);
@@ -246,7 +249,9 @@ function menuRows(g: Game): void {
   } while (--c);
 }
 
-/** 09:5020 — a frame, then the rows at 9E40 to the window map 9C00 (20 tiles a row). */
+/** 09:5020 — a frame, then the rows at 9E40 to the window map 9C00 (20 tiles a row; the copies
+ *  00:20FF wait for hblank windows, frames of CPU time: with a trace the routine ends where the
+ *  original's did, sync point 09:5044). */
 function* menuShow(g: Game): Co {
   const m = g.m;
   yield* wait1(g);
@@ -256,6 +261,7 @@ function* menuShow(g: Game): Co {
     [hl, de] = vramCopy(m, hl, de, 0x14);
     de = (de + 0x0c) & 0xffff;
   } while (--b);
+  yield* g.point(0x095044);
 }
 
 /** 09:4FEF — the menu: the descriptors C8B0 -> C8CE (0x1E bytes), row 0, CD3A = 1 (menu text),
@@ -269,7 +275,7 @@ export function* drawMenu(g: Game): Co {
   m.wr(0xc08a, 0x22);
   m.wr(0xc08e, 0x23);
   m.wr(0xcd39, 1);
-  menuRows(g);
+  yield* menuRows(g);
   yield* g.point(0x095014); // the rows take CPU time, the OAM DMA held meanwhile
   m.wr(0xcd39, 0);
   yield* menuShow(g);

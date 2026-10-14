@@ -36,6 +36,7 @@ both ROMs; differences are listed first because they are the valuable part.
 | Topic | Legend III (USA) | Closest to |
 |---|---|---|
 | Cartridge | MBC1+RAM+BATTERY, 256 KiB, 8 KiB SRAM, DMG only | Legend II (same type and sizes) |
+| Save | 3 slots and a stash (slot 3) of the 2D2 bytes C500-C7D1, each kept twice (A000 + 2D8 k and + B60) with a magic and a 3-byte checksum; a bad copy is repaired from the other on load | not compared yet |
 | Bank switch | `rst $20` pushes a bank on a RAM stack (C0A0, depth C0B0, current C0B1), `rst $28` pops; `rst $18` far call with an inline byte (bank-0 routine or table entry) | neither (a bank stack instead of save/return) |
 | Interrupts | vblank / STAT through RAM vectors C0B9 / C0BC | Legend I's STAT jp in RAM (C39D) |
 | Alphabet | `A` = 0xBA, `a` = 0xD4, `0` = 0xB0 (punctuation AF . F0 : F1 / F2 - F3 ! F4 ?) | Legend II (identical letters and digits) |

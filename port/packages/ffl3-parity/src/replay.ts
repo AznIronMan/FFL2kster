@@ -43,6 +43,8 @@ export interface ReplayOptions {
 
 export interface ReplayResult {
   trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; busy: number; tears: number;
+  /** Cartridge RAM addresses that differ from the original's at the end (should be none). */
+  sramDiff: number[];
   /** Waits whose only differences were in the OAM buffer / OAM and that a later wait shows equal
    *  again (the interrupts' sprite work saw the original's code half way, e.g. a copy of the
    *  party records interrupted by the STAT handler: CPU time). */
@@ -150,6 +152,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   const rig = new Rig(loadRom());
   const g = rig.g, m = g.m;
   m.loadFull(t.start);
+  if (t.sram) m.sram.set(t.sram.subarray(0, 0x2000));
   g.ime = true;
   opts.setup?.(rig);
   const wf = t.waitFrames, n = t.meta.frames.length;
@@ -341,7 +344,10 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   }
   waits.push(...oamPending);
   waits.sort((a, b) => a.wait - b.wait);
-  return { trace: t, diffs, waits, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, rasterTears, workMismatch, nWorks, error };
+  // the cartridge RAM at the end (the saves) as the original's
+  const sramDiff: number[] = [];
+  if (t.sram) for (let i = 0; i < 0x2000; i++) if (m.sram[i] !== t.sram[0x2000 + i]) sramDiff.push(0xa000 + i);
+  return { trace: t, diffs, waits, sramDiff, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, rasterTears, workMismatch, nWorks, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {

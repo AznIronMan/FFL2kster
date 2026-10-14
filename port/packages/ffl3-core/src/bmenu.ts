@@ -24,6 +24,7 @@ import { memberLimit, loadSpriteTiles, partySprites } from "./sprites.js";
 import { entityOffset } from "./bstats.js";
 import { itemLoad } from "./bitems.js";
 import { nativeRoutines } from "./bscript.js";
+import { wornOutBack } from "./equip.js";
 
 // ---------------------------------------------------------------- small helpers
 
@@ -282,7 +283,7 @@ function* windowsBegin(g: Game, mode: number): Co {
     m.wr(0xc089, 0x08);
     m.wr(0xc08d, 0x08);
   }
-  farSync(g, 0x0b, () => tempItemsBack(g));
+  farSync(g, 0x0b, () => wornOutBack(g));
   enemyCount(m);
 }
 
@@ -299,32 +300,6 @@ function enemyCount(m: Memory): void {
   let c = enemyBits(m), a = 0;
   for (let b = 0; b < 8; b++) { a += c >> 7; c = ((c << 1) | (c >> 7)) & 0xff; }
   m.wr(0xcd3e, a);
-}
-
-/** 0B:6683 — for members 0-4 (CD36, kept) with no record kind (C500 & 0F) and a temporary item at
- *  C540: C540 = FF and the item taken back (CE26, CE25 = 1, 0B:7124); then the inventory C6FF
- *  (24 pairs id, count): a count of 0 makes both bytes FF. */
-function tempItemsBack(g: Game): void {
-  const m = g.m;
-  const saved = m.rd(0xcd36);
-  m.wr(0xcd36, 0);
-  do {
-    const hl = (entityOffset(m) + 0xc540) & 0xffff;
-    if (!(m.rd((hl - 0x40) & 0xffff) & 0x0f)) {
-      const a = m.rd(hl);
-      if (a !== 0xff) {
-        m.wr(hl, 0xff);
-        m.wr(0xce26, a);
-        m.wr(0xce25, 1);
-        throw new NotPorted("0B:7124 (a temporary item taken back)");
-      }
-    }
-    m.wr(0xcd36, m.rd(0xcd36) + 1);
-  } while (m.rd(0xcd36) < 5);
-  m.wr(0xcd36, saved);
-  for (let hl = 0xc700, b = 0; b < 0x18; b++, hl += 2) {
-    if (m.rd(hl) === 0) { m.wr(hl, 0xff); m.wr(hl - 1, 0xff); }
-  }
 }
 
 /** 0B:5BEF — a round of commands (WY 40): the command menu (0B:5DBF 0); cursor 60: each member

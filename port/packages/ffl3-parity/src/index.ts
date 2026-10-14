@@ -124,6 +124,8 @@ export interface Trace {
   /** [frame, LY, FF93] at each call of the random generator 00:39D5. */
   rand: [number, number, number][];
   prevScreen?: Uint8Array;
+  /** The cartridge RAM (8 KB) at the start, then at the end (sram.bin; traces from 1.42.0). */
+  sram?: Uint8Array;
 }
 
 export function haveTrace(name: string): boolean {
@@ -161,6 +163,7 @@ export function loadTrace(name: string): Trace {
     waits: undelta(rd("waits.dx.gz"), 0x8000, start),
     ...waitsJson(resolve(d, "waits.json")),
     ...(existsSync(resolve(d, "prev.bin")) ? { prevScreen: rd("prev.bin") } : {}),
+    ...(existsSync(resolve(d, "sram.bin")) ? { sram: rd("sram.bin") } : {}),
   };
 }
 

@@ -84,6 +84,7 @@ class Recorder:
             r = pb.register_file
             start["regs"] = {"a": r.A, "f": r.F, "b": r.B, "c": r.C, "d": r.D, "e": r.E, "hl": r.HL, "sp": r.SP, "pc": r.PC}
             start["mem"] = bytes(pb.memory[0x8000:0x10000])
+            start["sram"] = _sram(pb)
             start["frame"] = pb.frame_count
             start["ly"] = pb.memory[0xFF44]
 
@@ -256,6 +257,7 @@ class Recorder:
         elif os.path.exists(f"{out}/marks.json"):
             os.replace(f"{out}/marks.json", f"{out}/marks.json.old")
         open(f"{out}/start.bin", "wb").write(start["mem"])
+        open(f"{out}/sram.bin", "wb").write(start["sram"] + _sram(pb))  # the cartridge RAM at the start and the end
         open(f"{out}/hram.bin", "wb").write(bytes(hram))
         open(f"{out}/tick.bin", "wb").write(bytes(tick))
         open(f"{out}/oam.bin", "wb").write(bytes(oam))
@@ -266,9 +268,14 @@ class Recorder:
                    "starts": wait_starts, "ends": wait_ends, "points": points,
                    "rand": rand}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
-                   "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
+                   "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k not in ("mem", "sram")},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))
         return len(frames), len(wait_frames)
+
+
+def _sram(pb):
+    """The cartridge RAM (8 KB, bank 0), read whether or not the game has it enabled."""
+    return bytes(pb.memory[0, 0xA000:0xBFFF]) + bytes([pb.memory[0, 0xBFFF]])
 
 
 # addresses (bank, address) recorded as sync points ("points" in waits.json); a few only (PyBoy
@@ -282,8 +289,9 @@ class Recorder:
 # palette copy after its poll for line 0 (0F:7EB9; a STAT handler at every line slows the code, so
 # a long sound tick misses line 0) and the copy's end (0F:7EBF, a landmark only: the replay counts
 # the lines before it as the code's), its amplitude steps 0F:7E89 / 0F:7E8F and its end 0F:7E74
-# (after the sound ticks); 09:40B1 the field menu about to set CD42 (its frame-tile work)
-POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74), (0x09, 0x40B1))
+# (after the sound ticks); 09:40B1 the field menu about to set CD42 (its frame-tile work); 09:504F
+# each menu row drawn and 09:5044 the rows shown (the hblank-paced VRAM copies) (CPU time)
+POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74), (0x09, 0x40B1), (0x09, 0x504F), (0x09, 0x5044))
 
 
 def plan_steps(plan):

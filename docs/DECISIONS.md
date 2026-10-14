@@ -605,3 +605,8 @@ Decisions and assumptions:
   opening itself stays covered from the boot by `opening3`.
 - 1.41.0: larger screens (the field menu) may be ported by a sub-agent from the listing; they
   count as verified only where a replay reaches them and a mutation fails it.
+- 1.42.0: traces record the cartridge RAM at the start and the end (`sram.bin`); the replay loads
+  the first and compares the second, so a save is checked byte for byte. A sync point stays only
+  while removing it fails a trace: 09:427E (1.41.0) and 09:442F were dropped once 09:504F / 09:5044
+  re-timed the same CPU time. Routines ported more than once (0B:6683 in three files) are merged
+  when one copy is completed (`equip.ts`).
