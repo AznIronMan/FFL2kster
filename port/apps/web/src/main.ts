@@ -16,6 +16,7 @@ import { settings, onSettings, type Settings } from "./settings";
 import { isFfl1, handleFfl1, showFfl1Summary, ffl1PackageUsable } from "./ffl1";
 import { loadFfl1Package, loadFfl3Package } from "./storage";
 import { isFfl3, handleFfl3, showFfl3Summary, ffl3PackageUsable } from "./ffl3";
+import { setGameLinks, gameLinks } from "./games";
 
 /** Displayed title: the project (FFTOL, Tower of Legends) and the game this port plays. */
 const TITLE = "Tower of Legends · Legend II";
@@ -23,6 +24,14 @@ const TITLE = "Tower of Legends · Legend II";
 let hasFfl1 = false;
 /** Legend III data is on this device too. */
 let hasFfl3 = false;
+/** Legend II data is on this device (for the other games' summaries). */
+let hasFfl2 = false;
+// the game switch: each other Legend, played from its stored data or imported
+setGameLinks((current) => ([1, 2, 3] as const).filter((n) => n !== current).map((n) => {
+  const name = ["", "Legend I", "Legend II", "Legend III"][n]!;
+  const has = n === 1 ? hasFfl1 : n === 2 ? hasFfl2 : hasFfl3;
+  return { label: has ? name : `Add ${name}`, run: () => { if (has) location.search = n === 2 ? "" : `?game=${n}`; else showImporter(); } };
+}));
 const app = document.getElementById("app")!;
 const SHADES = [[255, 255, 255], [170, 170, 170], [85, 85, 85], [0, 0, 0]] as const;
 
@@ -79,7 +88,15 @@ function showImporter(message?: string) {
   );
 }
 
+/** Which games' data are stored now (an import earlier in this session counts). */
+async function refreshGames(): Promise<void> {
+  hasFfl1 = ffl1PackageUsable(await loadFfl1Package().catch(() => undefined));
+  hasFfl3 = ffl3PackageUsable(await loadFfl3Package().catch(() => undefined));
+  hasFfl2 = (await loadPackage().catch(() => undefined))?.format === PACKAGE_FORMAT;
+}
+
 async function handle(bytes: Uint8Array, status: HTMLElement) {
+  await refreshGames();
   const check = await checkRom(bytes);
   // Legend I (FFL1kster): its verified dump, or a "SAGA" image that is not Legend II's
   // Legend III (FFL3kster): its verified dump, or a "SAGA3" image
@@ -185,8 +202,7 @@ function showSummary(pkg: DataPackage) {
     el("h1", {}, TITLE),
     el("p", { class: "lead" }, verified ? "Game data is ready on this device." : pkg.mods?.length ? `Game data is ready on this device — MODDED (${pkg.mods.join(", ")}).` : "Game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showPlayer(pkg), "primary"),
-      button(hasFfl1 ? "Legend I" : "Add Legend I", () => { if (hasFfl1) location.search = "?game=1"; else showImporter(); }),
-      button(hasFfl3 ? "Legend III" : "Add Legend III", () => { if (hasFfl3) location.search = "?game=3"; else showImporter(); }),
+      ...gameLinks(2).map((l) => button(l.label, l.run)),
       el("span", { class: "muted" }, "Arrows + X (A) / Z (B), or WASD + K (A) / J (B); Enter or Space = Start, Shift = Select; hold Tab = fast-forward; Esc = options; F11 = fullscreen, M = mute. Gamepads use the Game Boy layout (A on the right: Xbox B = A, Xbox A = B; switchable in Options); touch works too."))),
     savesPanel(),
     optionsPanel(),
@@ -265,8 +281,7 @@ if (platform() === "web" && "serviceWorker" in navigator && (location.protocol =
 // ?rom=<url>: import a ROM the user serves themselves (testing convenience; nothing is uploaded).
 const romUrl = new URLSearchParams(location.search).get("rom");
 // which other games' data are on this device (the summaries offer them)
-hasFfl1 = ffl1PackageUsable(await loadFfl1Package().catch(() => undefined));
-hasFfl3 = ffl3PackageUsable(await loadFfl3Package().catch(() => undefined));
+await refreshGames();
 if (romUrl) {
   const r = await fetch(romUrl);
   const status = el("p", {});
@@ -283,9 +298,9 @@ if (romUrl) {
   const want = new URLSearchParams(location.search).get("game");
   // Legend III's data alone, or chosen with ?game=3
   if (ffl3PackageUsable(ffl3) && (want === "3" || (!legend2 && !ffl1PackageUsable(ffl1))))
-    showFfl3Summary(app, ffl3, legend2 ? { label: "Legend II", run: () => { location.search = ""; } } : { label: "Add Legend II", run: () => showImporter() });
+    showFfl3Summary(app, ffl3);
   else if (ffl1PackageUsable(ffl1) && (!legend2 || want === "1"))
-    showFfl1Summary(app, ffl1, legend2 ? { label: "Legend II", run: () => { location.search = ""; } } : { label: "Add Legend II", run: () => showImporter() });
+    showFfl1Summary(app, ffl1);
   else if (legend2) showSummary(legend2);
   else showImporter(existing ? "The game data format changed; please choose your ROM again to rebuild it." : undefined);
 }

@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.47.0`
+Version: `1.47.1`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,8 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.47.1` — the app's game switch: every game's summary offers the other two Legends (play their
+  stored data, or import their ROM), checked in a browser with all three on one device.
 - `1.47.0` — Legend III port: every branch that stopped the engine (`NotPorted`) on the game's own
   data is ported — the raster quake of event 2C (01:5B4D with its vblank 00:11E4 and hblank
   00:121D handlers), the ending (06:7F69: the credits and the last screen), a monster's

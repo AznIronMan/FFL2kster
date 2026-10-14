@@ -9,6 +9,7 @@ import { optionsPanel, applyDisplay } from "./options";
 import { pickFile, saveFile, toggleFullscreen, platformName } from "./platform";
 import { TouchPad, touchByDefault } from "./touch";
 import { settings, onSettings, type Settings } from "./settings";
+import { gameLinks } from "./games";
 
 export const TITLE3 = "Tower of Legends · Legend III";
 /** MBC1 battery RAM as emulators store it: 8 KiB. */
@@ -97,7 +98,7 @@ function savesPanel(): HTMLElement {
     ));
 }
 
-export function showFfl3Summary(app: HTMLElement, pkg: Ffl3DataPackage, other?: { label: string; run: () => void }): void {
+export function showFfl3Summary(app: HTMLElement, pkg: Ffl3DataPackage): void {
   const dl = el("dl", {},
     el("dt", {}, "Source"), el("dd", {}, `${pkg.sourceSha256.slice(0, 12)}… ${pkg.verified ? "(verified)" : "(UNVERIFIED)"}`),
     el("dt", {}, "Platform"), el("dd", {}, platformName()));
@@ -106,8 +107,8 @@ export function showFfl3Summary(app: HTMLElement, pkg: Ffl3DataPackage, other?: 
     el("h1", {}, TITLE3),
     el("p", { class: "lead" }, pkg.verified ? "Legend III game data is ready on this device." : "Legend III game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showFfl3Player(app, pkg), "primary"),
-      ...(other ? [button(other.label, other.run)] : []),
-      el("span", { class: "muted" }, "Legend III is in progress: from power-on through the opening, the field, menus, shops, the ship, the world map and battles, with music and sound; a few parts are not ported yet and stop with a message."))),
+      ...gameLinks(3).map((l) => button(l.label, l.run)),
+      el("span", { class: "muted" }, "Legend III is in progress: from power-on through the opening, the field, menus, shops, the ship, the world map and battles, with music and sound; parts no recorded run has reached yet (the late story, the ending) may still differ from the original."))),
     savesPanel(),
     el("p", { class: "muted" }, "Legend III uses these options: fast-forward, colours, sound and controls. The others apply to Legend II for now."),
     optionsPanel(),

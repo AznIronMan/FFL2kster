@@ -9,6 +9,7 @@ import { optionsPanel, applyDisplay } from "./options";
 import { pickFile, saveFile, toggleFullscreen, platformName } from "./platform";
 import { TouchPad, touchByDefault } from "./touch";
 import { settings, onSettings, type Settings } from "./settings";
+import { gameLinks } from "./games";
 
 export const TITLE1 = "Tower of Legends · Legend I";
 /** MBC2 battery RAM as emulators store it: 512 bytes, one 4-bit cell per byte. */
@@ -97,7 +98,7 @@ function savesPanel(): HTMLElement {
     ));
 }
 
-export function showFfl1Summary(app: HTMLElement, pkg: Ffl1DataPackage, other?: { label: string; run: () => void }): void {
+export function showFfl1Summary(app: HTMLElement, pkg: Ffl1DataPackage): void {
   const dl = el("dl", {},
     el("dt", {}, "Source"), el("dd", {}, `${pkg.sourceSha256.slice(0, 12)}… ${pkg.verified ? "(verified)" : "(UNVERIFIED)"}`),
     el("dt", {}, "Monsters"), el("dd", {}, String(pkg.monsters.length)),
@@ -108,7 +109,7 @@ export function showFfl1Summary(app: HTMLElement, pkg: Ffl1DataPackage, other?: 
     el("h1", {}, TITLE1),
     el("p", { class: "lead" }, pkg.verified ? "Legend I game data is ready on this device." : "Legend I game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showFfl1Player(app, pkg), "primary"),
-      ...(other ? [button(other.label, other.run)] : []),
+      ...gameLinks(1).map((l) => button(l.label, l.run)),
       el("span", { class: "muted" }, "Legend I is in progress: the title, a new game, towns, menus, shops and battles play, with music; the world map's random encounters are not ported yet."))),
     savesPanel(),
     el("p", { class: "muted" }, "Legend I uses these options: fast text, fast-forward, colours, sound and controls. The others apply to Legend II for now."),

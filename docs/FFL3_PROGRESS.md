@@ -72,6 +72,7 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 
 - 2026-10-13 (1.21.0): course started; M1 complete (see above).
 - 2026-10-13 (1.22.0): M2a — item/spell/skill names and tables; tests/ffl3 28 passed (5 emulator).
+- 2026-10-14 (1.47.1): the app's summaries switch between all three games (apps/web games.ts).
 - 2026-10-14 (1.47.0): the last NotPorted branches reachable with the game's data ported (quake, ending, transformation, natives); battle sweep 105/125.
 - 2026-10-14 (1.46.1): Legends I, II and III imported and played in one app (browser).
 - 2026-10-14 (1.46.0): Legend III playable in the app (web), checked in a browser.
