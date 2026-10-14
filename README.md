@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.48.0`
+Version: `1.49.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,11 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.49.0` — Legend III field sweep complete: all 425 field traces (every map, every person
+  talked to) replay wait-exact and screen-exact, with the battle sweep's 125 and the slice's 39.
+  The objects' OAM buffer counts as complete when the drawing releases the DMA (00:01CF, a new
+  sync point); frames that differ only by the reference emulator's object priority (PyBoy does not
+  hide objects under a behind-the-BG object, the DMG does) are counted, not failed.
 - `1.48.0` — Legend III battle sweep complete: all 125 formations replay wait-exact and
   screen-exact (was 105). The random generator's frame counter is recorded at its read (an
   interrupt could come between), and the hblank copy 00:20FF's chunks are recorded line by line

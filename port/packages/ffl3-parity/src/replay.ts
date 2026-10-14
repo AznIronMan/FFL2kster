@@ -62,6 +62,9 @@ export interface ReplayResult {
    *  or the lines of a raster handler entered late the registers of the line before
    *  (`Game.lateLines`). */
   rasterTears: number;
+  /** Frames equal once objects are drawn with the reference emulator's priority (PyBoy: an
+   *  object behind the BG does not hide the lower-priority objects under it, as on the DMG). */
+  objQuirks: number;
   /** Of these, frames with a line drawn between two chunks of a copy (see `lineTear`). */
   chunkTears: number;
   /** Runs of the frame work whose start frame differs from the original's (should be 0). */
@@ -205,14 +208,14 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   // ... and reach the sync-point routines at the original's frame and line
   let nPoints = 0, latePoints = 0;
   const pointAt = new Map<number, number>();
-  g.onPoint = (addr) => {
+  g.onPoint = (addr, quiet) => {
     const k = pointAt.get(addr) ?? 0;
     pointAt.set(addr, k + 1);
     const p = t.points[addr]?.[k];
     nPoints++;
     if (process.env.FFL3K_POINTS) console.log(`point ${addr.toString(16)} #${k} trace ${p?.join(",")} port f${g.frame} ly${g.ly}`);
     if (!p) return t.points[addr] ? [n, 0] : undefined; // a point the trace never recorded: none
-    if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePoints++;
+    if (!quiet && (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly))) latePoints++;
     return p;
   };
   // the game's sound effect requests land at the original's write times (in order)
@@ -261,7 +264,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     return ((w[0xc0c2 - 0x8000]! << 8) | w[0xc0c1 - 0x8000]!) + 8;
   };
   // the frame work's runs end when the original's did (hblank-paced copies)
-  let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0, rasterTears = 0;
+  let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0, rasterTears = 0, objQuirks = 0;
   /** Where the port ran each work (in no time: its VRAM writes are all on that line). */
   const portWork: [number, number][] = [];
   g.onWork = () => {
@@ -291,10 +294,23 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   /** The visible lines of frame f the original's main code ran: up to the last frame wait,
    *  bracket entry or sync point it reached in that frame. */
   const pointTimes = Object.values(t.points).flat();
+  // (a frame no wait began in and the main code was not waiting through: it ran all along, apart
+  // from its interrupts)
+  const startFrames = t.starts.map((s) => s[0]);
+  const runsThrough = (f: number): boolean => {
+    let lo = 0, hi = startFrames.length; // the first wait begun in or after frame f
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (startFrames[mid]! < f) lo = mid + 1; else hi = mid; }
+    if (lo < startFrames.length && startFrames[lo] === f) return false;
+    return lo === 0 || (wf[lo - 1] ?? Infinity) < f;
+  };
   const mainLines = (f: number): [number, number][] => {
     let l = -1;
     for (const [pf, pl] of [...t.starts, ...t.polls, ...pointTimes]) if (pf === f && pl < 144) l = Math.max(l, pl);
     return l < 0 ? [] : [[0, l]];
+  };
+  /** For a line tear: `mainLines`, or all the lines of a frame the main code ran through. */
+  const busyLines = (f: number): [number, number][] => {
+    return runsThrough(f) ? [[0, 143]] : mainLines(f);
   };
   // a poll that ended in the next frame (entered on line 153): at its top if the original ran
   // anything in that frame's visible lines (its code, or a frame work: the interrupts were on)
@@ -383,12 +399,13 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
         // (in the lines the original's main code ran, also the VRAM of the last wait: its tile writes,
         // e.g. a map animation, had not been made yet)
         // (and the registers as the previous frame ended: the code wrote them later in the frame)
-        else if (opts.tears !== false && (lt = lineTear(exp, got, [...olds, ...oldPalette(f), ...lastVram(), ...(prevRegs ? [rig.redrawFrom(m.vram, prevRegs)] : [])], [...workLines(f), ...mainLines(f)]))) {
+        else if (opts.tears !== false && (lt = lineTear(exp, got, [...olds, ...oldPalette(f), ...lastVram(), ...(prevRegs ? [rig.redrawFrom(m.vram, prevRegs)] : [])], [...workLines(f), ...busyLines(f)]))) {
           lineTears++;
           if (lt === "partial") chunkTears++;
         }
         else if (opts.tears !== false && (busyFrame || prevBusy) && f > 0 && t.oam.length >= f * 0xa0
           && !screenDiff(rig.redrawFrom(m.vram, undefined, oamOf(f - 1)), exp)) oamLate++;
+        else if (!screenDiff(rig.redrawPyBoyObjects(), exp)) objQuirks++;
         else diffs.push({ frame: f, pixels, got: got.slice() });
       }
       lastGot = got.slice();
@@ -403,7 +420,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   // the cartridge RAM at the end (the saves) as the original's
   const sramDiff: number[] = [];
   if (t.sram) for (let i = 0; i < 0x2000; i++) if (m.sram[i] !== t.sram[0x2000 + i]) sramDiff.push(0xa000 + i);
-  return { trace: t, diffs, waits, sramDiff, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, rasterTears, workMismatch, nWorks, error };
+  return { trace: t, diffs, waits, sramDiff, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, rasterTears, objQuirks, workMismatch, nWorks, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {

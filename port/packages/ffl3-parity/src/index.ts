@@ -33,6 +33,9 @@ export class Rig {
   readonly ppu: Ppu;
   /** The registers each line of the last frame was drawn with. */
   readonly lineRegs: LcdRegs[] = [];
+  /** VRAM and OAM as the last frame's last line was drawn. */
+  private readonly lastVram = new Uint8Array(0x2000);
+  private readonly lastOam = new Uint8Array(0xa0);
   /** Set when the code switched the LCD off (cleared by the replay before each frame). */
   lcdOff = false;
   constructor(readonly rom: Uint8Array) {
@@ -45,6 +48,7 @@ export class Rig {
       this.ppu.regs = regsFromIo(m.io);
       this.lineRegs[y] = this.ppu.regs;
       this.ppu.line(y);
+      if (y === 143) { this.lastVram.set(m.vram); this.lastOam.set(m.oam); }
     };
   }
   /** The last frame drawn again from a VRAM and OAM (each line with its registers), or with
@@ -92,6 +96,49 @@ export class Rig {
       p.line(k);
     }
     return p.frame;
+  }
+  /** The last frame drawn again with the reference emulator's object priority (PyBoy, which
+   *  recorded the traces): objects drawn from the lowest priority up, one behind a non-zero BG
+   *  pixel leaving the pixel as it was. The DMG instead lets the highest-priority object's opaque
+   *  pixel decide even when it is behind the BG, hiding the objects under it (the port's PPU). */
+  redrawPyBoyObjects(): Uint8Array {
+    const vram = this.lastVram, oam = this.lastOam;
+    const raw = new Ppu(vram, oam), base = new Ppu(vram, oam);
+    raw.beginFrame();
+    base.beginFrame();
+    const out = base.frame;
+    for (let y = 0; y < 144; y++) {
+      const r = this.lineRegs[y]!;
+      raw.regs = { ...r, lcdc: r.lcdc & ~0x02, bgp: 0xe4 };
+      raw.line(y);
+      base.regs = { ...r, lcdc: r.lcdc & ~0x02 };
+      base.line(y);
+      if (!(r.lcdc & 0x80) || !(r.lcdc & 0x02)) continue;
+      const h = r.lcdc & 0x04 ? 16 : 8, line: number[] = [];
+      for (let n = 0; n < 40 && line.length < 10; n++) {
+        const sy = oam[4 * n]! - 16;
+        if (sy <= y && y < sy + h) line.push(n);
+      }
+      // (lowest priority first: the larger X, then the larger OAM index)
+      line.sort((a, b) => (oam[4 * b + 1]! - oam[4 * a + 1]!) || b - a);
+      for (const n of line) {
+        const sy = oam[4 * n]! - 16, sx = oam[4 * n + 1]! - 8, fl = oam[4 * n + 3]!;
+        let tile = oam[4 * n + 2]!;
+        if (h === 16) tile &= 0xfe;
+        const dy = y - sy, ty = fl & 0x40 ? h - 1 - dy : dy;
+        const addr = (tile * 16 + ty * 2) & 0x1fff;
+        for (let dx = 0; dx < 8; dx++) {
+          const x = sx + dx;
+          if (x < 0 || x >= 160) continue;
+          const px = fl & 0x20 ? 7 - dx : dx;
+          const c = ((vram[addr]! >> (7 - px)) & 1) | (((vram[addr + 1]! >> (7 - px)) & 1) << 1);
+          if (!c) continue;
+          if (fl & 0x80 && raw.frame[y * 160 + x] !== 0) continue;
+          out[y * 160 + x] = ((fl & 0x10 ? r.obp1 : r.obp0) >> (2 * c)) & 3;
+        }
+      }
+    }
+    return out;
   }
   get g() {
     return this.engine.g;

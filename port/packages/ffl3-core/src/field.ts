@@ -290,7 +290,7 @@ export function* fieldLoop(g: Game): Co {
     // the way and the OAM buffer is complete at its end (00:0275), which a vblank DMA may come before
     yield* g.point(0x0272);
     const drawn = g.pointTime(0x0275);
-    g.vramUntil(drawn, () => drawObjects(g), true, true);
+    g.vramUntil(drawn, () => drawObjects(g), true, true, () => g.objectsOam);
     yield* g.untilTime(drawn);
     yield* wait1(g);
     // the map animation's copies are hblank-paced (a strip scroll a byte an hblank, its own sync

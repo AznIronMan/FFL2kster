@@ -915,3 +915,33 @@ action's 0x4A0 copy unpaced (b7a). Survivors (unverified): the enemy action's 0x
 reaches it). The model alone (records ignored) fails b1f, b12, b23; without its stalled-line write
 it fails b1f, b6a instead: neither variant is exact, which is why the replay takes the record.
 Slice 39/39 and field sweep 412/425 unchanged with the re-recorded traces.
+
+## 2026-10-14 — Field sweep complete (1.49.0)
+
+The field sweep (every map entered, every object talked to) replays wait-exact and screen-exact
+in all 425 traces (was 412); the battle sweep stays 125/125.
+
+- **The objects' OAM buffer is complete before the drawing returns.** 00:01A0 holds the vblank
+  DMA (CD39 = 1) while it draws and restores CD39 at 00:01CF; a vblank between 00:01CF and the
+  return (00:0275) still DMAs the new buffer. The port took the buffer as complete at 00:0275: in
+  map51 the drawing ended on line 143, the vblank handler ran on lines 144-149 with the new
+  buffer, and the port's DMA sent the old one (the screen a frame behind on rows 31-79). New sync
+  point 00:01CF (taken in `drawObjects`, without holding the code: `pointTime(addr, quiet)`); the
+  field loop's OAM buffer lands at that time (`vramUntil`'s `oamAt`). All traces re-recorded.
+- **The reference emulator's object priority.** On the DMG the highest-priority object's opaque
+  pixel decides even when that object is behind the BG (attribute bit 7) and the BG pixel is not
+  0: the BG shows and the objects under it stay hidden (Pan Docs). PyBoy, which records the
+  traces, draws the objects from the lowest priority up and skips a behind-BG pixel, so a
+  lower-priority object shows there (`scanline_sprites`). The port's PPU (@ffl2k/render) keeps the
+  DMG rule; a frame equal once the objects are drawn PyBoy's way is counted (`objQuirks`), not
+  failed: t11_4-9, tb3_6/7, tb8_2 (the leader's two 8x8 objects at one X, the lower one behind
+  the BG).
+- **A frame the main code ran through.** In ta7_3 (a chest opened) the main code writes the
+  window's text all through frame 280, apart from a frame work on lines 15-95; the port writes it
+  at once, so line 96 showed the new tiles a line early. A frame in which no wait began and the
+  main code was not waiting now counts all its lines as the main code's for a line tear (only
+  where every differing pixel shows the old picture).
+
+Falsification (ffl3/scratch/mut17.py): each fails a trace — no `objQuirks` check (t11_4,
+tb3_6, tb8_2), the busy-frame lines dropped (ta7_3), the OAM buffer at 00:0275 instead of
+00:01CF (map51). Slice 39/39, battle sweep 125/125 with the re-recorded traces.

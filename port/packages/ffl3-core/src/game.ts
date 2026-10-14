@@ -94,7 +94,10 @@ export class Game {
   onCrossing: ((f: number) => boolean) | null = null;
   /** The code is about to reach `addr` (bank << 16 | address; a sync point): the frame and line
    *  at which the original did (parity re-timing, as `onPollStart`); undefined in play. */
-  onPoint: ((addr: number) => [number, number] | undefined) | null = null;
+  onPoint: ((addr: number, quiet?: boolean) => [number, number] | undefined) | null = null;
+  /** With a trace: when the last object drawing (00:01A0) had its OAM buffer complete (00:01CF,
+   *  the DMA hold CD39 restored). */
+  objectsOam: [number, number] | undefined;
   /** Debugging output (parity tools). */
   debug: ((msg: string) => void) | null = null;
   hooks: {
@@ -376,7 +379,8 @@ export class Game {
    *  copies are hblank-paced and end there): the bytes it changed are put back and written again
    *  at t, in address order spread evenly from now to t. RAM and registers stay in the code's
    *  order. Without t (play), `fn` simply runs. */
-  vramUntil<T>(t: [number, number] | undefined, fn: () => T, oamAtEnd = false, vramAtEnd = false): T {
+  vramUntil<T>(t: [number, number] | undefined, fn: () => T, oamAtEnd = false, vramAtEnd = false,
+    oamAt?: () => [number, number] | undefined): T {
     if (!t) return fn();
     const v = this.m.vram, before = v.slice();
     const w = this.m.wram, oamBefore = oamAtEnd ? w.slice(0, 0xa0) : null;
@@ -391,7 +395,8 @@ export class Game {
     if (oamBefore) { // the OAM buffer C000-C09F: complete at the end only (a vblank DMA meanwhile sees the old)
       const now = w.slice(0, 0xa0);
       w.set(oamBefore, 0);
-      this.at(t[0], t[1], () => w.set(now, 0));
+      const o = oamAt?.() ?? t;
+      this.at(o[0], o[1], () => w.set(now, 0));
     }
     return r;
   }
@@ -500,8 +505,8 @@ export class Game {
 
   /** The trace time of the next hit of sync point `addr` without waiting for it (code that runs
    *  in no time here but whose writes the original spread over lines); undefined in play. */
-  pointTime(addr: number): [number, number] | undefined {
-    return this.onPoint?.(addr);
+  pointTime(addr: number, quiet = false): [number, number] | undefined {
+    return this.onPoint?.(addr, quiet);
   }
 
   /** From an interrupt handler: `fn` runs at the start of line ly + dl (a write in the hblank

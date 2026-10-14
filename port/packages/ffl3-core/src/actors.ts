@@ -210,6 +210,8 @@ function drawOthers(m: Memory): void {
 export function drawObjects(g: Game): void {
   const m = g.m;
   if (m.rd(0xca14)) return;
+  // (the buffer is complete when CD39 is restored, 00:01CF: a vblank before the return still DMAs it)
+  g.objectsOam = g.pointTime(0x01cf, true);
   m.wr(0xca14, 1);
   const cd39 = m.rd(0xcd39);
   m.wr(0xcd39, 1);

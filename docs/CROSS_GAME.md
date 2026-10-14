@@ -127,3 +127,5 @@ both ROMs; differences are listed first because they are the valuable part.
 - 1.48.0: Legend III's hblank copy 00:20FF keeps clear of the LYC lines (no chunk while LYC - LY
   < 3) and rewrites a chunk whose hblank ended under it (STAT mode 2 seen after the writes); the
   bytes still land, so a chunk shows from the first line it was tried on.
+- 1.49.0: Legend III's object drawing (00:01A0) holds the vblank DMA with CD39 and releases it
+  just before returning; a vblank in between DMAs the finished buffer.

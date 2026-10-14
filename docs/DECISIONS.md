@@ -637,3 +637,8 @@ Decisions and assumptions:
   length (objects, their X alignment, SCX) and the copy loop's phase. Without a record (play) the
   model stands in. A trace record is taken at the instruction that reads the value it stands for
   (FF93 at 00:39D8), since an interrupt may come before it.
+- 1.49.0: where the reference emulator (PyBoy, which records the traces) departs from the DMG,
+  the port keeps the DMG and the replay counts the frames that match PyBoy's behaviour instead of
+  failing them (`objQuirks`: PyBoy does not let a behind-the-BG object hide the objects under
+  it). A sync point inside a shared routine is taken there for every call (`pointTime(addr,
+  quiet)`, never late), so its occurrences stay aligned with the trace's.
