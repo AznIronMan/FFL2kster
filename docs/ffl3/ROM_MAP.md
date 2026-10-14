@@ -322,3 +322,5 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 09:410C | battle OAM rows from 09:412F (C090, C050, C060, C070) | ported, unit test |
 | 0B:6E15 | member slot 3, number 6: C680 kept aside at C620 | ported, unverified |
 | 0C:499B / 0C:6B4F / 0C:6B55 / 0C:7E35 | natives: group slot fill, groups rebuilt (0B:44A8), D888 half step (0B:7E96), 999999 | 499B/6B55/7E35 unit test; 6B4F unverified |
+| 00:20FF | hblank VRAM copy: 5 bytes a line from 00:2120 (none while LYC - LY < 3, 00:210B; again on the next line when mode 2 is seen after them, 00:212E), the last 1-4 from 00:216E; trace record `paced` | verified (battle sweep) |
+| 00:39D8 | the random generator's FF93 read (trace record `rand`) | verified (b23) |

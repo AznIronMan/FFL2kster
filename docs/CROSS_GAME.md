@@ -124,3 +124,6 @@ both ROMs; differences are listed first because they are the valuable part.
 - 1.47.0: Legend III's earthquake (event 2C) is a raster effect — an hblank STAT interrupt on every
   visible line rewriting SCY — so the port models hblank requests line by line for it; its ending
   runs the credits through the battle screen and the opening's slide code.
+- 1.48.0: Legend III's hblank copy 00:20FF keeps clear of the LYC lines (no chunk while LYC - LY
+  < 3) and rewrites a chunk whose hblank ended under it (STAT mode 2 seen after the writes); the
+  bytes still land, so a chunk shows from the first line it was tried on.

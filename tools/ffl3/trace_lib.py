@@ -16,7 +16,10 @@ compact storage). Per trace directory build/traces/NAME:
                 frame), and "points": {"BB:AAAA":
                 [[frame, LY], ...]} of the times the CPU reached the addresses in POINTS (sync points: the port
                 spends the CPU time before them, e.g. 00:1E49, a menu drawn after hblank-paced copies), and
-                "rand": [frame, LY, FF93] at every call of the random generator 00:39D5 (it reads FF93)
+                "rand": [frame, LY, FF93] at every call of the random generator 00:39D5, taken at its read
+                of FF93 (00:39D8), and "paced": [frame, LY, de, n] at every chunk the hblank copy 00:20FF
+                writes: n = 5 at 00:2120 (written again on the next line when the hblank ended meanwhile),
+                n = 1 for each byte of its last 1-4 at 00:216E
   tick.bin      CB00 (the music tempo accumulator, advanced by every sound tick) and FF93 (the vblank frame
                 counter) after every frame
   prev.bin      the screen of the frame before the hook (160x144 shades)
@@ -141,6 +144,13 @@ class Recorder:
             if start:
                 stat.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
 
+        paced = []
+
+        def at_paced(n):   # 00:2120 / 00:216E, a chunk of the hblank copy 00:20FF written (de its first byte)
+            if start:
+                rf = pb.register_file
+                paced.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44], rf.D << 8 | rf.E, n])
+
         def at_store(_):   # 0C:4017, the battle script's store: a request when its target is FFBC / FFBA
             if start and pb.memory[0xCC01] | (pb.memory[0xCC02] << 8) == 0xFFBC:
                 sfx.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
@@ -208,7 +218,7 @@ class Recorder:
         pb.hook_register(0, 0x0040, at_vbl, None)
         pb.hook_register(0, 0x1E35, at_sync, None)
         pb.hook_register(0, 0x1D9E, at_poll, None)
-        pb.hook_register(0, 0x39D5, at_rand, None)
+        pb.hook_register(0, 0x39D8, at_rand, None)  # its FF93 read (an interrupt may come after 39D5's first instruction)
         pb.hook_register(0, 0x1DFD, at_poll, None)
         pb.hook_register(0, 0x3557, at_work, None)
         for b, a in POINTS:
@@ -217,6 +227,8 @@ class Recorder:
             pb.hook_register(b, a, at_sfx, None)
         pb.hook_register(0x0C, 0x4017, at_store, None)
         pb.hook_register(0, 0x1F27, at_stat, None)
+        pb.hook_register(0, 0x2120, at_paced, 5)
+        pb.hook_register(0, 0x216E, at_paced, 1)
         pb.hook_register(0, 0x3552, at_work_end, None)
         try:
             for _ in range(max_pre):
@@ -268,7 +280,7 @@ class Recorder:
             pb.hook_deregister(0, 0x0040)
             pb.hook_deregister(0, 0x1E35)
             pb.hook_deregister(0, 0x1D9E)
-            pb.hook_deregister(0, 0x39D5)
+            pb.hook_deregister(0, 0x39D8)
             pb.hook_deregister(0, 0x1DFD)
             pb.hook_deregister(0, 0x3557)
             for b, a in POINTS:
@@ -277,6 +289,8 @@ class Recorder:
                 pb.hook_deregister(b, a)
             pb.hook_deregister(0x0C, 0x4017)
             pb.hook_deregister(0, 0x1F27)
+            pb.hook_deregister(0, 0x2120)
+            pb.hook_deregister(0, 0x216E)
             pb.hook_deregister(0, 0x3552)
             for mb, ma in marks:
                 pb.hook_deregister(mb, ma)
@@ -299,7 +313,7 @@ class Recorder:
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
         json.dump({"frames": wait_frames, "syncs": syncs, "polls": polls, "works": works,
                    "starts": wait_starts, "ends": wait_ends, "points": points, "sfx": sfx, "song": song, "stat": stat,
-                   "rand": rand}, open(f"{out}/waits.json", "w"))
+                   "rand": rand, "paced": paced}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
                    "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k not in ("mem", "sram")},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))

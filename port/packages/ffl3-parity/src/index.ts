@@ -127,8 +127,12 @@ export interface Trace {
   song?: [number, number][];
   /** [frame, LY] of the original's entries to the bracket's STAT handler 00:1F27. */
   stat?: [number, number][];
-  /** [frame, LY, FF93] at each call of the random generator 00:39D5. */
+  /** [frame, LY, FF93] at each call of the random generator 00:39D5 (its FF93 read 00:39D8 from
+   *  1.48.0). */
   rand: [number, number, number][];
+  /** [frame, LY, de, n] of each chunk the hblank copy 00:20FF writes (n = 5 at 00:2120, 1 for each
+   *  of its last bytes at 00:216E; traces from 1.48.0). */
+  paced?: [number, number, number, number][];
   prevScreen?: Uint8Array;
   /** The cartridge RAM (8 KB) at the start, then at the end (sram.bin; traces from 1.42.0). */
   sram?: Uint8Array;
@@ -148,9 +152,9 @@ function undelta(gz: Uint8Array, size: number, first?: Uint8Array): Uint8Array {
   return out;
 }
 
-function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts" | "points" | "rand" | "sfx" | "song" | "stat"> {
+function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts" | "points" | "rand" | "sfx" | "song" | "stat" | "paced"> {
   const w = JSON.parse(readFileSync(f, "utf8"));
-  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [], rand: w.rand ?? [], sfx: w.sfx, song: w.song, stat: w.stat,
+  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [], rand: w.rand ?? [], sfx: w.sfx, song: w.song, stat: w.stat, paced: w.paced,
     points: Object.fromEntries(Object.entries(w.points ?? {}).map(([k, v]) => {
       const [b, a] = k.includes(":") ? k.split(":").map((x) => parseInt(x, 16)) as [number, number] : [0, parseInt(k, 16)];
       return [(b << 16) | a, v as [number, number][]];

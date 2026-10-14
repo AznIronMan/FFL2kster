@@ -226,6 +226,30 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     let k = 0;
     g.onSong = () => { const w = song[k++]; return w ? [w[0], w[1]] : undefined; };
   }
+  // an hblank-paced copy (00:20FF) shows its chunks at the original's lines: its records from the
+  // first chunk to `dest` near now, while each next one is at most 3 lines later and within the
+  // bytes written so far (a chunk written again after a short hblank, or the next)
+  if (t.paced) {
+    const p = t.paced, T = (r: readonly number[]) => r[0]! * 154 + r[1]!;
+    let from = 0;
+    g.onPaced = (dest, len, now) => {
+      let i = from;
+      while (i < p.length && T(p[i]!) < now - 8) i++;
+      while (i < p.length && p[i]![2] !== dest) { if (T(p[i]!) > now + 4 * 154) return undefined; i++; }
+      if (i >= p.length) return undefined;
+      const first = new Array<number>(len).fill(-1);
+      let top = dest, last = T(p[i]!);
+      for (; i < p.length; i++) {
+        const [, , de, k] = p[i]!, at = T(p[i]!);
+        if (de < dest || de > top || at > last + 3) break;
+        for (let j = 0; j < k; j++) { const o = de + j - dest; if (o < len && first[o]! < 0) first[o] = at; }
+        top = Math.max(top, de + k);
+        last = at;
+      }
+      from = i;
+      return first.includes(-1) ? undefined : { first, end: last };
+    };
+  }
   // the random generator reads the frame counter the original had at that call
   let nRand = 0;
   m.onRandom = () => t.rand[nRand++]?.[2];

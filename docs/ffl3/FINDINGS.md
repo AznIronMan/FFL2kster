@@ -881,3 +881,37 @@ Evidence: `routines.test.ts` checks 0C:499B, 0C:6B55, 0C:7E35 and 09:410C on a s
 Replay: a frame whose STAT handler ran in the visible lines (the trace's `stat` record) counts as
 one where the interrupts were on (`onCrossing`): b33, b44, b57, b71, b76 now wait-exact (battle
 sweep 105/125). b23 (2 frames late at wait 2425) and b6a (4 pixels) remain.
+
+## 2026-10-14 — Battle sweep complete: the random counter, the hblank copy's lines (1.48.0)
+
+The battle sweep is wait-exact and screen-exact in all 125 formations (was 105).
+
+- **The random byte's frame counter.** The trace's `rand` record was taken at 00:39D5, the
+  generator's first instruction (`ld hl,$ff90`). A vblank interrupt can come between it and the
+  FF93 read (00:39D8): in b23 a draw at line 143 read FF93 + 1, so the replay fed the port the
+  wrong counter, a hit roll differed and the battle drifted (2 frames late at wait 2425). The record
+  is now taken at 00:39D8; every trace was re-recorded (2 of b23's 61 draws changed).
+- **The hblank copy 00:20FF, line by line.** New trace record `paced` ([frame, LY, de, n] at
+  00:2120 for each 5-byte chunk and at 00:216E for each of the last 1-4 bytes) shows what the model
+  could only guess: on a line whose objects shorten the hblank, the 5 bytes are written (VRAM is
+  open in mode 2) and written again on the next line once 00:20FF sees mode 2 at its check
+  (00:212E); no chunk starts on lines LYC - 1 and LYC (00:210B waits while LYC - LY < 3). PyBoy's
+  mode 3 length depends on the objects' count, X alignment and SCX (`_mode3_sprite_penalty`), so
+  whether a line stalls is a cycle question: with a trace the port shows each byte at the line the
+  original first wrote it (`Game.onPaced`); without one (play) it uses the model with both rules.
+  This fixed the few-pixel figure diffs (b1f, b22, b28, b2d, b35, b3a, b3c, b51, b62, b64, b67,
+  b6a, b7c).
+- **The copy loop is the main code.** 00:20FF waits for each hblank, so the code after a copy runs
+  only once it has ended (`Game.pacedDone`), also when the tiles were already there (no VRAM change:
+  the copy still takes its lines). Effect 17 (02:4167, the frozen-figure mask DC81) had run before
+  the bracket vblank's flip (DC80 = 0) instead of after it, so a figure flipped 16 frames late
+  (b12, b23, b2c, b4b, b63). An enemy's action tiles (02:41B1: 0x200 bytes to 8000, 0x4A0 to 8200)
+  are paced the same way (b7a showed them 2 frames early at the trace's end).
+
+Falsification (ffl3/scratch/mut16.py): each fails a trace — `pacedDone` a no-op (b12, b23,
+b2c, b4b, b63: 8 wait diffs each), the `paced` records ignored (b1f, b22, b28, b35), the enemy
+action's 0x4A0 copy unpaced (b7a). Survivors (unverified): the enemy action's 0x200 copy unpaced
+(b7a passes: the second copy's wait covers it); the model's LYC rule (no trace without records
+reaches it). The model alone (records ignored) fails b1f, b12, b23; without its stalled-line write
+it fails b1f, b6a instead: neither variant is exact, which is why the replay takes the record.
+Slice 39/39 and field sweep 412/425 unchanged with the re-recorded traces.

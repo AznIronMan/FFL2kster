@@ -148,7 +148,8 @@ export function* memberTiles(g: Game, a: number, hl: number, de: number): Co<num
     const r = far0Sync(g, 0x04, () => vramCopy(m, src, de, 0x40));
     if (st) far0Sync(g, 0, () => vramCopy(m, de, 0xc880, 0x40));
     return r;
-  }, de);
+  }, de, 0x40);
+  yield* g.pacedDone(); // (the copy loop's own time)
   if (!st) return de2;
   for (let p = 0xc880; p < 0xc8c0; p += 2) {
     let lo = m.rd(p), hi = m.rd(p + 1);
@@ -165,7 +166,8 @@ export function* memberTiles(g: Game, a: number, hl: number, de: number): Co<num
   // copy back starts (CPU time; sync point 0B:7E7A)
   yield* g.point(0x0b7e7a);
   // the copy back shows over the lines it takes (00:20FF: 5 bytes a line)
-  g.vramPaced(() => far0Sync(g, 0, () => vramCopy(m, 0xc880, de, 0x40)), de);
+  g.vramPaced(() => far0Sync(g, 0, () => vramCopy(m, 0xc880, de, 0x40)), de, 0x40);
+  yield* g.pacedDone();
   return de2;
 }
 

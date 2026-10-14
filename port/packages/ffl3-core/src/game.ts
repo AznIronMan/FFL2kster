@@ -82,6 +82,9 @@ export class Game {
   /** Parity: whether the original entered the bracket's STAT handler 00:1F27 in frame f (from the
    *  current line on); undefined without that record. */
   onStatIn: ((f: number) => boolean | undefined) | null = null;
+  /** With a trace: the times (frame * 154 + LY) at which the original's hblank copy to `dest`
+   *  started near `now` first wrote each of its first `len` bytes, and its last chunk's. */
+  onPaced: ((dest: number, len: number, now: number) => { first: number[]; end: number } | undefined) | null = null;
   /** Parity: the original's time of the next bracket entry / leave, not taken (a look ahead). */
   onNextPoll: (() => [number, number] | undefined) | null = null;
   /** Parity: the same for the battle script's music requests FFBA. */
@@ -393,31 +396,55 @@ export class Game {
     return r;
   }
 
-  /** Runs `fn`, an hblank-paced VRAM copy (00:20FF) to `dest`, now; with a trace its VRAM writes
-   *  show as the original's did: 5 bytes in the hblank of each visible line (none on a line whose
-   *  objects leave the hblank too short for them: 00:20FF writes again from the same place once
-   *  the hblank has ended), the rest in vblank at ~19 a line. The changed bytes are taken in
-   *  address order as the copy's. RAM and registers stay in the code's order. */
-  vramPaced<T>(fn: () => T, dest: number): T {
+  /** Runs `fn`, an hblank-paced VRAM copy (00:20FF) of `len` bytes to `dest`, now; with a trace
+   *  its VRAM writes show at the lines the original wrote them (the trace's `paced` record, else a
+   *  model: 5 bytes in the hblank of each visible line, the rest in vblank at ~19 a line; on a line
+   *  whose objects leave the hblank too short (`PACED_OBJECTS`) the 5 bytes are still written (VRAM
+   *  is open in mode 2 too) but 00:20FF sees mode 2 at its check and writes them again on the next
+   *  line; no chunk starts on the lines LYC - 1 and LYC: 00:210B waits while LY is within 3 lines
+   *  before LYC). `pacedDone` then waits for the copy's end. RAM and registers stay in the code's
+   *  order. */
+  vramPaced<T>(fn: () => T, dest: number, len: number): T {
     if (!this.onPoint) return fn();
     const v = this.m.vram, before = v.slice();
     const r = fn();
     const changed: [number, number][] = [];
     for (let i = 0; i < v.length; i++) if (v[i] !== before[i]) { changed.push([i, v[i]!]); v[i] = before[i]!; }
-    // (the set-up before the first chunk passes the current line's hblank)
-    let t = this.frame * 154 + this.ly + 1, done = 0;
-    for (const [i, b] of changed) {
-      const ofs = (i + 0x8000 - dest) & 0xffff;
-      for (;;) {
-        const l = t % 154;
-        const n = l >= 144 ? 19 : this.objectsOnLine(l) >= PACED_OBJECTS ? 0 : 5;
-        if (done + n > ofs) break;
-        done += n;
-        t++;
+    const now = this.frame * 154 + this.ly;
+    let rec = this.onPaced?.(dest, len, now);
+    if (!rec) { // the model
+      const lyc = this.m.rd(0xff45);
+      // the bytes a line's hblank (or vblank time) writes, and whether the copy moves on after it
+      const line = (l: number): [number, boolean] =>
+        l >= 144 ? [19, true] : l === lyc || l + 1 === lyc ? [0, true] : [5, this.objectsOnLine(l) < PACED_OBJECTS];
+      const first = new Array<number>(len).fill(-1);
+      // (the set-up before the first chunk passes the current line's hblank)
+      let t = now + 1, done = 0;
+      while (done < len) {
+        const [n, on] = line(t % 154);
+        for (let o = done; o < done + n && o < len; o++) if (first[o]! < 0) first[o] = t;
+        if (on) done += n;
+        if (done < len) t++;
       }
-      this.at(Math.floor((t + 1) / 154), (t + 1) % 154, () => { v[i] = b; });
+      rec = { first, end: t };
     }
+    for (const [i, b] of changed) {
+      const at = rec.first[(i + 0x8000 - dest) & 0xffff]! + 1; // (written in that line's hblank)
+      this.at(Math.floor(at / 154), at % 154, () => { v[i] = b; });
+    }
+    this.pacedEnd = [Math.floor((rec.end + 1) / 154), (rec.end + 1) % 154];
     return r;
+  }
+
+  /** The line after the last chunk of the last `vramPaced` copy (with a trace). */
+  private pacedEnd: [number, number] | undefined;
+
+  /** The main code is the copy loop (00:20FF waits for each hblank): it goes on only once the
+   *  last `vramPaced` copy has ended. */
+  *pacedDone(): Co {
+    const p = this.pacedEnd;
+    this.pacedEnd = undefined;
+    yield* this.until_(p);
   }
 
   /** The objects on line l (OAM, 8x8 or 8x16 by LCDC bit 2), up to 10. */

@@ -1647,8 +1647,13 @@ function actionFrame(g: Game, a: number, e: number): void {
 function* enemyAction(g: Game): Co {
   const m = g.m;
   const k = m.rd(add8(0x651c, m.rd(0xde00)));
-  vramCopy(m, (0x658c + k * 0x20) & 0xffff, 0x8000, 0x0200);
-  yield* rst30(g, 0x03, 0x3740, function* () { vramCopy(m, 0x79d4, 0x8200, 0x04a0); });
+  // (both copies are hblank-paced, 00:20FF: they show line by line and take the main code's time)
+  g.vramPaced(() => vramCopy(m, (0x658c + k * 0x20) & 0xffff, 0x8000, 0x0200), 0x8000, 0x0200);
+  yield* g.pacedDone();
+  yield* rst30(g, 0x03, 0x3740, function* () {
+    g.vramPaced(() => vramCopy(m, 0x79d4, 0x8200, 0x04a0), 0x8200, 0x04a0);
+    yield* g.pacedDone();
+  });
   m.wr(0xde02, 0);
   let p = m.rd16(add8(0x53ee, (m.rd(0xde00) * 2) & 0xff));
   for (;;) {

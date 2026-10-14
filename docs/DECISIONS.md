@@ -632,3 +632,8 @@ Decisions and assumptions:
   Routines no trace reaches are checked, where their effect is a memory transform, by a ROM-free
   test on a synthetic cartridge (`routines.test.ts`), each with a failing mutation; the rest are
   listed unverified in docs/ffl3/FINDINGS.md.
+- 1.48.0: an hblank-paced copy's lines are taken from the trace (`paced`, every chunk 00:20FF
+  writes) rather than modelled: whether a line's hblank is long enough depends on PyBoy's mode 3
+  length (objects, their X alignment, SCX) and the copy loop's phase. Without a record (play) the
+  model stands in. A trace record is taken at the instruction that reads the value it stands for
+  (FF93 at 00:39D8), since an interrupt may come before it.
