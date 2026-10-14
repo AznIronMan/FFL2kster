@@ -264,6 +264,9 @@ if (platform() === "web" && "serviceWorker" in navigator && (location.protocol =
 
 // ?rom=<url>: import a ROM the user serves themselves (testing convenience; nothing is uploaded).
 const romUrl = new URLSearchParams(location.search).get("rom");
+// which other games' data are on this device (the summaries offer them)
+hasFfl1 = ffl1PackageUsable(await loadFfl1Package().catch(() => undefined));
+hasFfl3 = ffl3PackageUsable(await loadFfl3Package().catch(() => undefined));
 if (romUrl) {
   const r = await fetch(romUrl);
   const status = el("p", {});

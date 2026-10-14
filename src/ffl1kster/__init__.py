@@ -5,6 +5,6 @@ assumed from Legend II. Generic, game-independent helpers (cartridge header, che
 math, byte patches, project manifest) are imported from ffl2kster unchanged.
 """
 
-__version__ = "1.46.0"  # the repository version (pyproject.toml); ffl2kster keeps its own 1.0.0
+__version__ = "1.46.1"  # the repository version (pyproject.toml); ffl2kster keeps its own 1.0.0
 
 __all__ = ["__version__"]
