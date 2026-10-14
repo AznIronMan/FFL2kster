@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.51.0`
+Version: `1.52.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,10 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.52.0` — Legend I: the battle dissolve (the field tiles fading into the battle) is now
+  checked line by line against the original: the recorder notes when each of its writes happened
+  and the replay draws them at those lines. The last two frames of Legend I that differed now
+  match; every Legend I trace is frame-exact.
 - `1.51.0` — Legend III: the last boss verified against the original — its transformation and
   the scripted change into Xagor with the fight that follows (traces trans1, xagor1, using pokes
   applied at a frame wait, a new recorder feature), and the party member kept aside (member1).

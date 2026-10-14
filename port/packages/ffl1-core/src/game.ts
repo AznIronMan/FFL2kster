@@ -46,6 +46,14 @@ export class Game {
   busyFrames = 0;
   onBusyFrame: ((k: number) => boolean | void) | null = null;
   onYield: ((kind: number | void) => void) | null = null;
+  /** Parity only: the line time (any monotonic clock) of a VRAM write the original made in
+   *  hblank, or undefined for at once; with it, the line time of a line about to be drawn.
+   *  Writes done in pacedWrites are then applied line by line, as the original's code did them
+   *  (00:069F hands it the CPU in each line's hblank). Unset: at once (play). */
+  writeTime: ((addr: number) => number | undefined) | null = null;
+  lineTime: ((ly: number) => number) | null = null;
+  private timed: number[] = []; // addr, value, time
+  private timedAt = 0;
   hooks: {
     soundTick?: (g: Game) => void; // 07:4003, from the frame tick
     softReset?: (g: Game) => void; // A+B+Select+Start (00:071C -> 00:0224)
@@ -77,6 +85,7 @@ export class Game {
     if (this.main && !this.done) {
       try {
         let r: IteratorResult<number | void, void>;
+        this.flushTimed();
         if (this.tickPending) {
           this.tickPending = false;
           this.lineRange(0, 1);
@@ -119,6 +128,7 @@ export class Game {
     const io = this.m.io;
     for (let ly = a; ly < b; ly++) {
       io[0x44] = ly;
+      if (this.timedAt < this.timed.length) this.applyTimed(ly);
       this.lineHook?.(ly);
       this.statCheck(ly);
       this.onLine?.(ly);
@@ -129,13 +139,58 @@ export class Game {
     const io = this.m.io;
     this.lineRange(from, 144);
     io[0x44] = 0x90;
+    if (this.timedAt < this.timed.length) this.applyTimed(0x90);
     if (this.ime && this.m.hram[0x7f]! & 0x01) this.vblank();
     if (waited) this.onYield?.(kind);
     this.onFrameDone?.();
     for (let ly = 0x91; ly < 154; ly++) {
       io[0x44] = ly;
+      if (this.timedAt < this.timed.length) this.applyTimed(ly);
       this.statCheck(ly);
     }
+  }
+
+  /** Runs fn, a stretch of VRAM writes the original makes in hblanks (00:069F): with writeTime
+   *  set, its writes are undone and replayed at their recorded line times; reads in fn see its
+   *  own earlier writes, as the original's do. */
+  pacedWrites(fn: () => void): void {
+    if (!this.writeTime) return fn();
+    const m = this.m, log: number[] = [], wr = m.wr;
+    m.wr = (a: number, v: number) => {
+      if (a >= 0x8000 && a < 0xa000) log.push(a, m.rd(a), v & 0xff);
+      wr.call(m, a, v);
+    };
+    try {
+      fn();
+    } finally {
+      m.wr = wr;
+    }
+    for (let i = log.length - 3; i >= 0; i -= 3) wr.call(m, log[i]!, log[i + 1]!);
+    for (let i = 0; i < log.length; i += 3) {
+      const t = this.writeTime(log[i]!);
+      if (t === undefined && this.timedAt >= this.timed.length) wr.call(m, log[i]!, log[i + 2]!);
+      else this.timed.push(log[i]!, log[i + 2]!, t ?? -1);
+    }
+  }
+
+  /** The timed writes made before this line (in an earlier hblank). */
+  private applyTimed(ly: number): void {
+    const now = this.lineTime ? this.lineTime(ly) : Infinity, q = this.timed;
+    let i = this.timedAt;
+    while (i < q.length && q[i + 2]! < now) {
+      this.m.wr(q[i]!, q[i + 1]!);
+      i += 3;
+    }
+    this.timedAt = i;
+    if (i >= q.length) { this.timed = []; this.timedAt = 0; }
+  }
+
+  /** Before the code goes on: the writes still pending come first. */
+  private flushTimed(): void {
+    const q = this.timed;
+    for (let i = this.timedAt; i < q.length; i += 3) this.m.wr(q[i]!, q[i + 1]!);
+    this.timed = [];
+    this.timedAt = 0;
   }
 
   private statCheck(ly: number): void {

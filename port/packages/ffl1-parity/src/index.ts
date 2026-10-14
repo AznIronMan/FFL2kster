@@ -138,6 +138,8 @@ export interface Trace {
   tick: Uint8Array;
   waits: Uint8Array;
   waitFrames: number[];
+  /** VRAM writes the original made in hblank with the LCD on: [frame, LY, address]. */
+  vramWrites?: [number, number, number][];
   prevScreen?: Uint8Array;
 }
 
@@ -164,9 +166,14 @@ export function loadTrace(name: string): Trace {
     name, meta, start, screens: undelta(rd("screens.dx.gz"), FRAME_BYTES), hram: rd("hram.bin"),
     tick: existsSync(resolve(d, "tick.bin")) ? rd("tick.bin") : new Uint8Array(0),
     waits: undelta(rd("waits.dx.gz"), 0x8000, start),
-    waitFrames: JSON.parse(readFileSync(resolve(d, "waits.json"), "utf8")).frames,
+    ...waitsJson(resolve(d, "waits.json")),
     ...(existsSync(resolve(d, "prev.bin")) ? { prevScreen: rd("prev.bin") } : {}),
   };
+}
+
+function waitsJson(p: string): { waitFrames: number[]; vramWrites?: [number, number, number][] } {
+  const w = JSON.parse(readFileSync(p, "utf8"));
+  return { waitFrames: w.frames, ...(w.vw ? { vramWrites: w.vw } : {}) };
 }
 
 export function screenDiff(a: Uint8Array, b: Uint8Array): number {

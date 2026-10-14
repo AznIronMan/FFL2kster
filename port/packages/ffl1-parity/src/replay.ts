@@ -33,6 +33,8 @@ export interface ReplayOptions {
   setup?: (rig: Rig) => void;
   keepGoing?: boolean;
   watch?: (wait: number, frame: number, exp: Uint8Array, got: Uint8Array) => void;
+  /** Apply the recorded hblank VRAM write times (Game.pacedWrites; default true). */
+  pacedWrites?: boolean;
   /** Stop after this many waits (debugging). */
   maxWaits?: number;
   /** Joypad re-phasing (default true). */
@@ -202,12 +204,28 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   let lastDrawn = -1;
   let pre: Uint8Array | null = null;
   const btn = (k: number) => buttonBits(t.meta.frames[Math.min(Math.max(k, 0), n - 1)]!.btn);
+  // the trace frame being drawn (g.frame + off), for the timed VRAM writes (Game.pacedWrites)
+  // (since: the line time the last wait ended, at LY 0x90 of its frame)
+  let off = 0, vwAt = 0, since = 0;
+  const vw = t.vramWrites;
+  if (vw && opts.pacedWrites !== false) {
+    rig.g.writeTime = (addr) => {
+      while (vwAt < vw.length && (vw[vwAt]![0] * 154 + vw[vwAt]![1] < since || vw[vwAt]![2] !== addr)) vwAt++;
+      if (vwAt >= vw.length) return undefined;
+      const [rf, ly] = vw[vwAt++]!;
+      return rf * 154 + ly;
+    };
+    rig.g.lineTime = (ly) => (rig.g.frame + off) * 154 + ly;
+  }
   rig.g.onWait = (kind) => {
     const prev = f;
     f = kind === VSYNC && nWaits < wf.length ? wf[nWaits]! : f + 1;
+    off = f - rig.g.frame;
+    since = f * 154 + 0x90;
     if (opts.busyFrames !== false && f - prev > 1) {
       const nb = f - prev - 1;
       rig.g.busyFrames = nb;
+      off = prev + 1 - rig.g.frame;
       rig.g.onBusyFrame = (k) => {
         rig.g.buttons = btn(prev + 1 + k);
         if (k === nb - 1) rig.g.onFrameDone = () => { rig.g.buttons = btn(f); rig.g.onFrameDone = null; };

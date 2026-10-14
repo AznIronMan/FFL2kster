@@ -17,7 +17,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 - [x] A3. Web player loads the FFL1 data package and plays the vertical slice — checked in the
       built app (1.15.0), with music since 1.16.0 (see the log)
 - [x] A4. Field and battle parity sweeps recorded with counts against the original ROM — field 200
-      traces (every map), battle 24 traces + slice 17 (see the log; 2 residual frames documented)
+      traces (every map), battle 24 traces + slice 17 (see the log; the 2 residual frames closed in 1.52.0)
 - [ ] A5. All suites green (FFL2kster suite and its byte-identical no-op build included), CI green
 
 ## Milestone 1 — one verified enemy-data slice
@@ -63,7 +63,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 |---|---|---|
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
 | P1 vertical slice | in progress | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 16 traces, 0 differences); sound driver and the web player to come |
-| P2 full field | in progress | field + event sweep: 327 traces (every map; trigger cells, objects, talk and text-started events: commands 0, 1, 3-F), 333,695 waits, 0 state differences; 2 residual frames (half-written tile data during busy stretches) |
+| P2 full field | in progress | field + event sweep: 327 traces (every map; trigger cells, objects, talk and text-started events: commands 0, 1, 3-F), 333,695 waits, 0 state differences; 0 residual frames since 1.52.0 (the battle dissolve 00:1BBE drawn at the line times the original wrote it) |
 | P3 full battle | in progress | battle sweep 33 traces, 95,039 waits, 0 differences, plus flee2 (a monster flees): all 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters and event battles (field sweep) frame-exact; sound verified separately |
 | P4 platforms | not started | |
 | P5 extras | not started | |
@@ -316,7 +316,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   original made after line 0 in rooms where an object moves at the same time, so lateWrite (the
   whole top equal to the previous picture) does not fit (fsw077, 110, 112, 124, 199: every 20
   frames, lines 0-6 or 0-17).
-- Residual (2 frames, kept as exact expectations in the test): fsw101 f126 (10 px) and fsw097 f147
+- Residual (closed in 1.52.0, see that log entry): fsw101 f126 (10 px) and fsw097 f147
   (590 px), each the first frame after a busy stretch in which the original was still clearing tile
   data: in fsw101 one line shows colour 3 as 2, a tile row whose low bitplane byte is written and
   high one not yet; fsw097 shows rows 0-79 old tile by tile with 3 pixels neither (probably the
@@ -404,3 +404,24 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   too. Falsified: 0x08 per level gives D4AB F4 instead of EC (tsb0_0021, 573 wait differences).
 - Field sweep after the correction: 324 traces (200 maps, 83 event targets, 19 text events, 22
   talk-battle texts), all passing in the full suite (4,739 port tests).
+
+### 2026-10-14 — The battle dissolve drawn line by line (1.52.0)
+- The two residual frames (fsw097 f147, 590 px; fsw101 f126, 10 px) were the battle dissolve
+  00:1BBE: 5 passes masking 8800-8FFF (00:1BD4 / 1BD7 `ld [hl+],a`) inside the VRAM bracket, so
+  the code runs only in the lines' hblanks (STAT handler 00:069F) and the picture changes over ~18
+  frames (fsw097: frames 129-147, 10,240 writes, 116-640 a frame).
+- `tools/ffl1/trace_lib.py` records `vw` in waits.json: [frame, LY, address] for each VRAM store of
+  00:007C / 0085 / 0091 / 009A / 1BD4 / 1BD7 made with the LCD on and the 00:069F handler
+  installed (fsw097 and fsw101 re-recorded).
+- `@ffl1k/core` `Game.pacedWrites(fn)`: runs fn (its reads see its own writes, as the original's
+  do), undoes the VRAM writes and, when `writeTime` is set (parity only), replays each one before
+  the first line drawn after its recorded line time; pending writes are applied before the code
+  goes on. Unset (the player): at once, as before. `battleEvent` wraps the dissolve in it.
+- `@ffl1k/parity` replay: `writeTime` takes the next record of the same address after the last
+  wait (LY 0x90 of its frame); `lineTime` is the trace frame being drawn (busy frames included).
+- Result: fsw097 and fsw101 frame-exact; the field sweep expects 0 differences for every trace
+  (the RESIDUAL table is gone): field sweep 324 traces, 331,549 waits, battle sweep, slice and
+  sound all green (442 tests).
+- Falsified (each fails fsw097 and/or fsw101): line time one frame late or early, 4 lines late or
+  early, the search start one frame late.
+

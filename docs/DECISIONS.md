@@ -649,3 +649,7 @@ Decisions and assumptions:
   wait, after the wait's comparison, on both sides (`WAIT_POKES` / `waitPokes`); the code that runs
   afterwards is the game's own. A routine is "verified" when a trace reaches it and a mutation of
   it fails that trace, else "audited unreachable" when the listing shows no game data can reach it.
+- 1.52.0: VRAM writes the original makes line by line in hblanks are replayed at their recorded
+  line times (Legend I `Game.pacedWrites` + `writeTime` / `lineTime`, set by the parity replay
+  only); the game logic sees its own writes at once, and the player applies them at once. Exact
+  residual expectations in a sweep are removed when they reach 0 rather than kept as allowances.

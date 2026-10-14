@@ -8,12 +8,6 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync } from "node:fs";
 import { haveRom, haveTrace, replay, summarize, summarizeWaits, TRACES } from "../src/index.js";
 
-/** Known residual frames, exactly as they stand (any change fails): the frame after a busy
- *  stretch in which the original was still clearing tile data while the display ran (fsw101: one
- *  line shows colour 3 as 2, the tile row's low bitplane byte written and the high one not yet;
- *  fsw097: rows 0-79 old tile by tile, 3 pixels neither old nor new — probably the same), a mix
- *  the port, whose writes complete within the step, cannot draw (docs/FFL1_PROGRESS.md). */
-const RESIDUAL: Record<string, [number, number][]> = { fsw097: [[147, 590]], fsw101: [[126, 10]] };
 
 const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => /^(fsw\d+|ev[rt][0-9a-f]_\d+_\d+|ts[wb][0-9a-f]_[0-9a-f]{4})$/.test(n)).sort() : [];
 const events: Record<string, number> = {};
@@ -39,7 +33,7 @@ describe.skipIf(!haveRom() || names.length === 0)("FFL1 field sweep", () => {
       if (r.error || r.waits.length || r.diffs.length) console.log(`${info} error ${r.error?.message ?? "-"}\n${summarizeWaits(r.waits)}\n${summarize(r.diffs)}`);
       expect(r.error).toBeUndefined();
       expect(r.waits).toEqual([]);
-      expect(r.diffs.map((d) => [d.frame, d.pixels])).toEqual(RESIDUAL[name] ?? []);
+      expect(r.diffs.map((d) => [d.frame, d.pixels])).toEqual([]);
     });
   }
   it("summary", () => {

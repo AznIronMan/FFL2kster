@@ -102,6 +102,23 @@ class Recorder:
                     switched[:] = [nframes[0], switch[i][1]]
             return at_switch
         fired = set()
+        # the VRAM bytes written inside the VRAM bracket (STAT jp at C39D -> 00:069F: the code runs in
+        # each line's hblank) with the LCD on: [frame, LY, address] at the store of 00:007C / 0085
+        # (fills, HL), 00:0091 / 009A (copies, DE) and 00:1BD4 / 1BD7 (the battle dissolve's masks, HL)
+        vw = []
+
+        def mk_vw(reg):
+            def at_vw(_):
+                if not start:
+                    return
+                m = pb.memory
+                if m[0xC39E] != 0x9F or m[0xC39F] != 0x06 or not (m[0xFF40] & 0x80):
+                    return
+                r = pb.register_file
+                a = r.HL if reg == "hl" else (r.D << 8 | r.E)
+                if 0x8000 <= a < 0xA000:
+                    vw.append([nframes[0], m[0xFF44], a])
+            return at_vw
         hb, ha = hook
         pb.hook_register(hb, ha, cb, None)
         for i, ((sb, sa), _st) in enumerate(switch):
@@ -110,6 +127,8 @@ class Recorder:
             pb.hook_register(mb, ma, mk_mark(mb, ma), None)
         pb.hook_register(0, 0x00C7, arm, None)
         pb.hook_register(0, 0x00CF, at_halt, None)
+        for a, reg in ((0x007C, "hl"), (0x0085, "hl"), (0x0091, "de"), (0x009A, "de"), (0x1BD4, "hl"), (0x1BD7, "hl")):
+            pb.hook_register(0, a, mk_vw(reg), None)
         try:
             for _ in range(max_pre):
                 pb.tick(1, True)
@@ -154,6 +173,8 @@ class Recorder:
         finally:
             pb.hook_deregister(0, 0x00C7)
             pb.hook_deregister(0, 0x00CF)
+            for a in (0x007C, 0x0085, 0x0091, 0x009A, 0x1BD4, 0x1BD7):
+                pb.hook_deregister(0, a)
             for mb, ma in marks:
                 pb.hook_deregister(mb, ma)
             for (sb, sa), _st in switch:
@@ -171,7 +192,7 @@ class Recorder:
         open(f"{out}/prev.bin", "wb").write(prev)
         open(f"{out}/screens.dx.gz", "wb").write(_dx(screens, 160 * 144))
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
-        json.dump({"frames": wait_frames}, open(f"{out}/waits.json", "w"))
+        json.dump({"frames": wait_frames, "vw": vw}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
                    "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))

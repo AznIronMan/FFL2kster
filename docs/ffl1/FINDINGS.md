@@ -383,3 +383,8 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   shows entry 0x46's text and starts its battle).
 - Monsters flee: verified by flee2 (REDBULL, HORN spent after 10 uses -> action FC -> 06:5098:
   "ran away", status FF).
+- The battle dissolve 00:1BBE (1.52.0): its 10,240 stores (00:1BD4 / 1BD7) run inside the VRAM
+  bracket, so the code gets the CPU only in the lines' hblanks (00:069F) and the dissolve shows
+  over ~18 frames (fsw097: 129-147; fsw101: 108-126), 116-640 stores a frame, a few each line.
+  Recorded per store (`vw` in waits.json: frame, LY, address) and replayed at those line times,
+  the two residual frames match; one frame or 4 lines off fails them.

@@ -129,3 +129,8 @@ both ROMs; differences are listed first because they are the valuable part.
   bytes still land, so a chunk shows from the first line it was tried on.
 - 1.49.0: Legend III's object drawing (00:01A0) holds the vblank DMA with CD39 and releases it
   just before returning; a vblank in between DMAs the finished buffer.
+- 1.52.0: both Legend I and Legend III draw some VRAM stores line by line; the ports record their
+  line times from the original (Legend I `vw`: per store at the store instruction; Legend III
+  `paced`: per chunk at 00:2120 / 00:216E) and the replays apply them at those lines. Legend I's
+  battle dissolve 00:1BBE is the case that needed it (the 00:069F handler gives the code the CPU
+  in each hblank).

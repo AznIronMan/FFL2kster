@@ -136,6 +136,7 @@ With BG tile data at 8800 (LCDC bit 4 = 0) the screen holds code − 0x80 (`I` =
 | `00:300E` | facility dispatch (shop, inn, house of life, guild) | verified (shop) |
 | `00:16E0` | event command executor (C3A9 command, C3AA parameter; 8 = battle → 00:1BBE) | probable |
 | `00:0EBA` | dialogue interpreter | verified |
+| `00:1BBE` | battle command: the tiles 8800-8FFF dissolved (5 masked passes, stores 00:1BD4 / 1BD7, in the hblanks of the VRAM bracket), then the battle 06:4000 | verified (fsw097, fsw101 line by line) |
 
 ## RAM
 
