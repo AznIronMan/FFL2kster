@@ -449,7 +449,7 @@ const TIMING = (a: number) => a === 0xff00 || a === 0xff04 || a === 0xff0f || a 
 /** FFA1-FFA4: rst $18's own scratch (the caller's f, a, l, h; read only by 00:378A). */
 const RST18 = (a: number) => a >= 0xffa1 && a <= 0xffa4;
 /** Traces whose sound state still differs (docs/ffl3/FINDINGS.md, 1.45.0): compared without it. */
-export const SOUND_KNOWN = new Set(["opening2", "opening3", "b0a", "b77"]);
+export const SOUND_KNOWN = new Set<string>([]); // (1.49.1: none left)
 export const IGNORE_SOUND_ON = (a: number) => APU(a) || STACK(a) || TIMING(a) || RST18(a);
 export const IGNORE = (a: number) => (!process.env.FFL3K_SOUND && SOUND(a)) || IGNORE_SOUND_ON(a);
 /* The ROM bank stack's slots at and above its depth (C0A0 + C0B0 ..) are dead: the interrupt

@@ -945,3 +945,28 @@ in all 425 traces (was 412); the battle sweep stays 125/125.
 Falsification (ffl3/scratch/mut17.py): each fails a trace — no `objQuirks` check (t11_4,
 tb3_6, tb8_2), the busy-frame lines dropped (ta7_3), the OAM buffer at 00:0275 instead of
 00:01CF (map51). Slice 39/39, battle sweep 125/125 with the re-recorded traces.
+
+## 2026-10-14 — The sound residuals gone; the quake and the ending verified (1.50.0)
+
+- **The battle script's sound requests at their write.** The trace's `sfx` / `song` records of
+  the battle script's store were taken at its entry 0C:4017; the byte is written lines later
+  (0C:403A / 403D / 403F, now hooked with HL = FFBC / FFBA). In b0a a request recorded on line 2
+  was written on line 7, after the bracket STAT's sound tick on line 3: the port's driver took it a
+  tick early (b0a and b77 were SOUND_KNOWN).
+- **00:1B50, the handlers back after an event walk (sync point).** After the walk's last frame
+  wait the code takes lines before 00:1B50 restores the bracket's handlers; in opening2 it came on
+  line 6, after line 3, so that frame's LYC STAT went to the normal (reti) handler and the frame had
+  no sound tick. The port restored them at the wait's end and ticked once more (opening2,
+  opening3). With the point both compare their sound state: `SOUND_KNOWN` is empty.
+- **New traces from poked map events** (POKES, like the battle sweep): `quake1` (event 2C, the
+  raster quake 01:5B4D with its vblank 00:11E4 and hblank STAT 00:121D handlers, 576 waits) and
+  `ending1` (event 10 F, the ending 06:7F69: the wipe, the credits over the battle screen, the last
+  screen and its endless loop, 793 waits over 4,520 frames) replay wait-exact and screen-exact;
+  they join the slice. The quake matched as ported (1.47.0); the ending needed one more sync point:
+- **01:5F12, the battle wipe's sound tick end (sync point).** The wipe ticks the sound itself
+  after line 8F of each frame and then polls for LY 0; a tick that ends past line 0 makes the poll
+  wait a frame more (ending1, frame 24: no tick that frame).
+
+Falsification (ffl3/scratch/mut18.py): each fails a trace — no point 00:1B50 (opening2: 8
+sound diffs), no point 01:5F12 (ending1: a frame late from wait 0). Field 425/425, battle 125/125,
+slice 41/41 (quake1, ending1 added), all with the sound state compared; all traces re-recorded.

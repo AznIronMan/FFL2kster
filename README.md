@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.49.0`
+Version: `1.50.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,12 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.50.0` — Legend III: the sound driver's state now matches in every trace (the last four
+  residuals fixed: the battle script's sound requests recorded at their write, a sync point where
+  an event walk gives the bracket's handlers back), and the late story is verified against the
+  original: the raster quake (event 2C) and the whole ending (credits, last screen) replay
+  wait-exact and screen-exact (new traces quake1, ending1 in the slice; sync point 01:5F12 in the
+  battle wipe).
 - `1.49.0` — Legend III field sweep complete: all 425 field traces (every map, every person
   talked to) replay wait-exact and screen-exact, with the battle sweep's 125 and the slice's 39.
   The objects' OAM buffer counts as complete when the drawing releases the DMA (00:01CF, a new

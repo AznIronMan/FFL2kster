@@ -84,6 +84,8 @@ export function* battleWipe(g: Game): Co {
     }
     yield* g.untilLine(0x90); // STAT mode 1
     yield* soundMain(g);
+    // (the tick's CPU time: when it ends past line 0, the poll for LY 0 waits a frame more)
+    yield* g.point(0x015f12);
     if (d) d = (d - 4) & 0xff;
   } while (m.rd(0xc800) < 0x50);
   fill(m, 0x9800, 0x0400, 0xff);

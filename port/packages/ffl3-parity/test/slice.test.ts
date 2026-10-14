@@ -45,6 +45,8 @@ const TRACES: [string, string][] = [
   ["menu7", "menu item 5 (09:43B1, the auto-battle marks): members toggled (C500 bit 7)"],
   ["menu8", "menu item 6 (09:43F0, the save): the slots (SRAM, stash slot 3), B back, a slot saved, a used slot asked (no, then yes) and saved"],
   ["menu9", "menu item 6 left by B while the menu's rows are shown (hblank-paced copies, sync point 09:5044) on a 16th frame (the walking figures)"],
+  ["quake1", "map event 2C poked at field_start: the raster quake (01:5B4D, its vblank 00:11E4 and hblank STAT 00:121D handlers)"],
+  ["ending1", "map event 10 F poked at field_start: the ending (06:7F69): the wipe, the credits over the battle screen, the last screen, its endless loop"],
 ];
 
 describe.skipIf(!haveRom())("FFL3 scenario parity", () => {

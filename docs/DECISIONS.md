@@ -642,3 +642,6 @@ Decisions and assumptions:
   failing them (`objQuirks`: PyBoy does not let a behind-the-BG object hide the objects under
   it). A sync point inside a shared routine is taken there for every call (`pointTime(addr,
   quiet)`, never late), so its occurrences stay aligned with the trace's.
+- 1.50.0: late-story code with no save state is verified from field_start by poking its map
+  event (POKES), as the battle sweep does for formations: quake1 (event 2C), ending1 (event 10 F).
+  Such traces verify the code they reach, not the story's way there.

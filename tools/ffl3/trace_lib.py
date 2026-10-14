@@ -151,10 +151,11 @@ class Recorder:
                 rf = pb.register_file
                 paced.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44], rf.D << 8 | rf.E, n])
 
-        def at_store(_):   # 0C:4017, the battle script's store: a request when its target is FFBC / FFBA
-            if start and pb.memory[0xCC01] | (pb.memory[0xCC02] << 8) == 0xFFBC:
+        def at_store(_):   # 0C:403A / 403D / 403F, the battle script's store writing a byte (to hl):
+            # a request when it is FFBC / FFBA (taken at the write: an interrupt may come after 0C:4017)
+            if start and pb.register_file.HL == 0xFFBC:
                 sfx.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
-            if start and pb.memory[0xCC01] | (pb.memory[0xCC02] << 8) == 0xFFBA:
+            if start and pb.register_file.HL == 0xFFBA:
                 song.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
 
         works, open_work = [], []
@@ -225,7 +226,8 @@ class Recorder:
             pb.hook_register(b, a, mk_point(b, a), None)
         for b, a in SFX_WRITES:
             pb.hook_register(b, a, at_sfx, None)
-        pb.hook_register(0x0C, 0x4017, at_store, None)
+        for a in (0x403A, 0x403D, 0x403F):
+            pb.hook_register(0x0C, a, at_store, None)
         pb.hook_register(0, 0x1F27, at_stat, None)
         pb.hook_register(0, 0x2120, at_paced, 5)
         pb.hook_register(0, 0x216E, at_paced, 1)
@@ -287,7 +289,8 @@ class Recorder:
                 pb.hook_deregister(b, a)
             for b, a in SFX_WRITES:
                 pb.hook_deregister(b, a)
-            pb.hook_deregister(0x0C, 0x4017)
+            for a in (0x403A, 0x403D, 0x403F):
+                pb.hook_deregister(0x0C, a)
             pb.hook_deregister(0, 0x1F27)
             pb.hook_deregister(0, 0x2120)
             pb.hook_deregister(0, 0x216E)
@@ -354,7 +357,7 @@ def _sram(pb):
 # 0F:7E3B the wave set-up's handler switch (after the bracket, the fade levels and copies)
 POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74), (0x09, 0x40B1), (0x09, 0x504F), (0x09, 0x5044), (0x0B, 0x7E7A), (0x01, 0x5783), (0x00, 0x026C), (0x00, 0x0272), (0x00, 0x0275), (0x01, 0x5F2B), (0x00, 0x027B), (0x01, 0x49CA), (0x01, 0x49CD), (0x01, 0x49D5), (0x09, 0x44D2), (0x0B, 0x7E17),
           (0x00, 0x02D3), (0x00, 0x02E4), (0x00, 0x10DC), (0x00, 0x1152), (0x00, 0x1175), (0x00, 0x1A2B), (0x0B, 0x4008), (0x0F, 0x7F10), (0x00, 0x023B), (0x0F, 0x7E3B),
-          (0x00, 0x01CF))
+          (0x00, 0x01CF), (0x00, 0x1B50), (0x01, 0x5F12))
 
 
 def plan_steps(plan):

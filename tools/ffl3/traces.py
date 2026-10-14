@@ -94,6 +94,11 @@ SCENARIOS = {
     "enc1": ("field_start", FIELD, "none:60,up:160,none:30,up:200,none:300,down:200,none:30,down:60,none:30,"
                                    "left:32,none:30,right:64,none:60," + "a:3,none:37," * 212 + "b:3,none:60," * 3 + "none:300"),
     # Select in the field (00:0851): the leader rotates through the members (C6F3), its sprite
+    # (1.49.1) late-story code reached from field_start by a poked map event (POKES): event 2C, the
+    # raster quake (01:5B4D); event 10 F, the ending (06:7F69: the credits, the last screen, its
+    # endless loop)
+    "quake1": ("field_start", FIELD, "none:600"),
+    "ending1": ("field_start", FIELD, "none:200," + ",".join(["a:3,none:57"] * 72)),
     "select1": ("field_start", FIELD, "none:30," + "select:3,none:24," * 5 + "right:16,none:20,left:16,none:40"),
     # Continue on the title (09:4964) with the save menu8 left (slots 1 and 3?): the slot list,
     # the cursor both ways, an empty slot refused, a game loaded (01:7DC5), the saved map (00:025C)
@@ -204,6 +209,8 @@ def map_pokes(mp, b1, b2):
 
 
 POKES = {
+    "quake1": ((0xC2F0, 0xEC), (0xCA28, 0x00), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)),   # map event 2C
+    "ending1": ((0xC2F0, 0xD0), (0xCA28, 0xF0), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)),  # map event 10, F
     "ship3": ((0xC760, 0x04, 0x04),),   # story flag 05
     "ship4": ((0xC6F9, 0x40, 0x40),),   # key item E1
     "menu10": ((0xC701, 0xC0), (0xC702, 0x03), (0xC703, 0xCD), (0xC704, 0x01), (0xC705, 0xCA), (0xC706, 0x01),

@@ -64,6 +64,9 @@ export function* normalHandlers(g: Game): Co {
 /** 00:1B50 — the handlers kept by 00:1B2D back (di ... reti). */
 export function* restoreHandlers(g: Game): Co {
   const m = g.m;
+  // (the code before, after a frame wait, takes lines: whether the bracket's STAT on line 3 finds
+  // its handler back depends on them)
+  yield* g.point(0x1b50);
   g.ime = false;
   copy(m, 0xca5a, 0xc0bc, 3);
   copy(m, 0xca5d, 0xc0b9, 3);
