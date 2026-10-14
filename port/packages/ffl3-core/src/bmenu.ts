@@ -12,7 +12,7 @@ import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
 import { pushBank, popBank, farSync, farcall, far0, far0Sync, copy, copyB, fill, textBegin, textEnd, wait1,
   windowOn, windowOff, fadeOut, soundOk, soundBuzz, memberOffset } from "./sys.js";
-import { NotPorted } from "./irq.js";
+import { NotPorted, Reset } from "./irq.js";
 import { oamClear } from "./names.js";
 import { windowClear } from "./newgame.js";
 import { menu } from "./menu.js";
@@ -531,7 +531,7 @@ function* battleEnd(g: Game): Co {
   if (m.rd(0xceda) === 0xff) {
     if (m.rd(0xcc59) === 0xc2) {
       yield* g.wait(0x78);
-      throw new NotPorted("00:0200 (the reset after the battle)");
+      throw new Reset("0B:5CDF (formation C2 lost)");
     }
     yield* farcall(g, 0x0f, () => continueQuestion(g));
     farSync(g, 0x0f, () => far0Sync(g, 0x00, () => copyB(m, 0xdd00, 0xc6e0, 0x60)));
@@ -581,7 +581,7 @@ function* continueQuestion(g: Game): Co {
   });
   const a = m.rd(0xc080);
   m.wr(0xc080, 0);
-  if (a !== 0x78) throw new NotPorted("00:0200 (the reset after the battle)");
+  if (a !== 0x78) throw new Reset("0F:7F8F (no continue)");
   farSync(g, 0x0b, () => backgroundClear(g));
 }
 

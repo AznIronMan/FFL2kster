@@ -10,6 +10,14 @@ export class NotPorted extends Error {
   }
 }
 
+/** The game's own reset (`jp $0200` after a lost battle): the player starts again from the start
+ *  code (`Engine.fromStart`), keeping the cartridge RAM. */
+export class Reset extends Error {
+  constructor(where: string) {
+    super(`reset (00:0200) from ${where}`);
+  }
+}
+
 /** FF80 (copied from 00:3730) — OAM DMA from C000. */
 export function oamDma(m: Memory): void {
   m.wr(0xff46, 0xc0);

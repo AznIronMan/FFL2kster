@@ -828,3 +828,18 @@ Falsification (ffl3/scratch/mut14.py, mut15.py): each fails a trace — the temp
 the requests (battle2), FFFD (boot1), the stall threshold 11 objects and the first chunk on the
 call's line (b0c-b15). Survivors: the LCD-off gating (boot1 passes without it since 00:023B),
 0B:7E17 removed passes b0c-b15 (but fails b65 and b6b; with it b1f, b51 and b62 fail).
+
+## 2026-10-14 — Legend III in the app (1.46.0)
+
+The app imports a Legend III ROM (checkFfl3Rom: the verified dump, or a 256 KiB "SAGA3" image in
+the unverified mode) into its own data package and battery RAM (IndexedDB keys ffl3, ffl3.sram,
+ffl3.sram.prev), and runs `Player3`: the engine from the start code (`Engine.fromStart`) with the
+boot ROM's LCDC 91 / BGP FC, 59.73 Hz frames, the PPU, input, the sound through the shared APU
+model. The game's own reset (`jp $0200` when the party loses the scripted battle C2, or declines to
+continue) is thrown as `Reset` and starts the engine again, keeping the cartridge RAM.
+
+In play nothing re-times the code (no trace): `play.test.ts` runs the engine from power-on with
+the opening's buttons and then a seeded walk for 90,000 frames, no engine error. In a browser
+(vite build served locally, the ROM given by ?rom= from the same machine) the title, New Game, the
+names, the opening battle, the opening scene, the field menu with an item used, the field and the
+moving floor played without an error.

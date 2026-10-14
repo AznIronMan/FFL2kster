@@ -6,6 +6,8 @@
     { "path": "../../packages/importer" },
     { "path": "../../packages/ffl1-importer" },
     { "path": "../../packages/ffl1-core" },
+    { "path": "../../packages/ffl3-importer" },
+    { "path": "../../packages/ffl3-core" },
     { "path": "../../packages/core" },
     { "path": "../../packages/render" },
     { "path": "../../packages/audio" },

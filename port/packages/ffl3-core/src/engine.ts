@@ -15,6 +15,13 @@ import { loadMap } from "./mapload.js";
 import { statIrqOn } from "./cont.js";
 import { SoundDriver } from "./sound.js";
 
+/** The ROM as the engine's data segments (bank "00".."0F" -> 16 KiB each). */
+export function segmentsOf(rom: Uint8Array): Record<string, Uint8Array> {
+  const s: Record<string, Uint8Array> = {};
+  for (let b = 0; b < rom.length / 0x4000; b++) s[b.toString(16).padStart(2, "0")] = rom.slice(b * 0x4000, (b + 1) * 0x4000);
+  return s;
+}
+
 export class Engine {
   readonly g: Game;
 

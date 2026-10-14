@@ -14,6 +14,8 @@
     "@capacitor/share": "^8.0.3",
     "@ffl1k/core": "*",
     "@ffl1k/importer": "*",
+    "@ffl3k/core": "*",
+    "@ffl3k/importer": "*",
     "@ffl2k/audio": "*",
     "@ffl2k/core": "*",
     "@ffl2k/importer": "*",

@@ -55,3 +55,13 @@ export const saveFfl1Sram = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, "
 export const loadFfl1Sram = () => tx<Uint8Array | undefined>("readonly", (s) => s.get("ffl1.sram"));
 export const saveFfl1SramBackup = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, "ffl1.sram.prev"));
 export const loadFfl1SramBackup = () => tx<Uint8Array | undefined>("readonly", (s) => s.get("ffl1.sram.prev"));
+
+/** Legend III (FFL3kster): its own data package and battery RAM (MBC1, 8 KiB), kept beside the
+ *  other games' under separate keys. */
+export const saveFfl3Package = (p: unknown) => tx("readwrite", (s) => s.put(p, "ffl3"));
+export const loadFfl3Package = () => tx<unknown>("readonly", (s) => s.get("ffl3"));
+export const clearFfl3Package = () => tx("readwrite", (s) => s.delete("ffl3"));
+export const saveFfl3Sram = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, "ffl3.sram"));
+export const loadFfl3Sram = () => tx<Uint8Array | undefined>("readonly", (s) => s.get("ffl3.sram"));
+export const saveFfl3SramBackup = (b: Uint8Array) => tx("readwrite", (s) => s.put(b, "ffl3.sram.prev"));
+export const loadFfl3SramBackup = () => tx<Uint8Array | undefined>("readonly", (s) => s.get("ffl3.sram.prev"));
