@@ -53,6 +53,13 @@ export class Memory {
     return this.hram[a - 0xff80]!;
   }
 
+  /** The game's sound effect request FFBC = v (`Game.sfx` times it in a replay). */
+  onSfx: ((v: number) => void) | null = null;
+  sfx(v: number): void {
+    if (this.onSfx) this.onSfx(v);
+    else this.hram[0x3c] = v & 0xff;
+  }
+
   wr(a: number, v: number): void {
     a &= 0xffff;
     v &= 0xff;

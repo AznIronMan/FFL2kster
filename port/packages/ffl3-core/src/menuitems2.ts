@@ -286,7 +286,7 @@ function* swapCheck(g: Game): Co<boolean> {
 
 /** 00:2503 — the slot [CDDC] swapped with the bag pair [CDDE] (00:2535); done: the old slot item's
  *  stats off (CE25 = 1, 0B:7124), the new one's on (CE25 = 0). Returns true (nz) when refused. */
-function* equipSwap(g: Game): Co<boolean> {
+export function* equipSwap(g: Game): Co<boolean> {
   const m = g.m;
   const d = m.rd(m.rd16(0xcddc));
   if (yield* swapCheck(g)) return true;

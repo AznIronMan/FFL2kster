@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { haveRom, haveTrace, replay, summarize, summarizeWaits } from "../src/index.js";
 
 const TRACES: [string, string][] = [
+  ["boot1", "power-on from the start code 00:0200: the LCD off at line 91, RAM cleared, the vectors, into the title and its music"],
   ["title1", "the title from its start (01:7C79): pictures, text, sprites, fade in, idle"],
   ["title2", "the title menu: cursor, buzzer, Select, key repeat"],
   ["newgame1", "New Game: fade out, the prologue's map load (door 3B -> map 05), window slide, text tile by tile"],

@@ -630,10 +630,10 @@ export function* loadMap(g: Game): Co {
   m.wr(0xca1d, m.rd(hl++));
   m.wr(0xca1e, m.rd(hl++));
   m.wr(0xca18, m.rd(hl++));
-  if (!m.rd(0xca6e)) m.hram[0x3a] = m.rd(0xc7cc);
+  if (!m.rd(0xca6e)) { const mu = m.rd(0xc7cc); g.atPoint(0x02d3, () => { m.hram[0x3a] = mu; }); }
   else if (!m.rd(0xca59)) {
     const mu = m.rd(hl) & 0x1f;
-    if (mu !== 0x1f) m.hram[0x3a] = mu;
+    if (mu !== 0x1f) g.atPoint(0x02e4, () => { m.hram[0x3a] = mu; });
   }
   m.wr(0xca59, 0);
   const b4 = m.rd(hl++);

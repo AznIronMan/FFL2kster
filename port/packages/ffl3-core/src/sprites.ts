@@ -135,15 +135,21 @@ export function frameSprites(g: Game): void {
  *  Returns de after. */
 export function* memberTiles(g: Game, a: number, hl: number, de: number): Co<number> {
   const m = g.m;
+  yield* g.point(0x0b7e17); // (each member's raw copy before is hblank-paced: CPU time)
   m.wr(0xcd4d, a);
   const st = (m.rd(hl - 12) & 0xfc) | (m.rd(hl - 11) & 0xe0);
   let e = st ? 0x40 : 0;
   if (m.rd(0xcd4d) === 2) e = 0x40;
   const code = farSync(g, 0x0b, () => spriteCode(m, hl));
   const src = (((code & 0x3f) | 0x40) << 8) | e;
-  const [, de2] = far0Sync(g, 0x04, () => vramCopy(m, src, de, 0x40));
+  // the raw copy shows over the lines it takes (00:20FF: 5 bytes a line); the read back (with
+  // status) sees it whole
+  const [, de2] = g.vramPaced(() => {
+    const r = far0Sync(g, 0x04, () => vramCopy(m, src, de, 0x40));
+    if (st) far0Sync(g, 0, () => vramCopy(m, de, 0xc880, 0x40));
+    return r;
+  }, de);
   if (!st) return de2;
-  far0Sync(g, 0, () => vramCopy(m, de, 0xc880, 0x40));
   for (let p = 0xc880; p < 0xc8c0; p += 2) {
     let lo = m.rd(p), hi = m.rd(p + 1);
     for (let i = 0; i < 8; i++) {
@@ -158,7 +164,8 @@ export function* memberTiles(g: Game, a: number, hl: number, de: number): Co<num
   // the copies before are hblank-paced and the plane loop is long: the raw tiles show until the
   // copy back starts (CPU time; sync point 0B:7E7A)
   yield* g.point(0x0b7e7a);
-  far0Sync(g, 0, () => vramCopy(m, 0xc880, de, 0x40));
+  // the copy back shows over the lines it takes (00:20FF: 5 bytes a line)
+  g.vramPaced(() => far0Sync(g, 0, () => vramCopy(m, 0xc880, de, 0x40)), de);
   return de2;
 }
 

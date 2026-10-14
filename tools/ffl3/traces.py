@@ -16,6 +16,9 @@ FIELD = (0, 0x0265)   # 00:0265, the field loop (each iteration)
 # name: (state, hook, plan[, state saved at the end])
 # (POKES: the scenario's pokes at the hook, (address, value[, mask]))
 SCENARIOS = {
+    # power-on from the start code 00:0200 (the LCD off at line 91, the clears, the vectors) into
+    # the title and its music
+    "boot1": ("boot", START, "none:400"),
     "title1": ("boot", TITLE, "none:400"),
     # the title menu: cursor down/up, B and Start (buzzer), Select, a direction held (key repeat)
     "title2": ("boot", TITLE, "none:60,down:3,none:30,up:3,none:30,b:3,none:40,start:3,none:40,select:3,none:20,"
@@ -243,11 +246,28 @@ def talk_sweep():
     return out
 
 
+# ---------------------------------------------------------------- the battle sweep
+#
+# From field_start, a pending map event 1B (C2F0 = DB with a step made, CA56) starts the battle
+# with formation CA28 (00:19D0; FFCA = CA28 + 80), for every formation 00-7D but 42 (C2: the
+# scripted loss that resets); then A every 40 frames (the default commands and targets), B for the
+# questions after it, the map back. Named bXX.
+
+PLAN_BATTLE = "none:10," + "a:3,none:37," * 120 + "b:3,none:40," * 4 + "none:200"
+
+
+def battle_sweep():
+    return {f"b{k:02x}": ("field_start", FIELD, PLAN_BATTLE, ((0xC2F0, 0xDB), (0xCA28, k), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
+            for k in range(0x7E) if k != 0x42}   # (7E: the recording does not finish; to look into)
+
+
 def main(names):
     rec = Recorder()
     sweep = map_sweep() if not names or any(n.startswith("map") and len(n) == 5 for n in names) else {}
     if not names or any(n.startswith("t") and "_" in n for n in names):
         sweep.update(talk_sweep())
+    if not names or any(len(n) == 3 and n[0] == "b" for n in names):
+        sweep.update(battle_sweep())
     try:
         for name in names or list(SCENARIOS) + list(sweep):
             if name in sweep:

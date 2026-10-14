@@ -314,7 +314,7 @@ function* jumpTwo(g: Game, cells: Cells): Co {
  *  closed (00:35D2). */
 function* jumpRefused(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x10;
+  g.sfx(0x10);
   let c = 0x0f;
   do {
     const de = m.rd16(0x4936 + 2 * c);
@@ -355,7 +355,7 @@ function* jumpLeft(g: Game): Co { yield* jumpFacing(g, cellsLeft); }
 export function* jumpB(g: Game): Co<boolean> {
   const m = g.m;
   if (!(m.hram[0x0b]! & 0x02)) return false;
-  m.hram[0x3c] = 0x39;
+  g.sfx(0x39);
   m.wr(0xca26, 0);
   m.wr(0xc6f4, 0x01);
   let a = m.rd(0xc6ee);

@@ -322,6 +322,7 @@ function* slideBegin(g: Game): Co {
 function* slideFrame(g: Game, a: number): Co {
   const m = g.m;
   m.wr(0xff45, a);
+  yield* g.sfxWritten();
   pushBank(g, 0x0f);
   g.hooks.soundTick?.(g);
   popBank(g);

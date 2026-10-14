@@ -326,7 +326,7 @@ function* bagPutChecked(g: Game): Co<boolean> {
   const m = g.m;
   farSync(g, 0x0b, () => bagPut(m));
   if (!((m.rd(0xce94) + 1) & 0xff)) { yield* soundBuzz(g); return true; }
-  m.hram[0x3c] = 0x35;
+  g.sfx(0x35);
   return false;
 }
 

@@ -783,3 +783,48 @@ the text codes 00:3086 / 00:308C / newlines 00:26D3 / 26E3 and the menu code 00:
 known to reach them), the vehicle pushed out on map 01 (01:63AD) and A on the return point
 (01:632A). Not ported: map 01's AD case (00:101F), the other moving cell kinds, map animation
 modes outside the 36, the raster quake (event 2C, 01:5B4D), event 10 F (06:7F69).
+
+## 2026-10-14 — Port: the sound driver, the start code, the battle sweep (1.45.0)
+
+The sound driver (bank 0F 4000-482E; `sound.ts`, ported by a sub-agent from the listing, its
+command handlers 0F:44A8-4618 decoded from the bytes the listing shows as data) runs at each tick
+(00:1F3A from the STAT and vblank handlers, 00:3A60 and 00:3624 from the code, 0F:7EBF in the wave
+raster). Four channels of 0x18 bytes (A CB02 pulse 2, B CB1A pulse 1, C CB32 wave, D CB4A noise),
+the tempo accumulator CB00 + CB01 (a carry runs the sequencer twice), pulse and noise effects
+borrowing B and D. Its RAM (CB00-CBFE, FFBB-FFC5) is now compared at every frame wait in traces
+recorded from 1.45.0: the slice (37 of 39; opening2 / opening3 differ from one frame of the
+scene at 18429 on), the field sweep (all 412 that pass) and the battle sweep (98 of the 100;
+b0a, b77) — the residuals are listed in `SOUND_KNOWN` (parity) and checked to still differ.
+
+Getting there took the times of the game's requests: the port writes in no time, so a request
+written in the original after the frame's tick reached the driver a tick later. Traces now record
+the writes of the effect request FFBC (41 `ldh [$BC],a` sites, 9 of them in code the listing shows
+as data, found by a ROM scan for E0 BC after `ld a,n`; and the battle script's stores to FFBC,
+0C:4017) and of the music request FFBA (8 sync points, and the script's stores); the port lands each
+write at the original's time (`Game.sfx`, `Game.song`, `Game.atPoint`) without holding the code,
+and a tick the code runs itself (00:3A60, 00:361F) first waits for the requests written before
+it. Interrupts: the LCD off gives no vblank or STAT; a bracket entered on line 2 writes LYC 3 just
+before or just after line 3 begins (cycles): the trace's record of the bracket's STAT handler
+(00:1F27 entries) tells which; at the wave's end the old LYC's coincidence on the next line may
+still request a STAT (taken by 00:1F27 at the `ei`): the original's next bracket call (lines
+later when the handler ran) tells. The start code from power-on (00:0200: LCD off at line 91, the
+clears, the vectors, the title; its first `call` leaves 0204 on the power-on stack at FFFC) is
+`Engine.fromStart` (`boot1`, sync point 00:023B: the clears take frames with the LCD off).
+
+The battle sweep (traces.py battle_sweep) fights every formation 00-7D but 42 (C2, the scripted
+loss that resets; 7E's recording does not finish) from field_start through a poked map event 1B,
+A every 40 frames: 100 of 125 wait-exact. A member's figure tiles (0B:7E17: the raw copy, read
+back, the low plane cleared, copied back) are written by 00:20FF, 5 bytes in each hblank; on a
+line with 8 or more objects the hblank is too short and the copy writes the same 5 again on the
+next line (the battle figures' rows have 10), and its first chunk lands in the hblank after the
+call's line: the port shows them line by line (`Game.vramPaced`; sync point 0B:7E17). Residuals:
+13 traces with a few pixels on one or two frames (figures and effects), 5 with an object's flip a
+frame early near the end, 7 where after the battle's last message the port runs a frame work the
+original did not (its frame works then come ~80 frames late).
+
+Falsification (ffl3/scratch/mut14.py, mut15.py): each fails a trace — the tempo accumulator + 1
+(field1), FFBC written at once (menu11), the line-2 race always on time (enc1), points 00:023B
+(boot1) and 0F:7E3B (ship4), the script's FFBA store at once (opening1), the tick not waiting for
+the requests (battle2), FFFD (boot1), the stall threshold 11 objects and the first chunk on the
+call's line (b0c-b15). Survivors: the LCD-off gating (boot1 passes without it since 00:023B),
+0B:7E17 removed passes b0c-b15 (but fails b65 and b6b; with it b1f, b51 and b62 fail).

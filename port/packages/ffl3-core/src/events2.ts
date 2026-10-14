@@ -1095,7 +1095,7 @@ export function* disembark(g: Game): Co {
  *  list's entry, x = the CA66 list's (cell units); CA60 + 1. */
 function spawnNext(m: Memory): void {
   if (m.rd(0xca60) === m.rd(0xca62)) return;
-  m.hram[0x3c] = 0x16;
+  m.sfx(0x16);
   lastFreeSlot(m);
   fset(m, "c200", 0x01);
   fset(m, "c320", 0x0f);
@@ -1145,7 +1145,7 @@ export function* spawnSequence(g: Game, hl: number): Co {
  *  frames (FF47 kept). */
 export function* flashFrames(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x2d;
+  g.sfx(0x2d);
   const bgp = m.rd(0xff47);
   for (let b = 0x80; b; b--) {
     if (!(m.hram[0x13]! & 0x07)) m.wr(0xff47, m.rd(0xff47) ^ 0xff);
@@ -1376,7 +1376,7 @@ function* vehicleArrives(g: Game): Co {
  *  b = FE). */
 export function* boardVehicle(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x1f;
+  g.sfx(0x1f);
   yield* vehicleArrives(g);
   setSlot(m, 0);
   m.wr(0xc6e3, 0x01);

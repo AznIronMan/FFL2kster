@@ -621,3 +621,9 @@ Decisions and assumptions:
   NAME ended with (Continue). Such traces verify the code they reach, not the story's way there.
   Routines ported by sub-agents count as verified only where a trace reaches them and a mutation
   fails it; the rest is listed as unverified in docs/ffl3/FINDINGS.md.
+- 1.45.0: game writes read only by the sound driver (FFBA, FFBC) land at the original's recorded
+  times without holding the port's code, so the driver's state is compared like any other RAM.
+  A race the original decides by cycles within a line is decided from what the trace shows the
+  original did (the STAT handler entered, the next bracket call's time), never by a guess; without
+  a trace the port takes the side the listing makes likely. Traces recorded before a record
+  existed keep the older comparison (`SOUND_KNOWN` lists the residuals, checked to still differ).

@@ -225,6 +225,9 @@ class Script {
     let a = m.rd(0xcc03);
     if (a >= 3) a = a < 5 ? a - 3 : a - 5;
     let hl = m.rd16(0xcc01);
+    // (a sound effect request: timed as the game's other writes of FFBC)
+    if (hl === 0xffbc && a === 0) { this.g.sfx(m.rd(0xcc05)); return; }
+    if (hl === 0xffba && a === 0) { this.g.song(m.rd(0xcc05)); return; }
     let de = 0xcc05;
     if (a === 2) m.wr(hl++, m.rd(de++));
     if (a >= 1) m.wr(hl++, m.rd(de++));

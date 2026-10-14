@@ -121,6 +121,12 @@ export interface Trace {
   /** The times the CPU reached the sync points (tools/ffl3/trace_lib.py POINTS), by bank << 16 |
    *  address. */
   points: Record<number, [number, number][]>;
+  /** [frame, LY] of the game's writes of a sound effect request FFBC (traces from 1.45.0). */
+  sfx?: [number, number][];
+  /** [frame, LY] of the battle script's writes of a music request FFBA (0C:4017). */
+  song?: [number, number][];
+  /** [frame, LY] of the original's entries to the bracket's STAT handler 00:1F27. */
+  stat?: [number, number][];
   /** [frame, LY, FF93] at each call of the random generator 00:39D5. */
   rand: [number, number, number][];
   prevScreen?: Uint8Array;
@@ -142,9 +148,9 @@ function undelta(gz: Uint8Array, size: number, first?: Uint8Array): Uint8Array {
   return out;
 }
 
-function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts" | "points" | "rand"> {
+function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts" | "points" | "rand" | "sfx" | "song" | "stat"> {
   const w = JSON.parse(readFileSync(f, "utf8"));
-  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [], rand: w.rand ?? [],
+  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [], rand: w.rand ?? [], sfx: w.sfx, song: w.song, stat: w.stat,
     points: Object.fromEntries(Object.entries(w.points ?? {}).map(([k, v]) => {
       const [b, a] = k.includes(":") ? k.split(":").map((x) => parseInt(x, 16)) as [number, number] : [0, parseInt(k, 16)];
       return [(b << 16) | a, v as [number, number][]];

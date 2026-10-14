@@ -17,6 +17,8 @@ export type Co<T = void> = Generator<number | void, T, void>;
 export const WAIT = 1;
 /** STAT polled for mode 1 (00:1E2E): resume at line 144, before the vblank interrupt is taken. */
 export const VBLANK = 2;
+/** Objects on a line from which the five writes of 00:20FF no longer fit in its hblank. */
+const PACED_OBJECTS = 8;
 /** Interrupts enabled here (reti / ei): pending interrupts are taken, then the code goes on. */
 export const IRQ = 3;
 /** CPU time spent before a frame wait (parity re-timing): resume after the next vblank
@@ -74,6 +76,16 @@ export class Game {
    *  CDC5 stays set and the interrupts stay off unless the work enabled them); undefined in
    *  play. */
   onWork: (() => [number, number] | undefined) | null = null;
+  /** Parity: the original's time of the game's next write of a sound effect request FFBC (the
+   *  code before it took CPU time; undefined: none recorded). */
+  onSfx: (() => [number, number] | undefined) | null = null;
+  /** Parity: whether the original entered the bracket's STAT handler 00:1F27 in frame f (from the
+   *  current line on); undefined without that record. */
+  onStatIn: ((f: number) => boolean | undefined) | null = null;
+  /** Parity: the original's time of the next bracket entry / leave, not taken (a look ahead). */
+  onNextPoll: (() => [number, number] | undefined) | null = null;
+  /** Parity: the same for the battle script's music requests FFBA. */
+  onSong: (() => [number, number] | undefined) | null = null;
   /** Parity: a vblank poll entered on line 153 whose end the trace puts in frame f: whether the
    *  original went on at f's top (it ran something in f's visible lines) or polled a whole frame. */
   onCrossing: ((f: number) => boolean) | null = null;
@@ -106,6 +118,7 @@ export class Game {
 
   constructor(segments: Segments) {
     this.m = new Memory(segments);
+    this.m.onSfx = (v) => this.sfx(v);
   }
 
   start(main: Co<unknown>): void {
@@ -133,6 +146,32 @@ export class Game {
    *  line later (the port does not count the cycles that decide it). */
   readonly lateLines = new Set<number>();
 
+  /** A coincidence LY = LYC the code's STAT / LYC writes came too late for: (frame, line). */
+  private lycLate: [number, number] | null = null;
+
+  /** The code's STAT / LYC writes just made land in the next line, after its start (CPU time
+   *  before them): that line's coincidence does not interrupt. */
+  lycWrittenLate(): void {
+    // with a trace: whether the writes beat the line's start is a matter of cycles; the original
+    // took that STAT (00:1F27 entered later in this frame) or not
+    const took = this.onStatIn?.(this.frame);
+    if (took === true) return;
+    this.lycLate = [this.frame, this.ly + 1];
+  }
+
+  /** Code about to move LYC whose writes land after the next line has begun (CPU time in a di
+   *  stretch): a coincidence the old LYC makes on that line still requests a STAT (taken at the
+   *  code's ei, by whatever handler is set then). */
+  lycStillNext(): void {
+    const io = this.m.io;
+    if (io[0x45] !== this.ly + 1 || !(io[0x41]! & 0x40)) return;
+    // with a trace: the race is decided by where in the line the code was; the original's next
+    // bracket call (00:1DFD right after) comes lines later when it took that STAT (its handler ran)
+    const p = this.onNextPoll?.();
+    if (p && p[0] * 154 + p[1] - (this.frame * 154 + this.ly) <= 2) return;
+    this.at(this.frame, this.ly + 1, () => { io[0x0f] = io[0x0f]! | 0x02; });
+  }
+
   /** Run lines `from`..153 of the current frame. */
   runFrame(from = 0): void {
     const m = this.m, io = m.io;
@@ -144,8 +183,10 @@ export class Game {
       const work = this.lineWork.get(ly);
       if (work) { this.lineWork.delete(ly); for (const f of work) f(); }
       if (this.timed.length) this.runTimed();
-      if (ly === io[0x45] && io[0x41]! & 0x40) io[0x0f] = io[0x0f]! | 0x02;
-      if (ly === 144) io[0x0f] = io[0x0f]! | 0x01;
+      const on = io[0x40]! & 0x80; // (the LCD off: no vblank, no STAT)
+      if (on && ly === io[0x45] && io[0x41]! & 0x40 && !(this.lycLate && this.lycLate[0] === this.frame && this.lycLate[1] === ly))
+        io[0x0f] = io[0x0f]! | 0x02;
+      if (on && ly === 144) io[0x0f] = io[0x0f]! | 0x01;
       if (this.waiting === -1) this.resume();
       if (this.waiting === VBLANK && ly >= 144 && this.frame >= this.syncFrame) this.resume();
       let took = this.serve();
@@ -352,9 +393,82 @@ export class Game {
     return r;
   }
 
+  /** Runs `fn`, an hblank-paced VRAM copy (00:20FF) to `dest`, now; with a trace its VRAM writes
+   *  show as the original's did: 5 bytes in the hblank of each visible line (none on a line whose
+   *  objects leave the hblank too short for them: 00:20FF writes again from the same place once
+   *  the hblank has ended), the rest in vblank at ~19 a line. The changed bytes are taken in
+   *  address order as the copy's. RAM and registers stay in the code's order. */
+  vramPaced<T>(fn: () => T, dest: number): T {
+    if (!this.onPoint) return fn();
+    const v = this.m.vram, before = v.slice();
+    const r = fn();
+    const changed: [number, number][] = [];
+    for (let i = 0; i < v.length; i++) if (v[i] !== before[i]) { changed.push([i, v[i]!]); v[i] = before[i]!; }
+    // (the set-up before the first chunk passes the current line's hblank)
+    let t = this.frame * 154 + this.ly + 1, done = 0;
+    for (const [i, b] of changed) {
+      const ofs = (i + 0x8000 - dest) & 0xffff;
+      for (;;) {
+        const l = t % 154;
+        const n = l >= 144 ? 19 : this.objectsOnLine(l) >= PACED_OBJECTS ? 0 : 5;
+        if (done + n > ofs) break;
+        done += n;
+        t++;
+      }
+      this.at(Math.floor((t + 1) / 154), (t + 1) % 154, () => { v[i] = b; });
+    }
+    return r;
+  }
+
+  /** The objects on line l (OAM, 8x8 or 8x16 by LCDC bit 2), up to 10. */
+  private objectsOnLine(l: number): number {
+    const h = this.m.rd(0xff40) & 0x04 ? 16 : 8, o = this.m.oam;
+    let n = 0;
+    for (let k = 0; k < 0xa0 && n < 10; k += 4) {
+      const y = o[k]! - 16;
+      if (l >= y && l < y + h) n++;
+    }
+    return n;
+  }
+
   /** Wait (a busy main code) until the trace time t. */
   *untilTime(t: [number, number] | undefined): Co {
     yield* this.until_(t);
+  }
+
+  /** A write the original made at sync point `addr` (one the sound driver reads, FFBA): with a
+   *  trace it lands at that point's time (the CPU time before it), without holding the code. */
+  atPoint(addr: number, fn: () => void): void {
+    const t = this.onPoint?.(addr);
+    if (!t) { fn(); return; }
+    this.at(t[0], t[1], fn);
+  }
+
+  /** A sound effect request: FFBC = v (read by the sound driver's next tick); with a trace it
+   *  lands at the original's write time, without holding the code. */
+  sfx(v: number): void {
+    const t = this.onSfx?.();
+    if (!t) { this.m.hram[0x3c] = v & 0xff; return; }
+    this.sfxAt = t;
+    this.at(t[0], t[1], () => { this.m.hram[0x3c] = v & 0xff; });
+  }
+  /** A music request FFBA = v from the battle script (0C:4017): with a trace it lands at the
+   *  original's write time (the script's CPU time), without holding the code. */
+  song(v: number): void {
+    const t = this.onSong?.();
+    if (!t) { this.m.hram[0x3a] = v & 0xff; return; }
+    this.at(t[0], t[1], () => { this.m.hram[0x3a] = v & 0xff; });
+  }
+
+  /** The time of the last request `sfx` put off (a tick from the code waits for it). */
+  private sfxAt: [number, number] | undefined;
+
+  /** Before a sound tick the code itself runs (00:3A60, 00:361F): the requests it wrote before
+   *  are in (the CPU time up to the original's last write). */
+  *sfxWritten(): Co {
+    const t = this.sfxAt;
+    this.sfxAt = undefined;
+    if (t && !this.reachedAt(t)) yield* this.until_(t);
   }
 
   /** The trace time of the next hit of sync point `addr` without waiting for it (code that runs

@@ -117,3 +117,7 @@ both ROMs; differences are listed first because they are the valuable part.
   Legend III's VRAM bracket polls STAT mode 1 with the interrupts off; entered on line 153 it ends
   at the next frame's top or a whole frame later depending on cycles, which a trace (frames, not
   cycles) shows only through what the original ran next: the port takes it from there.
+  Legend III's sound driver is ported like Legend I's (the original RAM compared), but its
+  requests are written by code whose CPU time the port does not spend: the replay times the writes
+  from a record of them (a list per request byte) rather than with sync points that would hold the
+  code.

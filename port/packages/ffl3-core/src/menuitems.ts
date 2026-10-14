@@ -700,7 +700,7 @@ function* useItem(g: Game, a: number): Co {
   if (id >= 0xd2) { yield* soundBuzz(g); return; }
   if (id < 0x30) { yield* learnSpell(g, hl, id); return; }
   if (id === 0xcb) {
-    m.hram[0x3c] = 0x19;
+    g.sfx(0x19);
     useOne(m, hl);
     farSync(g, 0x01, () => healAll(g));
     return;

@@ -159,7 +159,7 @@ export function* statusScene(g: Game): Co {
   const m = g.m;
   const cdc4 = m.rd(0xcdc4);
   m.wr(0xcdc4, 0x01);
-  m.hram[0x3c] = 0x38;
+  g.sfx(0x38);
   yield* fadeOut(g);
   yield* g.wait(0x10);
   yield* fadeIn(g);

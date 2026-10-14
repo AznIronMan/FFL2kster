@@ -249,6 +249,9 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:025C / 00:3D38 | after the title with a saved game (flag 31): the map load 00:027D, IE STAT on | verified (cont1) |
 | 01:5F9D / 00:06D2 | the map load's fade in for CA6B 2 / the follower object | ported, unverified |
 
+| 00:0200 | the start code: LCD off at line 91 (00:374A), the OAM DMA routine to FF80 (00:3727), FF8A-FFFC, C000-CEFF, D000-DFFF cleared (00:39B8), bank 1, palettes 0, 9800 blank, vectors 00:11A2 / 00:11E3, IE 1, LCDC C3, ei, the title | verified (boot1) |
+| 0F:4000-482E | the sound driver: 4006 tick (402D song request FFBA, 4759 effect request FFBC, 41CE music, 478E effects), 4003 -> 4031 reset; tables 4114 (frequencies), 41BE (lengths), 4420 (octaves), 4428/4448/4468/4488 (command jump tables), 44A8-4618 the command handlers (listed as data), 66F2/6774 the effects, 482F the songs | verified (sound compared in all traces from 1.45.0) |
+
 ## Menus and the name entry (port P1)
 
 | Location | What | Status |
@@ -308,6 +311,8 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0C:4A2D | the battle script (tools/ffl3/bscript.py) | data |
 | 02:4394 / 02:4364 | battle effects 00-17 by DE00 (14 and part of 12 jump into bank 0E) | verified for 15, 16, 17 and those battle2 reaches |
 | 02:4000 | action display (C9BD effect or member/enemy action, 02:53EE action data) | verified (battle2) |
+| 0B:7E17 | a member's figure tiles (4 from bank 04, + 40 with status: raw copy, read back to C880, the low plane cleared, copied back; each copy 00:20FF, 5 bytes an hblank, stalled on lines with 8+ objects) | verified (battle sweep) |
+| 0C:4017 | the battle script's store (1-3 bytes to CC01/CC02; FFBA / FFBC requests among them) | verified |
 | 00:3175 | text control-code table (0x4E words); menu-mode output 00:3114 / 00:3168 | verified for the codes battle1/2 print |
 | 00:39D5 / 00:1D2E | random byte FF90 = ror((FF93 + FF90) ^ 1) + FF90; below d | verified |
 | 00:1C9C | 16-bit divide through the RAM code C0C0 (SP kept in C0C1/C0C2) | verified |

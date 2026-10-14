@@ -267,7 +267,7 @@ function* fieldStep(g: Game): Co {
  *  leader's tiles (00:04B1), the sprite list by C6EE (01:5272), a frame (00:3A6B). */
 function* selectLeader(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x3c;
+  g.sfx(0x3c);
   const a = m.rd(0xc6f3);
   m.wr(0xc6f3, ((a << 2) | (a >> 6)) & 0xff);
   pushBank(g, 0x0b);

@@ -170,6 +170,7 @@ export function* bracketEnter(g: Game, timed = false): Co {
     m.hram[0x7f] = m.hram[0x7f]! | 0x03;
     m.wr(0xff41, 0x40);
     m.wr(0xff45, 0x03);
+    g.lycWrittenLate(); // (00:1D9E-1DDD take more than a line: an entry on line 2 misses LYC 3)
     copy(m, 0x1e40, 0xc0bc, 3);
     copy(m, 0x1e43, 0xc0b9, 3);
   }
@@ -292,9 +293,9 @@ export function lowBit(a: number): number {
 
 /** 00:1E7C / 00:1E83 — the cursor sound (FFBC = 3A) / the buzzer (FFBC = 3B, then 2 frames). */
 export function soundOk(m: Memory): void {
-  m.hram[0x3c] = 0x3a;
+  m.sfx(0x3a);
 }
 export function* soundBuzz(g: Game): Co {
-  g.m.hram[0x3c] = 0x3b;
+  g.sfx(0x3b);
   yield* g.wait(2);
 }

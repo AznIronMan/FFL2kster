@@ -98,8 +98,8 @@ export function* dispatch(g: Game): Co {
     case 0x17: yield* shopEvent(g); break;
     case 0x18: yield* itemEvent(g); break;
     case 0x1b: yield* battleEvent(g); break;
-    case 0x1c: m.hram[0x3a] = m.rd(0xca28); break; // 00:1A28 — the music FFBA
-    case 0x1d: m.hram[0x3c] = m.rd(0xca28); break; // 00:1A2E — a sound FFBC
+    case 0x1c: { const mu = m.rd(0xca28); g.atPoint(0x1a2b, () => { m.hram[0x3a] = mu; }); break; } // 00:1A28 — the music FFBA
+    case 0x1d: g.sfx(m.rd(0xca28)); break; // 00:1A2E — a sound FFBC
     case 0x1e: yield* sceneEffect(g); break;
     case 0x1f: farSync(g, 0x0b, () => mapPatches(g)); break; // 00:137C
     case 0x20: yield* hurtAll(g); break;
@@ -199,7 +199,7 @@ function* exitPop(g: Game): Co {
 
 /** 00:14B2 — event 08/09, a hole: sound 3F, the fall (01:661C, bank 01), then the exit 00:13F1. */
 function* exitFall(g: Game): Co {
-  g.m.hram[0x3c] = 0x3f;
+  g.sfx(0x3f);
   yield* farcall(g, 0x01, () => fallStep(g));
   yield* exitByCell(g);
 }
@@ -310,7 +310,7 @@ function leaderLookSet(m: Memory): void {
 /** 00:1AEA — sound 3E, four flashes (00:1AF7: BGP 0 for 4 frames, back for 4). */
 function* flash4(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x3e;
+  g.sfx(0x3e);
   for (let b = 4; b; b--) {
     const bgp = m.rd(0xff47);
     m.wr(0xff47, 0);
@@ -404,7 +404,7 @@ function bob(m: Memory): void {
  *  frame for 50 frames then falling (00:1934), CA6A + 1, 00:18F5. */
 function* leaderBob(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x3f;
+  g.sfx(0x3f);
   m.wr(0xca6a, 0);
   for (let b = 0xa0; b; b--) {
     setSlot(m, 0);
@@ -418,7 +418,7 @@ function* leaderBob(g: Game): Co {
 /** 00:1950 — sound 1F, A0 frames of the leader's step frame (01:53FF) and 00:18F5. */
 function* leaderSteps(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x1f;
+  g.sfx(0x1f);
   for (let b = 0xa0; b; b--) {
     setSlot(m, 0);
     farSync(g, 0x01, () => objectStep(m));
@@ -632,7 +632,7 @@ export function* itemGet(g: Game): Co {
     hl = b ? 0x731a : 0x7260;
     a = 0x3b;
   }
-  m.hram[0x3c] = a;
+  g.sfx(a);
   const on = !!(m.rd(0xff40) & 0x20);
   yield* far0(g, 0x09, () => printText(g, on ? 0x40 : 0x08, hl, 0x0101, 0x0612));
   if (!on) yield* windowClose(g);
@@ -729,7 +729,7 @@ function* hurtAll(g: Game): Co {
       m.wr(hl + 1, 0x00);
     }
   }
-  m.hram[0x3c] = 0x07;
+  g.sfx(0x07);
   const bgp = m.rd(0xff47);
   m.wr(0xff47, 0);
   yield* g.wait(2);
@@ -738,7 +738,7 @@ function* hurtAll(g: Game): Co {
 
 /** 09:53D1 — entity CD36 revived: sound 18, its status C501 = 0 (00:1FC4). */
 function revive(m: Memory): void {
-  m.hram[0x3c] = 0x18;
+  m.sfx(0x18);
   m.wr((entityOffset(m) + 0xc501) & 0xffff, 0);
 }
 
@@ -781,7 +781,7 @@ function healAll(g: Game): void {
  *  out, 10 frames, fade in. */
 function* rest(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x17;
+  g.sfx(0x17);
   farSync(g, 0x01, () => healAll(g));
   yield* fadeOut(g);
   yield* g.wait(0x10);
@@ -861,7 +861,7 @@ function switchPatch(g: Game): void {
  *  7C), E5 (7D) or E6, and with all three the text 0A:7CF1. */
 function* switchEvent(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x1c;
+  g.sfx(0x1c);
   m.wr(0xc6f2, 1);
   yield* g.wait(8);
   pushBank(g, 0x0b);

@@ -24,6 +24,7 @@ import { windowsAll } from "./bmenu.js";
 /** 00:3A60 — a sound tick from the code: bank 0F (rst $20, its reti turns the interrupts on), di,
  *  0F:4006, bank back (rst $28). */
 export function* soundMain(g: Game): Co {
+  yield* g.sfxWritten();
   pushBank(g, 0x0f);
   yield* g.reti();
   g.ime = false;
@@ -57,11 +58,12 @@ function* effect(g: Game, a: number): Co {
  *  sound effect 36, a sound tick (story flag 31: the battle wipe 01:5EB8). */
 function* battleSounds(g: Game): Co {
   const m = g.m;
+  yield* g.point(0x10dc); // (the code before takes CPU time; the tick right after must see it)
   m.hram[0x20] = m.hram[0x3a]!;
   m.hram[0x3a] = 0;
   yield* soundMain(g);
   pushBank(g, 0x01);
-  m.hram[0x3c] = 0x36;
+  g.sfx(0x36);
   yield* soundMain(g);
   if (testFlag(m, 0x31)) yield* battleWipe(g);
   popBank(g);
@@ -130,11 +132,12 @@ function zoneFormation(g: Game, a: number): number {
  *  (00:0E34), the objects (00:01A0), the scroll (00:3D2B), fade in (00:3A0C). */
 function* afterBattle(g: Game): Co {
   const m = g.m;
-  m.hram[0x3a] = 0;
+  g.atPoint(0x1152, () => { m.hram[0x3a] = 0; });
   m.wr(0xca2c, 0);
   layout(g);
   farSync(g, 0x0b, () => mapPatches(g));
-  m.hram[0x3a] = m.hram[0x20]!;
+  const mu = m.hram[0x20]!;
+  g.atPoint(0x1175, () => { m.hram[0x3a] = mu; });
   yield* bracketEnter(g);
   yield* loadTiles(g);
   yield* bracketLeave(g);
@@ -191,7 +194,8 @@ function* battleScreen(g: Game): Co {
  *  script 0B:4A2D (0C:4000), effect 16. */
 function* battleMain(g: Game): Co {
   const m = g.m;
-  m.hram[0x3a] = ((m.rd(0xcc5c) >> 4) & 0x03) + 1;
+  const mu = ((m.rd(0xcc5c) >> 4) & 0x03) + 1;
+  g.atPoint(0x0b4008, () => { m.hram[0x3a] = mu; });
   yield* battleBackdrop(g);
   battleEntities(g);
   farSync(g, 0x0f, () => copyB(m, 0xc6e0, 0xdd00, 0x60));

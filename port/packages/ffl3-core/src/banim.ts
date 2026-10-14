@@ -1188,7 +1188,7 @@ function* flashBand(g: Game, hl: number, c: number): Co {
 function* noiseStep(g: Game): Co {
   const m = g.m;
   let a = m.rd(0xde0f);
-  if (a >= 0x06 && !(a & 0x01)) m.hram[0x3c] = 0x36;
+  if (a >= 0x06 && !(a & 0x01)) g.sfx(0x36);
   yield* g.wait(1);
   m.wr(0xde11, 0x5a);
   let tile = 0x9000;
@@ -1241,7 +1241,7 @@ function* monsterShatter(g: Game): Co {
   const m = g.m;
   let b = 0x00;
   for (;;) {
-    m.hram[0x3c] = 0x30;
+    g.sfx(0x30);
     let a = 0;
     for (let c = 0x05; c; c--) {
       const hl = 0x51ca + c;
@@ -2085,7 +2085,7 @@ function* bigMonsterEffect(g: Game): Co {
         yield* g.wait(3);
         m.wr(0xff42, m.rd(hl)); hl++;
         m.wr(0xff4a, m.rd(hl)); hl++;
-        if (b === 0x06) m.hram[0x3c] = 0x10;
+        if (b === 0x06) g.sfx(0x10);
       }
       return;
     }

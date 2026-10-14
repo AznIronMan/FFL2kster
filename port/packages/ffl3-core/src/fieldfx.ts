@@ -122,7 +122,7 @@ export class MenuExit extends Error {
 /** 09:536D — sound 17; an amount b = CEDC / 2 + (FF93 halved until below CEDC / 2). (CEDC below
  *  2 loops forever in the original.) */
 function amount(m: Memory): number {
-  m.hram[0x3c] = 0x17;
+  m.sfx(0x17);
   const b = m.rd(0xcedc) >> 1;
   let a = m.hram[0x13]!;
   if (!b) throw new NotPorted("09:5379 (CEDC below 2: an endless loop)");
@@ -160,7 +160,7 @@ function healFlat(m: Memory): void {
 
 /** 09:53D1 — entity CD36 revived: sound 18, its status C501 = 0 (00:1FC4). */
 function revive(m: Memory): void {
-  m.hram[0x3c] = 0x18;
+  m.sfx(0x18);
   m.wr((entityOffset(m) + 0xc501) & 0xffff, 0);
 }
 
@@ -178,7 +178,7 @@ function effectHeal(m: Memory): void {
     return;
   }
   if (isDead(m)) return;
-  m.hram[0x3c] = 0x17;
+  m.sfx(0x17);
   healPercent(m);
 }
 
@@ -186,7 +186,7 @@ function effectHeal(m: Memory): void {
  *  C501 of CD36 &= ~C884. */
 function effectCure(g: Game): void {
   const m = g.m;
-  m.hram[0x3c] = 0x18;
+  g.sfx(0x18);
   m.wr(0xc884, 0);
   farSync(g, 0x0b, () => applyLowFlagC884(m));
   const hl = (entityOffset(m) + 0xc501) & 0xffff;
@@ -197,7 +197,7 @@ function effectCure(g: Game): void {
  *  percentage (09:542C), others by 10 x CEDC (09:53F4). */
 function effectHealItem(m: Memory): void {
   if (isDead(m)) return;
-  m.hram[0x3c] = 0x17;
+  m.sfx(0x17);
   if (!m.rd(0xce25) && m.rd(0xce26) < 0x30) healPercent(m);
   else healFlat(m);
 }
@@ -264,7 +264,7 @@ function effectHpMax(g: Game): void {
 
 /** 09:5383 — kind 26: sound 17, the points C514/C515 of CD36 = C516/C517 (00:1F90). */
 function effectPointsFull(m: Memory): void {
-  m.hram[0x3c] = 0x17;
+  m.sfx(0x17);
   const hl = (entityOffset(m) + 0xc514) & 0xffff;
   copy(m, (hl + 2) & 0xffff, hl, 2);
 }
@@ -479,7 +479,7 @@ export function keyItemUse(g: Game, a: number): boolean {
     const map = m.rd(0xc6e8);
     if (map !== 0x00 && map !== 0x05 && map !== 0x01) return true;
     if (!testFlag(m, 0xe1)) return true;
-    m.hram[0x3c] = 0x2b;
+    g.sfx(0x2b);
     setFlag(m, 0x82);
     return textAfter(m, 0x00, 0x4000);
   }
@@ -619,7 +619,7 @@ export function* afterCallVehicle(g: Game): Co {
 export function* afterStepAhead(g: Game): Co {
   const m = g.m;
   if (stepAheadBlocked(g)) return;
-  m.hram[0x3c] = 0x27;
+  g.sfx(0x27);
   yield* g.wait(1);
   const d = m.rd(0xc6ee) & 0xc0;
   const [shift, frame] = d === 0x00 ? [leaderShiftUp, leaderUp] : d === 0x40 ? [leaderShiftRight, leaderRight]
@@ -732,7 +732,7 @@ export function* afterWarpBack(g: Game): Co {
   const m = g.m;
   if (warpBackBlocked(m)) return;
   yield* warpOut(g);
-  m.hram[0x3c] = 0x1a;
+  g.sfx(0x1a);
   m.wr(0xca6b, 0x02);
   m.wr(0xc6ee, m.rd(0xc6f7));
   let v = m.rd(0xc7c9);
@@ -765,7 +765,7 @@ function* leaderSpriteAgain(g: Game): Co {
  *  again (00:01E7). */
 export function* afterToggle0A(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x2c;
+  g.sfx(0x2c);
   if (testFlag(m, 0x0a)) clearFlag(m, 0x0a);
   else setFlag(m, 0x0a);
   yield* leaderSpriteAgain(g);

@@ -76,7 +76,7 @@ function* leaderWalk(g: Game, dir: number, b: number): Co {
  *  80 (down) -> up (01:686B), C0 (left) -> right (01:68A0). Returns to the field step (00:07D2). */
 export function* vehiclePushedOut(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = 0x40;
+  g.sfx(0x40);
   m.wr(0xc6f2, 0x01);
   for (let b = 6; b; b--) yield* flash1(g);
   m.wr(0xc6f2, 0x00);
@@ -166,6 +166,7 @@ function* waveBegin(g: Game): Co {
   farSync(g, 0x0f, () => fadeLevels(m));
   const [, de] = far0Sync(g, 0, () => copyB(m, 0x7e54, 0xc880, 0x20));
   far0Sync(g, 0, () => copyB(m, 0x7e54, de, 0x20));
+  yield* g.point(0x0f7e3b); // (the fade levels and copies after the bracket take CPU time)
   g.ime = false;
   m.wr(0xcdb0, m.rd(0xff43));
   m.wr(0xcdb1, 0x0f);
@@ -181,6 +182,7 @@ function* waveEnd(g: Game): Co {
   const m = g.m;
   yield* g.point(0x0f7e74); // after the last sound tick (CPU time): the raster runs until here
   g.ime = false;
+  g.lycStillNext();
   m.wr(0xff45, 0x03);
   copy(m, 0x1e40, 0xc0bc, 3);
   g.ime = true;
@@ -219,7 +221,7 @@ function* waveFlash(g: Game): Co {
     yield* g.point(0x0f7e89); // after the sixth sound tick (CPU time): the lines before keep CDB1
     m.wr(0xcdb1, (m.rd(0xcdb1) - 1) & 0xff);
   } while (m.rd(0xcdb1));
-  m.hram[0x3c] = 0x1a;
+  g.sfx(0x1a);
   yield* waveFrames(g, 1);
   yield* waveFrames(g, 2);
   for (let k = 0; k < 4; k++) yield* waveFrames(g, 3); // 0F:7E97
@@ -250,7 +252,7 @@ function* tileAt(g: Game, a: number): Co {
  *  into 9380 (0F:7F6F). */
 function* blink(g: Game): Co {
   const m = g.m;
-  m.hram[0x3c] = m.rd(0xc881);
+  g.sfx(m.rd(0xc881));
   yield* tileAt(g, 0x37);
   yield* tileAt(g, 0x1d);
   yield* tileAt(g, 0x40);
@@ -265,9 +267,9 @@ function* liftOffScene(g: Game): Co {
   const m = g.m;
   m.wr(0xff4a, 0x50);
   yield* textBegin(g);
-  m.hram[0x3a] = 0x00;
+  g.atPoint(0x0f7f10, () => { m.hram[0x3a] = 0x00; });
   yield* g.wait(2);
-  m.hram[0x3c] = 0x16;
+  g.sfx(0x16);
   yield* far0(g, 0x09, () => printText(g, 0x08, 0x727e, 0x0101, 0x0612));
   windowOff(m);
   m.wr(0xc881, 0x25); // 0F:7F32

@@ -128,6 +128,25 @@ class Recorder:
             if start:
                 polls.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
 
+        sfx = []
+
+        def at_sfx(_):
+            if start:
+                sfx.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
+
+        song = []
+        stat = []
+
+        def at_stat(_):   # 00:1F27, the bracket's STAT handler (LYC 3) entered
+            if start:
+                stat.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
+
+        def at_store(_):   # 0C:4017, the battle script's store: a request when its target is FFBC / FFBA
+            if start and pb.memory[0xCC01] | (pb.memory[0xCC02] << 8) == 0xFFBC:
+                sfx.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
+            if start and pb.memory[0xCC01] | (pb.memory[0xCC02] << 8) == 0xFFBA:
+                song.append([nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
+
         works, open_work = [], []
 
         def at_work(_):
@@ -194,6 +213,10 @@ class Recorder:
         pb.hook_register(0, 0x3557, at_work, None)
         for b, a in POINTS:
             pb.hook_register(b, a, mk_point(b, a), None)
+        for b, a in SFX_WRITES:
+            pb.hook_register(b, a, at_sfx, None)
+        pb.hook_register(0x0C, 0x4017, at_store, None)
+        pb.hook_register(0, 0x1F27, at_stat, None)
         pb.hook_register(0, 0x3552, at_work_end, None)
         try:
             for _ in range(max_pre):
@@ -250,6 +273,10 @@ class Recorder:
             pb.hook_deregister(0, 0x3557)
             for b, a in POINTS:
                 pb.hook_deregister(b, a)
+            for b, a in SFX_WRITES:
+                pb.hook_deregister(b, a)
+            pb.hook_deregister(0x0C, 0x4017)
+            pb.hook_deregister(0, 0x1F27)
             pb.hook_deregister(0, 0x3552)
             for mb, ma in marks:
                 pb.hook_deregister(mb, ma)
@@ -271,7 +298,7 @@ class Recorder:
         open(f"{out}/screens.dx.gz", "wb").write(_dx(screens, 160 * 144))
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
         json.dump({"frames": wait_frames, "syncs": syncs, "polls": polls, "works": works,
-                   "starts": wait_starts, "ends": wait_ends, "points": points,
+                   "starts": wait_starts, "ends": wait_ends, "points": points, "sfx": sfx, "song": song, "stat": stat,
                    "rand": rand}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
                    "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k not in ("mem", "sram")},
@@ -304,7 +331,15 @@ def _sram(pb):
 # 00:027B the field loop's map animation done (hblank-paced copies); 01:49CA / 49CD / 49D5 the same
 # three in a jump's frame (01:49BD)
 # 09:44D2 the walking figures of the save slots (09:4127) (after the slots' checks and tiles, CPU time)
-POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74), (0x09, 0x40B1), (0x09, 0x504F), (0x09, 0x5044), (0x0B, 0x7E7A), (0x01, 0x5783), (0x00, 0x026C), (0x00, 0x0272), (0x00, 0x0275), (0x01, 0x5F2B), (0x00, 0x027B), (0x01, 0x49CA), (0x01, 0x49CD), (0x01, 0x49D5), (0x09, 0x44D2))
+# 0B:7E17 a member's figure tiles (each raw copy is hblank-paced: ~20 lines a member; the battle
+# figures 0C:6001 come every few frames between script steps)
+# 00:02D3 / 02E4 (map load), 00:10DC / 1152 / 1175 (battle in and out), 00:1A2B (event 1C), 0B:4008
+# (battle), 0F:7F10 (lift-off): the music request FFBA written (the sound driver's tick may come
+# before it in the same frame: the replay writes it at the original's time)
+# 00:023B the start code's LCD on (after frames of clears with the LCD off)
+# 0F:7E3B the wave set-up's handler switch (after the bracket, the fade levels and copies)
+POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74), (0x09, 0x40B1), (0x09, 0x504F), (0x09, 0x5044), (0x0B, 0x7E7A), (0x01, 0x5783), (0x00, 0x026C), (0x00, 0x0272), (0x00, 0x0275), (0x01, 0x5F2B), (0x00, 0x027B), (0x01, 0x49CA), (0x01, 0x49CD), (0x01, 0x49D5), (0x09, 0x44D2), (0x0B, 0x7E17),
+          (0x00, 0x02D3), (0x00, 0x02E4), (0x00, 0x10DC), (0x00, 0x1152), (0x00, 0x1175), (0x00, 0x1A2B), (0x0B, 0x4008), (0x0F, 0x7F10), (0x00, 0x023B), (0x0F, 0x7E3B))
 
 
 def plan_steps(plan):
@@ -313,3 +348,17 @@ def plan_steps(plan):
         b, n = item.split(":")
         steps += [b] * int(n)
     return steps
+
+
+# the game's writes of a sound effect request FFBC (`ldh [$BC],a` outside the driver, whose 0F:478B
+# clears it), and the battle script's stores to FFBC (0C:4017): recorded in order as "sfx" (frame, LY); the driver's tick takes a request only from
+# the original's write time on (the code before takes CPU time)
+SFX_WRITES = ((0x00, 0x0853), (0x00, 0x10E6), (0x00, 0x14B4), (0x00, 0x1602), (0x00, 0x190F), (0x00, 0x1952),
+              (0x00, 0x1A31), (0x00, 0x1A5C), (0x00, 0x1A86), (0x00, 0x1AEC), (0x00, 0x1BE6), (0x00, 0x1E7F),
+              (0x00, 0x1E86), (0x01, 0x404B), (0x01, 0x47B9), (0x01, 0x4901), (0x01, 0x61DE), (0x01, 0x63AF),
+              (0x01, 0x7047), (0x02, 0x5116), (0x02, 0x5144), (0x02, 0x516D), (0x02, 0x520A), (0x09, 0x4BBC),
+              (0x09, 0x53D3), (0x0B, 0x5C07), (0x0B, 0x6D99), (0x0E, 0x7E50), (0x0F, 0x7D6C), (0x0F, 0x7DFC),
+              (0x0F, 0x7F19), (0x0F, 0x7F61),
+              # in code the listing shows as data (E0 BC after ld a,n; found by a ROM scan)
+              (0x01, 0x40E3), (0x01, 0x41DF), (0x01, 0x4235), (0x01, 0x6127), (0x09, 0x536F), (0x09, 0x5385),
+              (0x09, 0x53B4), (0x09, 0x53BB), (0x09, 0x53E5))

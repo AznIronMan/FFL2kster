@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.44.0`
+Version: `1.45.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,13 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.45.0` — Legend III port: the sound driver (bank 0F, music and sound effects) runs in the
+  port and its state now matches the original's at every frame wait in the slice and both sweeps
+  (traces record when the game writes its music and effect requests); the start code from
+  power-on (`boot1`); a battle sweep over the formations (`b00`-`b7d`, 100 of 125 wait-exact);
+  the battle menus' list scrolls and equipment swap; members' figure tiles shown line by line as
+  the original's hblank copies write them (lines full of objects stall them). Field sweep 412/425,
+  slice 39/39.
 - `1.44.0` — Legend III port: Select (the leader rotates through the members), B off a vehicle,
   the console's Depart and Warp, Continue on the title (a saved game loaded into its map), items
   and field spells used from the menu (healing, a stat, the key item E6, calling the vehicle), the

@@ -83,6 +83,7 @@ export interface ReplayResult {
 /** The port's entry point for a trace hook. */
 export function startFor(rig: Rig, hook: string): Co<unknown> {
   switch (hook) {
+    case "00:0200": return rig.engine.fromStart();
     case "01:7C79": return rig.engine.fromTitle();
     case "00:0265": return fieldLoop(rig.g);
     default: throw new Error(`no port entry point for hook ${hook}`);
@@ -156,7 +157,8 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   g.ime = true;
   opts.setup?.(rig);
   const wf = t.waitFrames, n = t.meta.frames.length;
-  const ign = opts.ignore ?? IGNORE;
+  // traces from 1.45.0 (the sound requests' times recorded) compare the sound driver's state too
+  const ign = opts.ignore ?? (t.sfx && !SOUND_KNOWN.has(name) ? IGNORE_SOUND_ON : IGNORE);
   const waits: WaitDiff[] = [], diffs: FrameDiff[] = [];
   let nWaits = 0, busy = 0, tears = 0, oamLate = 0, prevBusy = false, oamTransient = 0;
   const transient: WaitDiff[] = [];
@@ -194,6 +196,12 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePolls++;
     return p;
   };
+  if (t.stat) {
+    const byFrame = new Map<number, number[]>();
+    for (const [f, l] of t.stat) { const a = byFrame.get(f); if (a) a.push(l); else byFrame.set(f, [l]); }
+    g.onStatIn = (f) => (byFrame.get(f) ?? []).some((l) => l >= g.ly);
+  }
+  g.onNextPoll = () => { const p = t.polls[nPolls]; return p ? [p[0], p[1]] : undefined; };
   // ... and reach the sync-point routines at the original's frame and line
   let nPoints = 0, latePoints = 0;
   const pointAt = new Map<number, number>();
@@ -207,6 +215,17 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePoints++;
     return p;
   };
+  // the game's sound effect requests land at the original's write times (in order)
+  if (t.sfx) {
+    const sfx = t.sfx;
+    let k = 0;
+    g.onSfx = () => { const w = sfx[k++]; return w ? [w[0], w[1]] : undefined; };
+  }
+  if (t.song) {
+    const song = t.song;
+    let k = 0;
+    g.onSong = () => { const w = song[k++]; return w ? [w[0], w[1]] : undefined; };
+  }
   // the random generator reads the frame counter the original had at that call
   let nRand = 0;
   m.onRandom = () => t.rand[nRand++]?.[2];
@@ -372,18 +391,25 @@ export function summarize(diffs: FrameDiff[]): string {
 
 // ---------------------------------------------------------------- comparison filters
 
-/** Sound driver state and APU registers (the driver 0F:4006 is not ported yet): CB00-CBFE and
- *  FFBB-FFC5 (FFBC the sound effect request, cleared by the driver when it takes it; FFC2/FFC3
- *  the wave pointer of 0F:456B; FFC5 a sound effect's loop count, 0F:4802). CBFF (the sprite flip
- *  switch, 00:3E26) and FFBA (the music request written by game code) are compared. */
-const SOUND = (a: number) => (a >= 0xcb00 && a < 0xcbff) || (a >= 0xffbb && a <= 0xffc5) || (a >= 0xff10 && a < 0xff40);
+/** Sound driver state: CB00-CBFE and FFBB-FFC5 (FFBC the sound effect request, cleared by the
+ *  driver when it takes it; FFC2/FFC3 the wave pointer of 0F:456B; FFC5 a sound effect's loop
+ *  count, 0F:4802). CBFF (the sprite flip switch, 00:3E26) and FFBA (the music request written by
+ *  game code) are always compared. The driver is ported (sound.ts, 1.45.0): `IGNORE_SOUND_ON`
+ *  compares its state too (the default `IGNORE` leaves it out, as traces before 1.45.0 lack the
+ *  request times; FFL3K_SOUND=1 compares it everywhere). */
+const SOUND = (a: number) => (a >= 0xcb00 && a < 0xcbff) || (a >= 0xffbb && a <= 0xffc5);
+/** The APU registers (read back masked by the emulator; the port keeps the values written). */
+const APU = (a: number) => a >= 0xff10 && a < 0xff40;
 /** The SM83 stack (SP starts at CFFF). */
 const STACK = (a: number) => a >= 0xcf00 && a < 0xd000;
 /** Hardware timing registers and the joypad select register. */
 const TIMING = (a: number) => a === 0xff00 || a === 0xff04 || a === 0xff0f || a === 0xff41 || a === 0xff44;
 /** FFA1-FFA4: rst $18's own scratch (the caller's f, a, l, h; read only by 00:378A). */
 const RST18 = (a: number) => a >= 0xffa1 && a <= 0xffa4;
-export const IGNORE = (a: number) => SOUND(a) || STACK(a) || TIMING(a) || RST18(a);
+/** Traces whose sound state still differs (docs/ffl3/FINDINGS.md, 1.45.0): compared without it. */
+export const SOUND_KNOWN = new Set(["opening2", "opening3", "b0a", "b77"]);
+export const IGNORE_SOUND_ON = (a: number) => APU(a) || STACK(a) || TIMING(a) || RST18(a);
+export const IGNORE = (a: number) => (!process.env.FFL3K_SOUND && SOUND(a)) || IGNORE_SOUND_ON(a);
 /* The ROM bank stack's slots at and above its depth (C0A0 + C0B0 ..) are dead: the interrupt
  * handlers' pushes (00:1F3A every frame) write them at whatever depth the CPU's code was, which
  * depends on CPU time; the replay skips them (by the trace's depth). */

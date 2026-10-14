@@ -42,3 +42,4 @@ export * from "./cont.js";
 export * from "./fieldfx.js";
 export * from "./ship2.js";
 export * from "./textmore.js";
+export * from "./sound.js";

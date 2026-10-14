@@ -39,6 +39,7 @@ function* waveBegin(g: Game): Co {
   fadeLevels(m);
   const [, de] = copyB(m, 0x7e54, 0xc880, 0x20);
   copyB(m, 0x7e54, de, 0x20);
+  yield* g.point(0x0f7e3b); // (the fade levels and copies after the bracket take CPU time)
   g.ime = false;
   m.wr(0xcdb0, m.rd(0xff43));
   m.wr(0xcdb1, 0x0f);
@@ -53,6 +54,7 @@ function* waveEnd(g: Game): Co {
   const m = g.m;
   yield* g.point(0x0f7e74); // after the last sound tick (CPU time): the raster runs until here
   g.ime = false;
+  g.lycStillNext();
   m.wr(0xff45, 0x03);
   copy(m, 0x1e40, 0xc0bc, 3);
   g.ime = true;

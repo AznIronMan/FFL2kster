@@ -25,6 +25,8 @@ import { entityOffset } from "./bstats.js";
 import { itemLoad } from "./bitems.js";
 import { nativeRoutines } from "./bscript.js";
 import { wornOutBack } from "./equip.js";
+import { listScrollDown, listScrollUp } from "./menuitems.js";
+import { equipSwap } from "./menuitems2.js";
 
 // ---------------------------------------------------------------- small helpers
 
@@ -318,7 +320,7 @@ function* commandRound(g: Game): Co {
         const c = m.rd(0xc080);
         if (c < 0x70) { a = 0; m.wr(0xcd36, a); pc = 0x5c14; break; }
         if (c === 0x70) {
-          m.hram[0x3c] = 0;
+          g.sfx(0);
           m.wr(0xd061, m.rd(0xd061) | 0x80);
           return;
         }
@@ -1032,7 +1034,7 @@ function* listInput(g: Game): Co {
           cursorRow(m, n);
           return false;
         }
-        if (s & 0x01) { scrollUp(g); return false; }
+        if (s & 0x01) { yield* scrollUp(g); return false; }
         if (m.rd(0xcde9) !== 0x06) break;
         m.wr(0xcdd2, 0x01);
         listColumns(m);
@@ -1061,7 +1063,7 @@ function* listInput(g: Game): Co {
         const s = m.rd(0xcd19);
         if (!s) { m.wr(0xcdd3, 0); cursorRow(m, 0); return false; }
         if (!(s & 0x02)) break;
-        scrollDown(g);
+        yield* scrollDown(g);
         return false;
       }
     }
@@ -1072,7 +1074,7 @@ function* listInput(g: Game): Co {
 
 /** 0B:644E — the list one entry down: a held entry's mark follows (CDD5 - 1; FF: off, below 4:
  *  C084 = CDD5 << 4 + 64), 00:3470 (b = 6, a = 1), CDE8 + 1. */
-function scrollDown(g: Game): void {
+function* scrollDown(g: Game): Co {
   const m = g.m;
   if (m.rd(0xcde9) === 0x06 && m.rd(0xcdd9)) {
     const a = (m.rd(0xcdd5) - 1) & 0xff;
@@ -1080,12 +1082,13 @@ function scrollDown(g: Game): void {
     if (a === 0xff) m.wr(0xc084, 0);
     else if (a < 4) m.wr(0xc084, (swap(a) + 0x64) & 0xff);
   }
-  throw new NotPorted("00:3470 (the list scrolled down)");
+  yield* listScrollDown(g, 0x01, 0x06);
+  m.wr(0xcde8, (m.rd(0xcde8) + 1) & 0xff);
 }
 
 /** 0B:6481 — the list one entry up: a held entry's mark follows (CDD5 + 1; 4: off, below 4:
  *  C084 = CDD5 << 4 + 64), 00:34E0 (a = 1, b = 6), CDE8 - 1. */
-function scrollUp(g: Game): void {
+function* scrollUp(g: Game): Co {
   const m = g.m;
   if (m.rd(0xcde9) === 0x06 && m.rd(0xcdd9)) {
     const a = (m.rd(0xcdd5) + 1) & 0xff;
@@ -1093,7 +1096,8 @@ function scrollUp(g: Game): void {
     if (a === 4) m.wr(0xc084, 0);
     else if (a < 4) m.wr(0xc084, (swap(a) + 0x64) & 0xff);
   }
-  throw new NotPorted("00:34E0 (the list scrolled up)");
+  yield* listScrollUp(g, 0x01, 0x06);
+  m.wr(0xcde8, (m.rd(0xcde8) - 1) & 0xff);
 }
 
 /** 0B:634F — the equipment slot C540 + record + a of CD36 -> CDDC/CDDD; nz when CD36 is 4 and
@@ -1127,7 +1131,7 @@ function* swapCheck(g: Game): Co<boolean> {
   const hl = (0xc6ff + a) & 0xffff;
   m.wr(0xcdde, hl & 0xff);
   m.wr(0xcddf, hl >> 8);
-  throw new NotPorted("00:2503 (the equipment swap)");
+  return yield* equipSwap(g); // jp 00:2503
 }
 
 // ---------------------------------------------------------------- targets of a choice
