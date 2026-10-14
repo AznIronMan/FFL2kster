@@ -1,11 +1,12 @@
 /** Legend III: the title's choice (01:7D21) and the new game (01:7D40): the party, map state and
  *  story flags from their initial tables, the prologue text (09:5EAD) over the opening scene. */
 import type { Game, Co } from "./game.js";
-import { copyB, copyBC, far0, far0Sync, farSync, fadeOut, textBegin, windowOff, fill } from "./sys.js";
+import { copyB, copyBC, far0, far0Sync, farSync, farcall, fadeOut, textBegin, windowOff, fill } from "./sys.js";
 import { NotPorted } from "./irq.js";
 import { windowTop } from "./title.js";
 import { printText } from "./text.js";
 import { names } from "./names.js";
+import { continueGame, gameLoaded } from "./cont.js";
 
 /** 01:7DFD — the window map (9C00, 0x240) blank (FF, 0F:792C). */
 export function windowClear(g: Game): void {
@@ -22,7 +23,10 @@ export function* titleChoice(g: Game, cursor: number): Co {
   m.wr(0xc060, 0);
   farSync(g, 0x0b, () => windowTop(g));
   yield* textBegin(g);
-  if (cursor !== 0x68) throw new NotPorted("09:4964 (Continue)");
+  if (cursor !== 0x68 && (yield* farcall(g, 0x09, () => continueGame(g)))) { // 09:4964, jp z 01:7DC5
+    yield* gameLoaded(g);
+    return;
+  }
   yield* newGame(g);
 }
 

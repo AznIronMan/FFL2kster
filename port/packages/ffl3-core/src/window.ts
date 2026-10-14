@@ -52,25 +52,45 @@ function tileSwap(m: Memory, a: number, b: number, n: number): void {
 
 /** 01:5730 — a 2-tile strip (hl, hl + 16) scrolled right by a pixel (each plane byte pair
  *  rotated through), at FF93 & 0F = 6 (hl) or 0E (hl + 100; not for 01:5723, `once`); C800
- *  counts the 16 bytes. The original polls hblank per byte and ends with reti (interrupts on). */
-function stripScroll(g: Game, hl: number, once = false): void {
+ *  counts the 16 pairs; ends with reti (interrupts on). Each pair is read in an hblank and written
+ *  in the next one (STAT polled: mode 0, then not 2; in vblank the polls pass at once), so the
+ *  last pair lands at the end (sync point 01:5783, its trace time) and pair k two lines a pair
+ *  before it, none before now (the VRAM stores only: the rest is done in the code's order).
+ *  Returns when the strip's writes are done ([frame, line]). */
+function stripScroll(g: Game, hl: number, once = false): [number, number] {
   const m = g.m;
   const f = frame(m) & 0x0f;
+  const now: [number, number] = [g.frame, g.ly];
   if (f === 0x0e && !once) hl += 0x100;
-  else if (f !== 0x06) { g.ime = true; return; }
+  else if (f !== 0x06) { g.ime = true; return now; }
+  m.wr(0xc800, 0);
+  const end = g.pointTime(0x015783) ?? now;
+  stripEnd = end;
   for (let k = 0; k < 0x10; k++) {
-    m.wr(0xc800, k);
     const p = hl + k;
+    let [ef, el] = end;
+    el -= 2 * (0x0f - k);
+    while (el < 0) { ef--; el += 154; }
+    if (el >= 0x90 && ef === end[0]) el = 0x90; // written in vblank lines: all at its start
     let b = m.rd(p), c = m.rd(p + 0x10);
     const c0 = c & 1;
     const b0 = b & 1;
     b = ((b >> 1) | (c0 << 7)) & 0xff;
     c = ((c >> 1) | (b0 << 7)) & 0xff;
-    m.wr(p + 0x10, c);
-    m.wr(p, b);
+    m.wr(0xc800, k + 1); // the RAM in the code's order; only the VRAM writes wait for their line
+    g.at(ef, el, () => { m.wr(p + 0x10, c); m.wr(p, b); });
   }
-  m.wr(0xc800, 0x10);
   g.ime = true;
+  return end;
+}
+
+/** The end of the last strip scroll of the current map animation (undefined: none ran). */
+let stripEnd: [number, number] | undefined;
+
+/** Work done after a strip scroll: in the code's order (now), as its RAM scratch (C800) must
+ *  be; only the strip's own VRAM stores are spread over lines. */
+function after(_g: Game, _t: [number, number], fn: () => void): void {
+  fn();
 }
 
 /** 01:57A9 — the tile at hl rolled down a pixel row (its 16 bytes rotated by 2 through
@@ -160,9 +180,10 @@ function anim565F(m: Memory): void {
 
 /** 01:54A0 — the map mode's tile animation (CA18, the table at 01:54B4; once: CA6F). The strip
  *  scrolls (01:5730) end with reti; the others leave the interrupts as they are. */
-export function mapAnimation(g: Game): void {
+export function mapAnimation(g: Game): [number, number] | undefined {
   const m = g.m;
-  if (m.rd(0xca6f)) return;
+  stripEnd = undefined;
+  if (m.rd(0xca6f)) return undefined;
   m.wr(0xca6f, 1);
   const mode = m.rd(0xca18);
   const f = frame(m);
@@ -175,13 +196,14 @@ export function mapAnimation(g: Game): void {
     case 0x05: stripScroll(g, 0x9680); break; // 01:5719
     case 0x06: stripScroll(g, 0x9000); break; // 01:5714
     case 0x07: rollPair(m, 0x9020, 0x91b0); break; // 01:578C
-    case 0x08: // 01:59C2
-      stripScroll(g, 0x96c0);
-      if ((f & 0x3f) === 0x20) tileSwap(m, 0x97e0, 0x96e0, 0x20);
-      else if (!(f & 0x3f)) tileSwap(m, 0x97c0, 0x96c0, 0x20);
+    case 0x08: { // 01:59C2
+      const t = stripScroll(g, 0x96c0);
+      if ((f & 0x3f) === 0x20) after(g, t, () => tileSwap(m, 0x97e0, 0x96e0, 0x20));
+      else if (!(f & 0x3f)) after(g, t, () => tileSwap(m, 0x97c0, 0x96c0, 0x20));
       break;
+    }
     case 0x09: stripScroll(g, 0x9400); break; // 01:56C8
-    case 0x0a: stripScroll(g, 0x9080); stripScroll(g, 0x9400); break; // 01:56C5
+    case 0x0a: stripScroll(g, 0x9080); stripScroll(g, 0x9400); break; // 01:56C5 (each its own end)
     case 0x0b: if (!(f & 0x3f)) tileSwap(m, 0x97e0, 0x96e0, 0x20); break; // 01:59FE
     case 0x0d: // 01:57F2
       if ((f & 0x0f) === 0x08) tileRollUp(m, 0x9380);
@@ -201,7 +223,7 @@ export function mapAnimation(g: Game): void {
       if (!(f & 0x1f)) { tileSwap(m, 0x9440, 0x9460, 0x20); tileSwap(m, 0x9540, 0x9560, 0x20); }
       break;
     case 0x16: rollPair(m, 0x9220, 0x93b0); anim58A1(m); break; // 01:589E
-    case 0x17: stripScroll(g, 0x9000); anim58A1(m); break; // 01:5899
+    case 0x17: { const t = stripScroll(g, 0x9000); after(g, t, () => anim58A1(m)); break; } // 01:5899
     case 0x18: rollPair(m, 0x9220, 0x93b0); break; // 01:5798
     case 0x19: // 01:58D0
       if (!(f & 0x0f)) tileSwap(m, 0x90c0, 0x92a0, 0x10); // 01:594A
@@ -234,6 +256,7 @@ export function mapAnimation(g: Game): void {
     default: throw new NotPorted(`01:54A0 map animation mode ${mode.toString(16)}`);
   }
   m.wr(0xca6f, 0);
+  return stripEnd;
 }
 
 /** 00:3575 — the field frame work (bank 01 selected by the caller). */

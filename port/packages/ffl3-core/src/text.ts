@@ -15,6 +15,7 @@ import { NotPorted } from "./irq.js";
 import { textCode } from "./textcodes.js";
 import { scriptRef, sceneCode } from "./events.js";
 import { windowToggle, boxFrame, windowOpen } from "./window.js";
+import { listNewline, upperRowNewline } from "./textmore.js";
 
 const CD = (k: number) => 0xcd00 + k;
 
@@ -182,10 +183,10 @@ function* putTiles(g: Game, src: number, b: number): Co {
 /** 00:26CC — control code 06, new line: flush (whole lines keep their own step), then the
  *  cursor two rows down at column CD02; at the box's bottom (CD03 + CD01 + 2) it stays and the
  *  box scrolls (00:342C). */
-function* newline(g: Game): Co {
+function* newline(g: Game, hl: number): Co {
   const m = g.m;
-  if (m.rd(0xcd3a)) throw new NotPorted("00:26D3 (list newline)");
-  if (m.rd(0xcd34) & 0x10) throw new NotPorted("00:26E3 (upper-row newline)");
+  if (m.rd(0xcd3a)) { listNewline(g, 0x3175, hl >> 8); return; }
+  if (m.rd(0xcd34) & 0x10) { upperRowNewline(m); return; }
   if (m.rd(CD(6))) {
     yield* flush(g);
     if (m.rd(0xcd34) & 0x04) return;
@@ -253,7 +254,7 @@ const SCENE_CODES = new Set([0x0a, 0x0d, 0x12, 0x13, 0x32, 0x38, 0x3b, 0x3d, 0x3
 /** One control code at hl (after the code byte); returns hl after its operands. */
 function* control(g: Game, c: number, hl: number): Co<number> {
   const m = g.m;
-  if (c === 0x06) { yield* newline(g); return hl; }
+  if (c === 0x06) { yield* newline(g, hl); return hl; }
   if (c === 0x05) return hl;
   if (c === 0x07) { lineReset(m); yield* farcall(g, 0x0f, function* () { boxFrame(g); }); return hl; }
   if (c === 0x14) { yield* windowToggle(g); return hl; }

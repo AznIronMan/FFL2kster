@@ -21,6 +21,9 @@ import { normalHandlers, restoreHandlers, objectEvent, walkEvent, shiftEvent, ob
   tileMorph, freeSlotsOf, boardVehicle, highestItemFlag, leaveVehicleEvent, disembark } from "./events2.js";
 import { wornOutBack } from "./equip.js";
 import { shipConsole } from "./ship.js";
+import { shopMenu } from "./shop.js";
+import { departShip, consoleItem } from "./ship2.js";
+import { objectsAgain, statusScene } from "./cont.js";
 
 /** 0B:6C4C — text codes handled as scene events: code -> event type. */
 const SCENE_TYPE: Record<number, number> = { 0x32: 0x26, 0x3d: 0x28, 0x3b: 0x27, 0x13: 0x1d, 0x12: 0x1c, 0x3f: 0x1b,
@@ -92,7 +95,7 @@ export function* dispatch(g: Game): Co {
     case 0x12: yield* special(g); break;
     case 0x13: itemTaken(g); break;
     case 0x16: yield* textEvent(g); break;
-    case 0x17: shopEvent(g); break;
+    case 0x17: yield* shopEvent(g); break;
     case 0x18: yield* itemEvent(g); break;
     case 0x1b: yield* battleEvent(g); break;
     case 0x1c: m.hram[0x3a] = m.rd(0xca28); break; // 00:1A28 — the music FFBA
@@ -318,7 +321,7 @@ function* flash4(g: Game): Co {
 }
 
 /** 00:174D — the layout reloaded (00:1756) with the normal handlers (00:1B2D / 00:1B50). */
-function* relayout(g: Game): Co {
+export function* relayout(g: Game): Co {
   yield* normalHandlers(g);
   layout(g);
   yield* restoreHandlers(g);
@@ -453,7 +456,7 @@ function memberSlot(g: Game, a: number, b: number): void {
 
 /** 00:1552 — the follower in slot FF96: C200 = C370 = FF, frame 0, tile base 10, kind 1A, C360
  *  44, facing C6EE (the sprite 01:5272). */
-function followerInit(g: Game): void {
+export function followerInit(g: Game): void {
   const m = g.m;
   fset(m, "c200", 0xff);
   fset(m, "c370", 0xff);
@@ -512,8 +515,8 @@ function* party(g: Game): Co {
     case 0x4: farSync(g, 0x01, () => followerPlace(m)); return; // 00:15DE
     case 0x5: followerJoins(g); return;
     case 0x6: facingFlags(m); return;
-    case 0x7: throw new NotPorted("00:1524 (the map's objects again: 00:05BF, mapload.ts loadObjects not exported)");
-    case 0x8: throw new NotPorted("00:15F7 (a member's status scene: 01:7DFD, 0C:4000 script 5FC8, 0F:7A2C)");
+    case 0x7: objectsAgain(g); return; // 00:1524
+    case 0x8: yield* statusScene(g); return; // 00:15F7
     case 0xa: farSync(g, 0x01, () => stackFromTable(m)); return; // 00:152C
     case 0xb: if (testFlag(m, 0x04)) return; yield* placeBack(g); return; // 00:15A1
     case 0xc: m.wr(0xca59, 1); yield* farcall(g, 0x01, () => disembark(g)); return; // 00:14EB
@@ -578,11 +581,11 @@ function* textEvent(g: Game): Co {
   yield* windowClose(g);
 }
 
-/** 00:19AE — event 17, a shop or inn (CA2F = CA28 - 1, 01:6FD4). */
-function shopEvent(g: Game): void {
+/** 00:19AE — event 17, a shop or inn (CA2F = CA28 - 1, 01:6FD4 with bank 01). */
+function* shopEvent(g: Game): Co {
   const m = g.m;
-  m.wr(0xca2f, m.rd(0xca28) - 1);
-  throw new NotPorted("01:6FD4 (the shop / inn menus, event 17)");
+  m.wr(0xca2f, (m.rd(0xca28) - 1) & 0xff);
+  yield* farcall(g, 0x01, () => shopMenu(g));
 }
 
 /** 0B:7037 — item CE94 into the bag C6FF: its pair counts one more (9 or more: CE94 = FF), else
@@ -613,7 +616,7 @@ function bagPut(m: Memory): [number, number] {
  *  (items D8-E9) or 35 and the text 09:724E; else (CE94 back) sound 3B and the text 09:731A (9
  *  already) or 09:7260 (no room); mode 40 with the window on, else 08 and the window closed
  *  after (00:35D2). */
-function* itemGet(g: Game): Co {
+export function* itemGet(g: Game): Co {
   const m = g.m;
   const d = m.rd(0xce94);
   const [p, b] = farSync(g, 0x0b, () => bagPut(m));
@@ -656,8 +659,8 @@ function* menuEvent(g: Game): Co {
   pushBank(g, 0x01);
   yield* shipConsole(g);
   const a = g.m.rd(0xca57);
-  if (a === 1) throw new NotPorted("01:63E6 (event 23: departing)");
-  if (a === 2) throw new NotPorted("01:642E (event 23: a console item chosen)");
+  if (a === 1) yield* departShip(g);
+  if (a === 2) yield* consoleItem(g);
   popBank(g);
 }
 

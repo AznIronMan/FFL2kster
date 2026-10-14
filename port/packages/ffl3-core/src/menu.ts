@@ -9,6 +9,7 @@ import type { Memory } from "./memory.js";
 import { copy, copyB, fill, vramCopy, wait1, pushBank, popBank, memberOffset } from "./sys.js";
 import { NotPorted } from "./irq.js";
 import { textCode } from "./textcodes.js";
+import { monsterNameMenu } from "./textmore.js";
 
 // ---------------------------------------------------------------- menu text codes
 
@@ -60,7 +61,7 @@ function memberText(g: Game, hl: number, de: number, b: number): [number, number
       [de, b] = menuChars(m, (0xc505 + off) & 0xffff, 8, de, b);
     }
   } else if (a < 0x20) {
-    throw new NotPorted("00:29A5 (code 1F 10-1F)");
+    [de, b] = monsterNameMenu(g, a, de, b);
   } else {
     const k = (m.rd(0xc68d) >> 3) & 0x0f;
     const t = m.rd(0x29d7 + k);

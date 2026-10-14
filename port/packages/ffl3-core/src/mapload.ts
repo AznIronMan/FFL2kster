@@ -4,12 +4,13 @@
 import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
 import { pushBank, popBank, far0Sync, fillBC, decompress, vramCopy, fadeIn, fadeOut, windowOff,
-  bracketEnter, bracketLeave } from "./sys.js";
+  bracketEnter, bracketLeave, farcall } from "./sys.js";
 import { scroll } from "./irq.js";
 import { waveFadeOut, waveFadeIn } from "./wave.js";
 import { NotPorted } from "./irq.js";
 import { fa, fget, fset, slot, setSlot, testFlag, clearFlag, copySlotUp, testFlag2 } from "./objects.js";
 import { tableWord, cellArgs, leaderInit, objectSprite, blocked, cellByte, cellLook, drawObjects } from "./actors.js";
+import { followerObject, loadFadeIn } from "./cont.js";
 
 // ---------------------------------------------------------------- layout
 
@@ -133,7 +134,7 @@ function* leaderCode(g: Game): Co<number> {
 
 /** 00:04F7 — (flag 0A: the vehicle sprite FA, or FB with flag 8D) the type 0B:748F[a] >> 6 to
  *  the leader's C320 / C340, 00:08AD; returns 0B:748F[a] & 3F (bank 0B popped). */
-function* spriteType(g: Game, a: number): Co<number> {
+export function* spriteType(g: Game, a: number): Co<number> {
   const m = g.m;
   if (testFlag(m, 0x0a)) a = testFlag(m, 0x8d) ? 0xfb : 0xfa;
   const t = m.rd((0x748f + a) & 0xffff) >> 6;
@@ -147,7 +148,7 @@ function* spriteType(g: Game, a: number): Co<number> {
 }
 
 /** 00:04B1 — the leader's 4 sprite tiles (bank 04, page 40 + code) -> 8000. */
-function* leaderTiles(g: Game): Co {
+export function* leaderTiles(g: Game): Co {
   const m = g.m;
   pushBank(g, 0x04);
   const a = yield* leaderCode(g);
@@ -278,7 +279,12 @@ function mapTiles(g: Game): void {
   pushBank(g, 0x01);
   const map = m.rd(0xc6e8);
   if (map === 0x0a || map === 0x0b) tiles0A0B(m);
-  if (map === 0xb4) throw new NotPorted("01:6098 (the tiles of map B4)");
+  if (map === 0xb4) { // 01:6098 — ten 32-byte tile pairs from bank 05 (01:60EF, 00:20FF)
+    for (const [src, dst] of [[0x7e80, 0x9630], [0x7ea0, 0x94e0], [0x7f80, 0x9730], [0x7fa0, 0x95e0], [0x7ec0, 0x90a0],
+      [0x7ee0, 0x90e0], [0x7fc0, 0x91a0], [0x7fe0, 0x91e0], [0x4480, 0x96d0], [0x4580, 0x97d0]] as const) {
+      far0Sync(g, 0x05, () => vramCopy(m, src, dst, 0x20));
+    }
+  }
   if (isTown(m)) far0Sync(g, 0x05, () => vramCopy(m, 0x7b90, 0x9600, 0x20));
   popBank(g);
 }
@@ -368,7 +374,7 @@ function objectPair(m: Memory): void {
 /** 00:05BF — the map's objects (header + 6, 6 bytes each until FF) into slots 2..: shown unless
  *  their story flag is clear; script, facing, kind, positions (x16, high bits), tile base, type,
  *  sprite; then the cell look and pairs; then the follower (00:06BE). */
-function loadObjects(g: Game): void {
+export function loadObjects(g: Game): void {
   const m = g.m;
   setSlot(m, 2);
   let hl = (tableWord(m, 0x6c58, m.rd(0xc6e8)) + 6) & 0xffff;
@@ -438,7 +444,7 @@ function follower(g: Game): void {
   if (m.rd(0xc6e3) >= 0x03) return;
   if (!testFlag(m, 0x82)) return;
   if (m.rd(0xc6ed) !== m.rd(0xc6e8)) return;
-  throw new NotPorted("00:06D2 (the follower object)");
+  followerObject(g);
 }
 
 /** 00:054D — the leader into slot 0 at the screen centre (50, 50) + C6E4/C6E6 (also the
@@ -603,7 +609,7 @@ function* afterLoad(g: Game): Co {
     yield* fadeIn(g);
     m.wr(0xcd3d, s);
   } else if (k === 1) yield* waveFadeIn(g);
-  else throw new NotPorted("01:5F9D (the load's fade in, CA6B = 2)");
+  else yield* farcall(g, 0x01, () => loadFadeIn(g)); // 00:03C5
 }
 
 /** 00:027D — load map C6E8 at C6E4-C6E7 facing C6EE. */

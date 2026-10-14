@@ -74,6 +74,9 @@ export class Game {
    *  CDC5 stays set and the interrupts stay off unless the work enabled them); undefined in
    *  play. */
   onWork: (() => [number, number] | undefined) | null = null;
+  /** Parity: a vblank poll entered on line 153 whose end the trace puts in frame f: whether the
+   *  original went on at f's top (it ran something in f's visible lines) or polled a whole frame. */
+  onCrossing: ((f: number) => boolean) | null = null;
   /** The code is about to reach `addr` (bank << 16 | address; a sync point): the frame and line
    *  at which the original did (parity re-timing, as `onPollStart`); undefined in play. */
   onPoint: ((addr: number) => [number, number] | undefined) | null = null;
@@ -81,6 +84,9 @@ export class Game {
   debug: ((msg: string) => void) | null = null;
   hooks: {
     soundTick?: (g: Game) => void; // 0F:4006 (through 00:1F3A)
+    /** The stack pointer at 00:1C9C (the port keeps no stack: a call-depth estimate is passed;
+     *  the parity rig answers with the original's, read from the trace's next wait). */
+    divideSp?: (estimate: number) => number;
     /** 00:3549 — the frame work run while CD3D is set (bracket STAT handler, bracket switches). */
     statWork?: (g: Game) => void;
   } = {};
@@ -94,6 +100,8 @@ export class Game {
   private work: { end: [number, number]; holds: boolean; done: () => void } | null = null;
   /** Register writes the interrupt handlers make at later lines (hblank waits), by line. */
   private readonly lineWork = new Map<number, (() => void)[]>();
+  /** Writes due at a later frame and line (`at`), in order. */
+  private timed: { f: number; l: number; fn: () => void }[] = [];
   done = false;
 
   constructor(segments: Segments) {
@@ -135,6 +143,7 @@ export class Game {
       io[0x44] = ly;
       const work = this.lineWork.get(ly);
       if (work) { this.lineWork.delete(ly); for (const f of work) f(); }
+      if (this.timed.length) this.runTimed();
       if (ly === io[0x45] && io[0x41]! & 0x40) io[0x0f] = io[0x0f]! | 0x02;
       if (ly === 144) io[0x0f] = io[0x0f]! | 0x01;
       if (this.waiting === -1) this.resume();
@@ -237,8 +246,11 @@ export class Game {
 
   /** Before 00:1D9E / 00:1DFD: with `onPollStart`, the CPU time until the original's entry. */
   *pollStart(): Co {
-    yield* this.until_(this.onPollStart?.());
+    this.pollAt = this.onPollStart?.();
+    yield* this.until_(this.pollAt);
   }
+  /** The original's entry of the last timed poll (`pollStart`). */
+  private pollAt: [number, number] | undefined;
 
   /** Before the routine at `addr` (a sync point): with `onPoint`, the CPU time until the
    *  original's entry. */
@@ -280,8 +292,17 @@ export class Game {
 
   /** 00:1E2E — poll STAT until mode 1 (vblank); with `onSync`, not before the frame in which
    *  the original's poll ended. */
-  *untilVblank(): Co {
+  *untilVblank(atTrace = false): Co {
     this.syncFrame = this.onSync?.() ?? -Infinity;
+    // entered at the original's time (`atTrace`, a timed poll start) at the end of a vblank, the
+    // poll ending in the next frame: it either passed on line 153 (its next instructions run at
+    // the next frame's top) or saw that frame begin and polled through it (`onCrossing` tells)
+    const e = this.pollAt;
+    if (atTrace && e && e[1] >= 144 && e[0] === this.frame && this.ly >= 144 && this.frame === this.syncFrame - 1
+        && this.onCrossing?.(this.syncFrame)) {
+      yield* this.until_([this.syncFrame, 0]);
+      return;
+    }
     yield VBLANK;
   }
 
@@ -291,6 +312,55 @@ export class Game {
     this.pollFor = cond;
     yield POLL;
     this.pollFor = null;
+  }
+
+  /** `fn` runs at the start of line l of frame f (now when that is not ahead); the writes of
+   *  code that paces itself by hblank polls, timed from a sync point's trace time. */
+  at(f: number, l: number, fn: () => void): void {
+    if (f < this.frame || (f === this.frame && l <= this.ly)) { fn(); return; }
+    this.timed.push({ f, l, fn });
+  }
+
+  private runTimed(): void {
+    const due = this.timed.filter((t) => t.f < this.frame || (t.f === this.frame && t.l <= this.ly));
+    if (!due.length) return;
+    this.timed = this.timed.filter((t) => !due.includes(t));
+    for (const t of due) t.fn();
+  }
+
+  /** Runs `fn` now but lets its VRAM writes show only from the trace time t (code whose VRAM
+   *  copies are hblank-paced and end there): the bytes it changed are put back and written again
+   *  at t, in address order spread evenly from now to t. RAM and registers stay in the code's
+   *  order. Without t (play), `fn` simply runs. */
+  vramUntil<T>(t: [number, number] | undefined, fn: () => T, oamAtEnd = false, vramAtEnd = false): T {
+    if (!t) return fn();
+    const v = this.m.vram, before = v.slice();
+    const w = this.m.wram, oamBefore = oamAtEnd ? w.slice(0, 0xa0) : null;
+    const r = fn();
+    const changed: [number, number][] = [];
+    for (let i = 0; i < v.length; i++) if (v[i] !== before[i]) { changed.push([i, v[i]!]); v[i] = before[i]!; }
+    const start = this.frame * 154 + this.ly, end = t[0] * 154 + t[1];
+    changed.forEach(([i, b], k) => {
+      const at = vramAtEnd ? end : start + Math.floor(((end - start) * (k + 1)) / changed.length);
+      this.at(Math.floor(at / 154), at % 154, () => { v[i] = b; });
+    });
+    if (oamBefore) { // the OAM buffer C000-C09F: complete at the end only (a vblank DMA meanwhile sees the old)
+      const now = w.slice(0, 0xa0);
+      w.set(oamBefore, 0);
+      this.at(t[0], t[1], () => w.set(now, 0));
+    }
+    return r;
+  }
+
+  /** Wait (a busy main code) until the trace time t. */
+  *untilTime(t: [number, number] | undefined): Co {
+    yield* this.until_(t);
+  }
+
+  /** The trace time of the next hit of sync point `addr` without waiting for it (code that runs
+   *  in no time here but whose writes the original spread over lines); undefined in play. */
+  pointTime(addr: number): [number, number] | undefined {
+    return this.onPoint?.(addr);
   }
 
   /** From an interrupt handler: `fn` runs at the start of line ly + dl (a write in the hblank

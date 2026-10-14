@@ -615,3 +615,9 @@ Decisions and assumptions:
   in the hblank shows. Interrupt vectors holding `ret` are modelled (the interrupts stay off until
   the code's `ei`). The stack depth the battle's divisions store (C0C1) depends on how the battle
   was entered; it is a measured offset per entry (`battleStack.shallower`), not a guess.
+- 1.44.0: a feature the story has not unlocked at a saved state is reached by poking its flags,
+  bag or spells at the trace's hook (POKES in tools/ffl3/traces.py; the start snapshot holds
+  them, so the replay starts the same); a "boot:NAME" start powers on with the cartridge RAM trace
+  NAME ended with (Continue). Such traces verify the code they reach, not the story's way there.
+  Routines ported by sub-agents count as verified only where a trace reaches them and a mutation
+  fails it; the rest is listed as unverified in docs/ffl3/FINDINGS.md.

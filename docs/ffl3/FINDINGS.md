@@ -739,3 +739,47 @@ the wipe's row-start and fill-end sync points (dropped), its 22 tiles a row and 
 writes show on, the zone thresholds' equality, the flag patches after a battle (none on map 02),
 the console's Option mask, the key items, the template length. Not ported: Depart (01:63E6) and an
 item chosen at the console (01:642E), map 01's AD case (00:101F), the other moving cell kinds.
+
+## 2026-10-14 — Port: Select, vehicles, the console, Continue, the menu's uses (1.44.0)
+
+The field sweep (tools/ffl3/traces.py map_sweep / talk_sweep; `fieldsweep.test.ts`) enters every
+map from field_start through a poked return point (event 04) and talks to every object put in
+front of the leader: 412 of its 425 traces are wait-exact. The 13 left differ by a few sprite
+pixels where objects overlap during a jump (t11_*, tb3_6/7, tb8_2), on map 51 (one frame) and in
+ta7_3-5; their RAM is equal at every wait.
+
+The VRAM bracket's poll (00:1E2E: STAT mode 1, interrupts off) entered on line 153 ends in the
+next frame either way, but at two different times: a nested call reaches the poll still in line
+153 and goes on at the next frame's top (t21_2: its frame work at 38,7 and the next bracket at
+38,63), while a call reaching it after the line has turned polls through the whole next frame
+(newgame1: the leave at 287,153 ends at 288,144; the STAT of 288 is held until then, and that
+frame has no frame work). Which one happened depends on cycles within line 153; the trace tells
+it by whether the original ran anything (its code or a frame work) in that frame's visible lines
+(`Game.onCrossing`). A deferral of the STAT frame work tried first passed t21_2 but broke the
+menus and was dropped.
+
+Select (00:0851) turns C6F3 left by two (the next member leads) and redraws the leader through
+00:01E7: in bank 0B the sprite type of 0B (00:04F7 with its 00:08AD frame), the leader's tiles
+(00:04B1), the sprite list (01:5272), a frame. B in a vehicle is 00:0861 (the event 12 special 0E
+already ported). Ported by sub-agents from the listing and checked by new traces with poked
+state (POKES in traces.py): the console's Depart (01:63E6: the vehicle state from flags 3A / 39
+and C6FA, the kept place loaded; `ship3`, flag 05 poked, then B off the vehicle, state 3) and an
+item confirmed (01:642E: flags 0E / 0F and the wave flash 0F:7DF2; `ship4`, key item E1 poked);
+Continue on the title (09:4964, `cont1` from a power-on with the cartridge RAM `menu8` left: the
+slots, a game loaded, 01:7DC5, then the saved map 00:025C and 00:3D38) — its walking figures are
+drawn after the slots' checks and tiles take ~3 frames of CPU time (sync point 09:44D2; without it
+the figures' frame phase differs); the items used from the menu (09:521A with its effect kinds,
+`menu10` with a poked bag: Cure1, HP, Elixir, Tent, Soft, and E6 0F:7BC8) and the field spells
+(09:4D87; `menu11`-`menu15` with poked spell bits: Exit refused where CA6C is set, 20 not castable
+there, 21 calls the vehicle through 01:4049, 25 short of points).
+
+Falsification (ffl3/scratch/mut12.py, mut13.py; earlier ones by hand): each fails a trace — the
+crossing rule removed (newgame1 / t21_2 late), C6F3 turned by one or ^ 40 (select1), the 09:44D2
+point removed (cont1), Depart's C6E3 ^ 1 and the disembark's C6E6 (ship3), 01:642E setting flag 0F
+or without the wave flash (ship4), 0F:7BC8's count + 2 and CDC0 ^ 1 (menu10), Continue's CD26
+(cont1), 00:3D38 removed (cont1). Survivors (unverified): Exit's warp back (01:41D6, 01:5F39) and
+the fade in 01:5F9D, spells 20 and 25 past their checks, the follower 00:06D2, events 10 7 / 10 8,
+the text codes 00:3086 / 00:308C / newlines 00:26D3 / 26E3 and the menu code 00:29A5 (no trace yet
+known to reach them), the vehicle pushed out on map 01 (01:63AD) and A on the return point
+(01:632A). Not ported: map 01's AD case (00:101F), the other moving cell kinds, map animation
+modes outside the 36, the raster quake (event 2C, 01:5B4D), event 10 F (06:7F69).

@@ -114,3 +114,6 @@ both ROMs; differences are listed first because they are the valuable part.
   Legend III's wave fade runs a STAT handler at every line; its SCX write lands within a few
   dots of the end of the line's drawing (mode 3, lengthened by objects), so whether a line shows
   the new value is a cycle-level question. The port picks one side and the replay accepts both.
+  Legend III's VRAM bracket polls STAT mode 1 with the interrupts off; entered on line 153 it ends
+  at the next frame's top or a whole frame later depending on cycles, which a trace (frames, not
+  cycles) shows only through what the original ran next: the port takes it from there.

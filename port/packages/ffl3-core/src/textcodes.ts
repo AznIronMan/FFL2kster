@@ -20,6 +20,7 @@ import { testFlag, setFlag, clearFlag } from "./objects.js";
 import { entityOffset } from "./bstats.js";
 import { memberLimit } from "./sprites.js";
 import { menuInput } from "./title.js";
+import { sceneTextCode, dictTextCode, lowestSetBit } from "./textmore.js";
 
 // ---------------------------------------------------------------- bank-0 helpers
 
@@ -31,10 +32,7 @@ const recordOffset = (m: Memory, a: number): number => memberOffset(m, a & 0x7f)
 
 /** 00:1EE7 — the index of the lowest set bit of a (rra until carry). */
 function lowestBit(a: number): number {
-  if (!(a & 0xff)) throw new NotPorted("00:1EE7 with a = 0 (depends on the carry flag)");
-  let c = 0;
-  while (!(a & 1)) { a >>= 1; c++; }
-  return c;
+  return lowestSetBit(a, false); // both callers (00:2801, 00:3073) enter with the carry clear
 }
 
 /** 00:1EF1 — the bit 1 << a (0 for a >= 8). */
@@ -1038,7 +1036,6 @@ export function* textCode(g: Game, c: number, hl: number, de: number, b: number)
       return [hl, de, b];
     }
   }
-  const hex = c.toString(16).padStart(2, "0");
-  if (SCENE_CODES.has(c)) throw new NotPorted(`00:3086 (scene text code ${hex})`);
-  throw new NotPorted(`00:308C (dictionary text code ${hex})`);
+  if (SCENE_CODES.has(c)) return yield* sceneTextCode(g, c, hl, de, b);
+  return yield* dictTextCode(g, c, hl, de, b);
 }

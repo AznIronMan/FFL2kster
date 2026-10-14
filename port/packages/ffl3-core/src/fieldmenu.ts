@@ -24,6 +24,7 @@ import { leaderLook, loadTiles } from "./mapload.js";
 import { drawObjects, tableWord } from "./actors.js";
 import { setSlot, fset, testFlag } from "./objects.js";
 import { wornOutBack } from "./equip.js";
+import { MenuExit, afterCallVehicle, afterStepAhead, afterWarpBack, afterToggle0A } from "./fieldfx.js";
 
 // ---------------------------------------------------------------- small helpers
 
@@ -360,27 +361,32 @@ export function* startMenu(g: Game): Co {
   yield* menuOpen(g);
   m.wr(0xcd43, MENU_SP & 0xff);
   m.wr(0xcd44, MENU_SP >> 8);
-  yield* menuInput(g, function* (i) {
-    switch (i) {
-      case 0: yield* menuA(g); return false;
-      case 1: yield* menuLeave(g); return true; // 09:408D: pop hl; pop hl (the menu left)
-      case 4: yield* menuRight(g); return false;
-      case 5: yield* menuLeft(g); return false;
-      case 6: menuUp(m); return false;
-      case 7: menuDown(m); return false;
-      default: yield* soundBuzz(g); return false; // 2, 3: 00:1E83
-    }
-  });
+  try {
+    yield* menuInput(g, function* (i) {
+      switch (i) {
+        case 0: yield* menuA(g); return false;
+        case 1: yield* menuLeave(g); return true; // 09:408D: pop hl; pop hl (the menu left)
+        case 4: yield* menuRight(g); return false;
+        case 5: yield* menuLeft(g); return false;
+        case 6: menuUp(m); return false;
+        case 7: menuDown(m); return false;
+        default: yield* soundBuzz(g); return false; // 2, 3: 00:1E83
+      }
+    });
+  } catch (e) {
+    if (!(e instanceof MenuExit)) throw e;
+    yield* menuLeave(g); // 09:4DBF: SP = CD43/CD44, jp 09:408F
+  }
 }
 
 /** 01:402D — after the menu, the action an item left in CA16: 21 (01:4049), 20 (01:40DD), 1B or
  *  2C (01:41D6), 25 (01:4233); else nothing (CA16 = FF after a plain close). */
 export function* menuAction(g: Game): Co {
   const a = g.m.rd(0xca16);
-  if (a === 0x21) throw new NotPorted("01:4049 (after the menu: CA16 = 21)");
-  if (a === 0x20) throw new NotPorted("01:40DD (after the menu: CA16 = 20)");
-  if (a === 0x1b || a === 0x2c) throw new NotPorted("01:41D6 (after the menu: CA16 = 1B / 2C)");
-  if (a === 0x25) throw new NotPorted("01:4233 (after the menu: CA16 = 25, flag 0A toggled)");
+  if (a === 0x21) yield* afterCallVehicle(g);
+  else if (a === 0x20) yield* afterStepAhead(g);
+  else if (a === 0x1b || a === 0x2c) yield* afterWarpBack(g);
+  else if (a === 0x25) yield* afterToggle0A(g);
 }
 
 /** 00:0846 — Start in the field (bank 01 selected): the menu (`rst $18 ; farcall 09:4000`), then

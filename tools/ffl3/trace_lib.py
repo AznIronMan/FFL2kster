@@ -61,21 +61,27 @@ class Recorder:
         self.e.__exit__(None, None, None)
 
     def record(self, name, state, steps, hook=(1, 0x7C79), pokes=(), plan="", max_pre=3000, meta=None,
-               marks=(), stop_after=None, switch=None, save=None):
+               marks=(), stop_after=None, switch=None, save=None, hook_vblank=False):
         """Load STATE, run to HOOK (apply POKES there, snapshot), then one button set per frame."""
         pb = self.pb
         out = f"ffl3/build/traces/{name}"
         os.makedirs(out, exist_ok=True)
-        if state == "boot":   # power-on: a fresh emulator (RNG counters from DIV as on hardware)
+        if state.split(":")[0] == "boot":   # power-on: a fresh emulator (RNG counters from DIV as on hardware)
             self.e.close()
             self.e = Emulator(self.rom).__enter__()
             self.pb = pb = self.e.pb
+            if ":" in state:   # "boot:NAME": the cartridge RAM trace NAME ended with (a saved game)
+                ram = open(f"ffl3/build/traces/{state[5:]}/sram.bin", "rb").read()[0x2000:]
+                for i, v in enumerate(ram):
+                    pb.memory[0, 0xA000 + i] = v
         else:
             self.e.load_state(state if "/" in state else f"ffl3/build/states/{state}.state")
         start, waits, wait_frames, armed, nframes = {}, [], [], [False], [0]
 
         def cb(_):
             if start:
+                return
+            if hook_vblank and pb.memory[0xFF44] < 144:   # a start right after a vblank (as field_start's)
                 return
             for pk in pokes:
                 a, v = pk[0], pk[1]
@@ -292,7 +298,13 @@ def _sram(pb):
 # (after the sound ticks); 09:40B1 the field menu about to set CD42 (its frame-tile work); 09:504F
 # each menu row drawn and 09:5044 the rows shown (the hblank-paced VRAM copies) (CPU time); 0B:7E7A
 # a member with status: its sprite tiles copied back with the low plane cleared (after slow copies)
-POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74), (0x09, 0x40B1), (0x09, 0x504F), (0x09, 0x5044), (0x0B, 0x7E7A))
+# 01:5783 a map animation strip scroll's end (its pairs are written an hblank each)
+# 00:026C the field loop after the field step (a step's new map row is hblank-paced: CPU time) and
+# 00:0272 / 00:0275 before / after the objects are drawn (00:01A0); 01:5F2B the battle wipe's BG fill done (hblank-paced);
+# 00:027B the field loop's map animation done (hblank-paced copies); 01:49CA / 49CD / 49D5 the same
+# three in a jump's frame (01:49BD)
+# 09:44D2 the walking figures of the save slots (09:4127) (after the slots' checks and tiles, CPU time)
+POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74), (0x09, 0x40B1), (0x09, 0x504F), (0x09, 0x5044), (0x0B, 0x7E7A), (0x01, 0x5783), (0x00, 0x026C), (0x00, 0x0272), (0x00, 0x0275), (0x01, 0x5F2B), (0x00, 0x027B), (0x01, 0x49CA), (0x01, 0x49CD), (0x01, 0x49D5), (0x09, 0x44D2))
 
 
 def plan_steps(plan):

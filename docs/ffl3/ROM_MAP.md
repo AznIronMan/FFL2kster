@@ -243,6 +243,12 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 01:41AF / 01:41C0 | a frame of the leader's / an object's scripted walk: map animation, objects, a frame (the leader's steps 01:441D-4609, the objects' 01:50AC-5312) | verified where `opening1` reaches (scripted walks) |
 | 00:3211 and helpers | text engine: flush 00:331B, line at once 00:3357, tile by tile 00:338E (delay 00:3593), box scroll 00:342C / 00:34B2, dictionary 00:308C / 00:30B8, wait for A 00:275C | verified (parity) |
 
+| 00:0851 / 00:01E7 | Select: C6F3 turned left 2 (the next member leads), sound 3C; 00:01E7 the leader redrawn (00:04F7 a = 0B in bank 0B, 00:04B1, 01:5272, a frame) | verified (select1) |
+| 00:0861 | B in the field: by C6E3 (0 nothing, 1 01:4311, 2 01:4272, 3-8 01:4250 off the vehicle) | verified (ship3, sweep) |
+| 01:63E6 / 01:642E | the console's Depart (C6E9 -> C6E4, C6E3 by flags 3A / 39 and C6FA, 00:027D) / an item chosen by CA50 (flags 0E / 0F, 0F:7DF2; 2: 01:647B the lift-off) | verified (ship3, ship4; CA50 2 unverified) |
+| 00:025C / 00:3D38 | after the title with a saved game (flag 31): the map load 00:027D, IE STAT on | verified (cont1) |
+| 01:5F9D / 00:06D2 | the map load's fade in for CA6B 2 / the follower object | ported, unverified |
+
 ## Menus and the name entry (port P1)
 
 | Location | What | Status |
@@ -279,6 +285,12 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0B:6DE4 / 0B:6E33 | member slot a from the starting record 0B:7573[b] (CE00 + 4 a cleared); slot a emptied (C503 + record = FF) | verified (3, 2 / 4) |
 | 0F:79D4 / 00:2499 | per member 0-3: (L + 4)(L + 1)^2 (L = C503 + record; 99: 0) -> CD9D + 3 k, 16 x 16 multiply in CD46-CD49 | verified (RAM at waits) |
 | 00:023F | start code after the title: story flag 31 clear -> fade in, opening script 09:6015 (box 1,1 18 x 6), flag 31 set, LYC 0, field loop 00:0265 | probable (port runs to the script's first event) |
+
+| 09:4964 / 09:44D2 | Continue on the title: the slots (09:4494; its figures 09:4127 called at 09:44D2 after ~3 frames of checks), the cursor, A loads (09:4E0C), fade out; none valid: a new game | verified (cont1) |
+| 09:521A | the effect of item / spell CE26 on CD36 in the field (kinds 18-1C heal, 22-26 stats / points; others CDEA 83, the buzzer) | verified for Cure1, HP, Elixir, Tent, Soft (menu10) |
+| 09:4D87 / 01:402D | field spells 1B / 2C (01:422E, CA6C), 20 (01:4132), 21 (01:40D6), 25 (01:424D); after the menu by CA16: 21 01:4049, 20 01:40DD, 1B / 2C 01:41D6, 25 01:4233 | verified for the checks and 01:4049 (menu11-15) |
+| 0F:7BC8 / 0F:7CB0 | the field use of item E6 (the key items left, text 09:7285) / of E7 E8 E9 F5 | verified for E6 (menu10) |
+| 00:3086 / 00:308C / 00:26D3 / 00:26E3 / 00:29A5 | scene and dictionary text codes, the list and upper-row newlines, menu code 1F 10-1F | ported, unverified |
 
 ## Battle (port P1)
 

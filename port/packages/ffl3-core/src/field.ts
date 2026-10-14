@@ -4,18 +4,22 @@
  *  Runs with bank 01 selected. */
 import type { Game, Co } from "./game.js";
 import type { Memory } from "./memory.js";
-import { wait1, far0, pushBank, popBank } from "./sys.js";
+import { wait1, far0, farcall, farSync, pushBank, popBank } from "./sys.js";
 import { NotPorted } from "./irq.js";
-import { fget, fset, setSlot, testFlag } from "./objects.js";
+import { fget, fset, setSlot, testFlag, setFlag, testFlag2, setFlag2 } from "./objects.js";
 import { drawObjects, objectSprite, tableWord } from "./actors.js";
 import { mapAnimation, windowClose } from "./window.js";
 import { printText } from "./text.js";
 import { fieldMenu } from "./fieldmenu.js";
-import { dispatch } from "./events.js";
+import { dispatch, itemGet } from "./events.js";
+import { shopMenu } from "./shop.js";
+import { jumpB } from "./jump.js";
+import { loadMap, spriteType, leaderTiles } from "./mapload.js";
 import { encounter } from "./battle.js";
 import { companionFollow, objectsUpdate, layerSwitch, leaderStartDown, leaderStartUp, leaderStartRight,
   leaderStartLeft, leaderDown, leaderUp, leaderRight, leaderLeft, leaderNext, leaderFace, leaderStepOn,
-  stepSpeed } from "./events2.js";
+  stepSpeed, leaveVehicleEvent } from "./events2.js";
+import { vehiclePushedOut, returnPointA } from "./ship2.js";
 
 /** 00:08F3 — the map's pending events: CA52 -> event 2B; else with CA56 (a step was made) and
  *  the leader on foot (C6E3 0 or 2, or 3+ on cell EA) a C0-type cell C2F0 -> its event (C2F0 &
@@ -38,14 +42,14 @@ function* pendingEvents(g: Game): Co {
 
 /** 01:6374 — on map 01 in a vehicle (C6E3), flags E8 and CF clear, inside C290 60-1AF and C2B0
  *  200-37F: the vehicle is pushed out (not ported). */
-function map01Push(g: Game): void {
+function* map01Push(g: Game): Co {
   const m = g.m;
   if (!m.rd(0xc6e3) || m.rd(0xc6e8) !== 0x01) return;
   if (testFlag(m, 0xe8) || testFlag(m, 0xcf)) return;
   const y = fget(m, "c290") | (fget(m, "c290", 1) << 8);
   const x = fget(m, "c2b0") | (fget(m, "c2b0", 1) << 8);
   if (y < 0x60 || y >= 0x1b0 || x < 0x200 || x >= 0x380) return;
-  throw new NotPorted("01:63AD (map 01: the vehicle pushed out)");
+  yield* vehiclePushedOut(g);
 }
 
 /** 01:4D79 / 4D89 / 4D9C — the step speed C6F0 from the moving cell's C2F0 bits 3-2 (as it is,
@@ -156,9 +160,19 @@ function* fieldA(g: Game): Co {
   if (!m.rd(0xc6e3)) {
     let same = true;
     for (let k = 0; k < 5; k++) if (m.rd(0xc6e4 + k) !== m.rd(0xc6e9 + k)) same = false;
-    if (same) throw new NotPorted("01:632A (A on the return point)");
+    if (same && (yield* returnPointA(g))) return;
   }
-  if (m.rd(0xc6e3) === 0x02) throw new NotPorted("00:0950 (A in vehicle 2)");
+  if (m.rd(0xc6e3) === 0x02) { // 00:0950 — in vehicle 2: the map C6E8 found in 00:0935 (8) -> 00:093D
+    const b = m.rd(0xc6e8);
+    for (let c = 0; c < 8; c++) {
+      if (m.rd(0x0935 + c) !== b) continue;
+      m.wr(0xc6e8, m.rd(0x093d + c));
+      if (m.rd(0xc6e8) === 0x02 && testFlag(m, 0x0e)) m.wr(0xc6e8, 0x03);
+      break;
+    }
+    yield* loadMap(g); // 00:097C jp 00:027D
+    return;
+  }
   if (!talkTarget(g)) return;
   yield* wait1(g);
   const t = fget(m, "c350"), id = fget(m, "c200");
@@ -175,7 +189,39 @@ function* fieldA(g: Game): Co {
     const hl = tableWord(m, 0x791e, (id - 1) & 0xff);
     popBank(g);
     yield* far0(g, 0x0a, () => printText(g, 0x00, hl, 0x0101, 0x0612));
-  } else throw new NotPorted(`00:098A (A: object type ${t})`);
+  } else if (t === 1) yield* chestOpened(g);
+  else { // 00:0A2F — a shop: CA2F = C200 - 1, 01:6FD4 (bank 01 selected)
+    m.wr(0xca2f, (id - 1) & 0xff);
+    yield* shopMenu(g);
+  }
+}
+
+/** 00:09D4 — A on a chest (object type 1): the item C200 - 1 below 80 and its second flag
+ *  (C780) clear: item 03:762A[C200 - 1] received (CE94, FF96 kept; 0B:6D63); unless story flag 01:
+ *  the chest shown open (C280 = C330 = 78, sprite 01:5272 facing 0), for C200 >= 61 the flag
+ *  0F:7C7E[C200 - 61] (0F:7C74), its second flag set (00:3CB8). Else the text 01:611D (mode 0C)
+ *  and the window closed. */
+function* chestOpened(g: Game): Co {
+  const m = g.m;
+  const b = (fget(m, "c200") - 1) & 0xff;
+  if (b >= 0x80 || testFlag2(m, b)) {
+    yield* far0(g, 0x01, () => printText(g, 0x0c, 0x611d, 0x0101, 0x0612));
+    yield* windowClose(g);
+    return;
+  }
+  pushBank(g, 0x03);
+  const s = m.hram[0x16]!;
+  m.wr(0xce94, m.rd((0x762a + b) & 0xffff));
+  popBank(g);
+  yield* farcall(g, 0x0b, () => itemGet(g));
+  m.hram[0x16] = s;
+  if (testFlag(m, 0x01)) return;
+  fset(m, "c280", 0x78);
+  fset(m, "c330", 0x78);
+  objectSprite(m, 0);
+  const a = fget(m, "c200");
+  if (a >= 0x61) farSync(g, 0x0f, () => setFlag(m, m.rd((0x7c7e + ((a - 0x61) & 0xff)) & 0xffff)));
+  setFlag2(m, (a - 1) & 0xff);
 }
 
 /** 00:07BB — the field step. */
@@ -190,7 +236,7 @@ function* fieldStep(g: Game): Co {
   if (m.rd(0xca2c)) yield* encounter(g);
   m.hram[0x16] = 0;
   yield* pendingEvents(g);
-  map01Push(g);
+  yield* map01Push(g);
   if (!movingCell(g)) return;
   if (!m.rd(0xc6e3)) {
     // 00:07DC — on foot: the leader's tile base and kind back from C330 / C340, its sprite
@@ -198,7 +244,7 @@ function* fieldStep(g: Game): Co {
     fset(m, "c280", fget(m, "c330"));
     fset(m, "c320", fget(m, "c340"));
     objectSprite(m, m.rd(0xc6ee));
-    if (m.rd(0xc6e8) >= 0x0c && m.hram[0x0b]! & 0x02) throw new NotPorted("01:47B2 (B on foot: a jump)");
+    if (m.rd(0xc6e8) >= 0x0c && (yield* jumpB(g))) return; // 00:07FC — B: 01:47B2
   }
   m.wr(0xca13, 0);
   const held = m.hram[0x0a]!;
@@ -210,10 +256,25 @@ function* fieldStep(g: Game): Co {
   }
   const pressed = () => m.hram[0x0b]!; // FF8B, read again at each test (the text waits frames)
   if (pressed() & 0x01) yield* fieldA(g);
-  if (pressed() & 0x02 && m.rd(0xc6e3)) throw new NotPorted("00:0861 (B in a vehicle)");
+  if (pressed() & 0x02) yield* leaveVehicleEvent(g); // 00:0861
   if (m.rd(0xc6ef)) return;
   if (pressed() & 0x08) yield* fieldMenu(g);
-  if (pressed() & 0x04) throw new NotPorted("00:0851 (Select: the party order)");
+  if (pressed() & 0x04) yield* selectLeader(g);
+}
+
+/** 00:0851 — Select: sound 3C, the leader the next member (C6F3 turned left 2: the member order
+ *  rotates), 00:01E7: in bank 0B the type of sprite 0B (00:04F7, with its 00:08AD frame), the
+ *  leader's tiles (00:04B1), the sprite list by C6EE (01:5272), a frame (00:3A6B). */
+function* selectLeader(g: Game): Co {
+  const m = g.m;
+  m.hram[0x3c] = 0x3c;
+  const a = m.rd(0xc6f3);
+  m.wr(0xc6f3, ((a << 2) | (a >> 6)) & 0xff);
+  pushBank(g, 0x0b);
+  yield* spriteType(g, 0x0b); // (pops the bank)
+  yield* leaderTiles(g);
+  objectSprite(m, m.rd(0xc6ee));
+  yield* g.wait(1);
 }
 
 /** 00:0265 — the field loop. */
@@ -222,10 +283,21 @@ export function* fieldLoop(g: Game): Co {
   for (;;) {
     m.wr(0xca0e, 0);
     yield* fieldStep(g);
+    yield* g.point(0x026c); // the step's work (a new map row hblank-paced) takes CPU time
     companionFollow(m);
     objectsUpdate(g);
-    drawObjects(g);
+    // the objects' drawing (00:01A0) takes CPU time: it starts at 00:0272, its VRAM writes land on
+    // the way and the OAM buffer is complete at its end (00:0275), which a vblank DMA may come before
+    yield* g.point(0x0272);
+    const drawn = g.pointTime(0x0275);
+    g.vramUntil(drawn, () => drawObjects(g), true, true);
+    yield* g.untilTime(drawn);
     yield* wait1(g);
-    mapAnimation(g);
+    // the map animation's copies are hblank-paced (a strip scroll a byte an hblank, its own sync
+    // point 01:5783): the loop goes on when the original's did (00:027B), the other VRAM writes
+    // landing on the way
+    const end = g.pointTime(0x027b);
+    const t = g.vramUntil(end, () => mapAnimation(g));
+    yield* g.untilTime(t);
   }
 }

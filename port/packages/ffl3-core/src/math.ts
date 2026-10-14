@@ -36,7 +36,7 @@ export function divide(g: Game, hl: number, de: number, sp: number): { hl: numbe
   g.ime = false; // di
   m.wr(0xc0c0, 0x31);
   m.wr(0xc0c3, 0xc9);
-  m.wr16(0xc0c1, (sp - 8) & 0xffff);
+  m.wr16(0xc0c1, ((g.hooks.divideSp?.(sp) ?? sp) - 8) & 0xffff);
   let bc = hl & 0xffff;
   de &= 0xffff;
   const neg = ((de ^ 0xffff) + 1) & 0xffff; // SP = -de

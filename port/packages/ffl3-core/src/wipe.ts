@@ -23,7 +23,7 @@ function* inHblank(g: Game, x: number, fn: () => void): Co {
  *  WX 57, WY 0, window on (00:3A44), the scroll back; then rows C800 = F8, F0+8 .. (C801 = 58):
  *  22 tiles from the map address of (C801, C800) (00:0DE4) set FF, each in the next hblank (a
  *  row start sometimes takes a line more in the original; the replay does not tell). */
-function* wipeStart(g: Game): Co {
+export function* wipeStart(g: Game): Co {
   const m = g.m;
   oamHideAll(m);
   g.ime = false;
@@ -87,6 +87,7 @@ export function* battleWipe(g: Game): Co {
     if (d) d = (d - 4) & 0xff;
   } while (m.rd(0xc800) < 0x50);
   fill(m, 0x9800, 0x0400, 0xff);
+  yield* g.point(0x015f2b); // the fill is hblank-paced (14 bytes a line): its end, CPU time
   windowOff(m);
   g.ime = false;
   m.wr(0xc0b9, 0xc3);

@@ -11,6 +11,8 @@ import { waveRaster } from "./wave.js";
 import { fieldLoop } from "./field.js";
 import { menuFrameWork } from "./fieldmenu.js";
 import { testFlag, setFlag } from "./objects.js";
+import { loadMap } from "./mapload.js";
+import { statIrqOn } from "./cont.js";
 
 export class Engine {
   readonly g: Game;
@@ -49,10 +51,14 @@ export class Engine {
    *  00:027D and 00:3D38; then LYC 0 and the field loop 00:0265. */
   *afterTitle(): Co {
     const g = this.g, m = g.m;
-    if (testFlag(m, 0x31)) throw new NotPorted("00:025C (a saved game: the map load)");
-    yield* fadeIn(g);
-    yield* far0(g, 0x09, () => printText(g, 0x00, 0x6015, 0x0101, 0x0612));
-    setFlag(m, 0x31);
+    if (testFlag(m, 0x31)) { // 00:025C
+      yield* loadMap(g);
+      statIrqOn(m);
+    } else {
+      yield* fadeIn(g);
+      yield* far0(g, 0x09, () => printText(g, 0x00, 0x6015, 0x0101, 0x0612));
+      setFlag(m, 0x31);
+    }
     m.wr(0xff45, 0);
     yield* fieldLoop(g);
   }

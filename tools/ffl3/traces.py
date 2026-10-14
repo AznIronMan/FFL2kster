@@ -14,6 +14,7 @@ START = (0, 0x0200)   # 00:0200, the start code (power-on: 00:0100 jp 0200)
 FIELD = (0, 0x0265)   # 00:0265, the field loop (each iteration)
 
 # name: (state, hook, plan[, state saved at the end])
+# (POKES: the scenario's pokes at the hook, (address, value[, mask]))
 SCENARIOS = {
     "title1": ("boot", TITLE, "none:400"),
     # the title menu: cursor down/up, B and Start (buzzer), Select, a direction held (key repeat)
@@ -89,6 +90,38 @@ SCENARIOS = {
     # (the default commands), to the map back (00:1151)
     "enc1": ("field_start", FIELD, "none:60,up:160,none:30,up:200,none:300,down:200,none:30,down:60,none:30,"
                                    "left:32,none:30,right:64,none:60," + "a:3,none:37," * 212 + "b:3,none:60," * 3 + "none:300"),
+    # Select in the field (00:0851): the leader rotates through the members (C6F3), its sprite
+    "select1": ("field_start", FIELD, "none:30," + "select:3,none:24," * 5 + "right:16,none:20,left:16,none:40"),
+    # Continue on the title (09:4964) with the save menu8 left (slots 1 and 3?): the slot list,
+    # the cursor both ways, an empty slot refused, a game loaded (01:7DC5), the saved map (00:025C)
+    "cont1": ("boot:menu8", TITLE, "none:40,none:23,a:3,none:80,down:3,none:20,down:3,none:20,up:3,"
+                                   "none:20,a:3,none:30,up:3,none:20,a:3,none:300"),
+    # the console's Depart (01:63E6) with story flag 05 poked (the console then lets it): the
+    # vehicle state by the flags, the map kept at C6E9 loaded; a few steps, B off the vehicle (00:0861)
+    "ship3": ("field_start", FIELD, "none:100,down:64,none:60,up:24,none:80,a:3,none:300,down:32,none:30,"
+                                    "left:32,none:30,b:3,none:200"),
+    # the console's Warp (sub-item 2) with key item E1 poked (C6F9 bit 6): row 0 chosen, confirmed
+    # (A): 01:642E with CA50 0 (flags 0E / 0F, the wave flash 0F:7DF2)
+    "ship4": ("field_start", FIELD, "none:100,down:64,none:60,up:24,none:80,down:3,none:20,down:3,none:20,"
+                                    "a:3,none:80,a:3,none:60,a:3,none:400"),
+    # items used in the field (09:4BC8, 09:521A) with a bag poked: E6 (0F:7BC8), Cure1 on a member,
+    # HP (a stat), Elixir, Tent, Soft (no field effect: the buzzer), then B out
+    "menu10": ("field_start", FIELD, "none:30,start:3,none:60,a:3,none:60,a:3,none:30,a:3,none:200,"
+                                     + "down:3,none:20,a:3,none:30,a:3,none:60,a:3,none:120," * 5
+                                     + "b:3,none:40,b:3,none:40,b:3,none:60"),
+    # the field spell Exit (1B, 09:4D87 / 01:422E) poked into the leader's spell bits: the spell
+    # list, Exit cast (the warp back 01:41D6 after the menu, or refused)
+    "menu11": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40,a:3,none:60,a:3,none:30,"
+                                     "a:3,none:60,a:3,none:400"),
+    # the same on map 42 (state m42, the map sweep's; CA6C clear): Exit cast, the warp back after
+    # the menu (01:41D6: the closing band 01:5F39, the map load with the fade in 01:5F9D)
+    "menu12": ("m42", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40,a:3,none:60,a:3,none:30,"
+                             "a:3,none:60,a:3,none:400"),
+    # the field spells 20 / 21 / 25 (each poked alone) cast on the world map (state m02): after the
+    # menu 01:40DD / 01:4049 / 01:4233
+    "menu13": ("m02", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40,a:3,none:60,a:3,none:30,a:3,none:60,a:3,none:400"),
+    "menu14": ("m02", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40,a:3,none:60,a:3,none:30,a:3,none:60,a:3,none:400"),
+    "menu15": ("m02", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40,a:3,none:60,a:3,none:30,a:3,none:60,a:3,none:400"),
     # the menu (Start, 09:4000): open, the cursor down / up (wrapping), B to close
     "menu1": ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,down:3,none:20,up:3,none:20,"
                                     "up:3,none:20,up:3,none:20,b:3,none:60"),
@@ -126,12 +159,105 @@ SCENARIOS = {
 }
 
 
+# ---------------------------------------------------------------- the map sweep
+#
+# Every map entered from field_start through event 04 (00:14AA -> 01:6578, the return point popped
+# from the RAM stack C7A0 / C7B0 / C7C0 at level C7C8 - 2) poked at the field loop: level 2, the
+# map, the cell (moved back one cell against the facing, which 01:6578 steps forward), masks FF
+# (00:027D sets CA04 / CA05 again), the leader's cell attribute C2F0 = C4 and CA56 = 1 (a step
+# was made: 00:08F3 runs the cell's event). The entry cell is the destination of the first exit
+# (06:6308) or door (06:6BA4) into the map (ffl3/data/maps.json, local); maps nothing leads to
+# (map_entries()[1]) are left for the event sweep.
+
+PLAN_MAP = "none:200,down:16,none:30,up:16,none:30,left:16,none:30,right:16,none:60"
+
+
+def _door_cell(b):
+    """A door's packed coordinate: low nibble + bits 4-6 x 16 (the cell), bit 7 a facing bit."""
+    return ((b >> 4) & 7) * 16 + (b & 0x0F), b >> 7
+
+
+def map_entries():
+    import json
+    d = json.load(open("ffl3/data/maps.json"))["tables"]
+    dest = {}
+    for src, lst in sorted(d["map"]["warps"].items()):
+        for e in lst:
+            b = bytes.fromhex(e)
+            dest.setdefault(b[1], (b[2], b[3]))
+    for r in d["door"]["records"]:
+        f = r["fields"]
+        dest.setdefault(f["map"], (f["x"], f["y"]))
+    return {mp: dest[mp] for mp in sorted(dest)}, [r["id"] for r in d["map"]["records"] if r["id"] not in dest]
+
+
+def map_pokes(mp, b1, b2):
+    y, fy = _door_cell(b1)    # byte 1 -> C6E4/C6E5 (y), byte 2 -> C6E6/C6E7 (x) (00:1481-149E)
+    x, fx = _door_cell(b2)
+    face = (fx << 7) | (fy << 6)          # 00:1471-147E
+    dy, dx = {0x00: (-1, 0), 0x40: (0, 1), 0x80: (1, 0), 0xC0: (0, -1)}[face]
+    return ((0xC7C8, 2), (0xC7A0, (y - dy) & 0xFF), (0xC7A1, (x - dx) & 0xFF), (0xC7B0, 0xFF), (0xC7B1, 0xFF),
+            (0xC7C0, mp), (0xC6EE, face), (0xC2F0, 0xC4), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
+
+
+POKES = {
+    "ship3": ((0xC760, 0x04, 0x04),),   # story flag 05
+    "ship4": ((0xC6F9, 0x40, 0x40),),   # key item E1
+    "menu10": ((0xC701, 0xC0), (0xC702, 0x03), (0xC703, 0xCD), (0xC704, 0x01), (0xC705, 0xCA), (0xC706, 0x01),
+               (0xC707, 0xCB), (0xC708, 0x01), (0xC709, 0xC5), (0xC70A, 0x01)),   # Cure1 x3, HP, Elixir, Tent, Soft
+    "menu11": ((0xC553, 0x08),),   # the leader's spell Exit (1B)
+    "menu12": ((0xC553, 0x08),),
+    "menu13": ((0xC556, 0x01),),   # 20
+    "menu14": ((0xC556, 0x02),),   # 21
+    "menu15": ((0xC556, 0x20),),   # 25
+}
+
+def map_sweep():
+    entries, _ = map_entries()
+    return {f"map{mp:02x}": ("field_start", FIELD, PLAN_MAP, map_pokes(mp, *b), f"m{mp:02x}") for mp, b in entries.items()}
+
+
+# ---------------------------------------------------------------- the talk sweep
+#
+# From each map's end state (m.., saved by the map sweep), every object found there
+# (ffl3/build/talk_targets.json, tools/ffl3/talk_targets.py) is poked onto the cell the leader
+# faces (its position C210 / C230 and target C290 / C2B0, 16-bit) at the field loop, then A and
+# the texts pressed through (A, then B), whatever the object starts (words, signs, items, shops,
+# battles, scenes).
+
+PLAN_TALK = "none:20,a:3,none:80," + "a:3,none:50," * 12 + "b:3,none:50," * 4 + "none:120"
+
+
+def talk_sweep():
+    import json
+    import os
+    if not os.path.exists("ffl3/build/talk_targets.json"):
+        return {}
+    out = {}
+    for t in json.load(open("ffl3/build/talk_targets.json")):
+        mp, s, y, x = t["map"], t["slot"], t["y"], t["x"]
+        pokes = ((0xC210 + 2 * s, y & 0xFF), (0xC211 + 2 * s, y >> 8), (0xC230 + 2 * s, x & 0xFF), (0xC231 + 2 * s, x >> 8),
+                 (0xC290 + 2 * s, y & 0xFF), (0xC291 + 2 * s, y >> 8), (0xC2B0 + 2 * s, x & 0xFF), (0xC2B1 + 2 * s, x >> 8))
+        st = t.get("state", f"m{mp:02x}")
+        out[f"t{st[1:]}_{s:x}"] = (st, FIELD, PLAN_TALK, pokes)
+    return out
+
+
 def main(names):
     rec = Recorder()
+    sweep = map_sweep() if not names or any(n.startswith("map") and len(n) == 5 for n in names) else {}
+    if not names or any(n.startswith("t") and "_" in n for n in names):
+        sweep.update(talk_sweep())
     try:
-        for name in names or list(SCENARIOS):
-            state, hook, plan, *save = SCENARIOS[name]
-            n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, save=save[0] if save else None)
+        for name in names or list(SCENARIOS) + list(sweep):
+            if name in sweep:
+                state, hook, plan, pokes, *save = sweep[name]
+                n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, pokes=pokes, save=save[0] if save else None,
+                                  hook_vblank=not state.startswith("field"))
+            else:
+                state, hook, plan, *save = SCENARIOS[name]
+                n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, pokes=POKES.get(name, ()),
+                                  save=save[0] if save else None, hook_vblank=len(state) == 3 and state[0] == "m")
             print(f"{name}: {n} frames, {w} waits")
     finally:
         rec.close()

@@ -178,17 +178,19 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   };
   // the port's vblank polls wait for the frame of the original's (CPU time before them)
   let nSyncs = 0, lateSyncs = 0;
+  // (past the trace's last record the original had not reached it yet: the port waits past the end)
   g.onSync = () => {
     const f = t.syncs[nSyncs++];
     if (f !== undefined && f < g.frame) lateSyncs++;
     opts.onSync?.(nSyncs - 1, f ?? -2, g.frame);
-    return f;
+    return f ?? n;
   };
   // ... and enter / leave the bracket (di) at the original's frame and line
   let nPolls = 0, latePolls = 0;
   g.onPollStart = () => {
     const p = t.polls[nPolls++];
-    if (!p) return undefined;
+    if (process.env.FFL3K_POLLS) console.log(`poll #${nPolls - 1} trace ${p?.join(",")} port f${g.frame} ly${g.ly}`);
+    if (!p) return [n, 0];
     if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePolls++;
     return p;
   };
@@ -201,13 +203,20 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     const p = t.points[addr]?.[k];
     nPoints++;
     if (process.env.FFL3K_POINTS) console.log(`point ${addr.toString(16)} #${k} trace ${p?.join(",")} port f${g.frame} ly${g.ly}`);
-    if (!p) return undefined;
+    if (!p) return t.points[addr] ? [n, 0] : undefined; // a point the trace never recorded: none
     if (p[0] < g.frame || (p[0] === g.frame && p[1] < g.ly)) latePoints++;
     return p;
   };
   // the random generator reads the frame counter the original had at that call
   let nRand = 0;
   m.onRandom = () => t.rand[nRand++]?.[2];
+  // the stack pointer a division at 00:1C9C stores (C0C1/C0C2 = SP - 8): the port keeps no stack;
+  // the original's comes from the trace's next wait (only that scratch RAM shows it)
+  g.hooks.divideSp = (est) => {
+    const w = t.waits.subarray(nWaits * 0x8000, (nWaits + 1) * 0x8000);
+    if (w.length < 0x8000) return est;
+    return ((w[0xc0c2 - 0x8000]! << 8) | w[0xc0c1 - 0x8000]!) + 8;
+  };
   // the frame work's runs end when the original's did (hblank-paced copies)
   let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0, rasterTears = 0;
   /** Where the port ran each work (in no time: its VRAM writes are all on that line). */
@@ -244,6 +253,9 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     for (const [pf, pl] of [...t.starts, ...t.polls, ...pointTimes]) if (pf === f && pl < 144) l = Math.max(l, pl);
     return l < 0 ? [] : [[0, l]];
   };
+  // a poll that ended in the next frame (entered on line 153): at its top if the original ran
+  // anything in that frame's visible lines (its code, or a frame work: the interrupts were on)
+  g.onCrossing = (f) => mainLines(f).length > 0 || t.works.some((w) => w[0] === f && w[1] < 144);
   g.onWaitDone = () => {
     // a wait ended by the last frame's vblank: the recording stopped before the code resumed
     if (nWaits >= wf.length && g.frame >= n - 1) return;

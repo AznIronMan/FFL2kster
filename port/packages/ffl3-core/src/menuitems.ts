@@ -20,6 +20,7 @@ import { entityOffset } from "./bstats.js";
 import { printText } from "./text.js";
 import { itemLoad } from "./bitems.js";
 import { statusIndex, recordBit7, listCursorsOff, cursorsHide, statusWord, statusWordSet, statusWords, cursorPlace, menuRedraw } from "./fieldmenu.js";
+import { useEffect, fieldSpellCast, specialItemUse, itemsLeft } from "./fieldfx.js";
 
 // ---------------------------------------------------------------- small helpers
 
@@ -555,7 +556,7 @@ function inList(m: Memory, hl: number): boolean {
  *  false (z). */
 function* specialItem(g: Game): Co<boolean> {
   if (!inList(g.m, 0x4dc9)) return false;
-  throw new NotPorted("0F:7CB0 (09:4DB4: the field use of item E7 / E8 / E9 / F5)");
+  return yield* specialItemUse(g);
 }
 
 /** 09:4C35 — the list cursors (09:4951), the box 09:4C48 (4 bytes) -> C8B0, C8B6-C8B8 = 0. */
@@ -603,7 +604,7 @@ function* shortOfPoints(g: Game): Co<boolean> {
  *  01:424D / 01:422E (not ported); others: false (z). */
 function* fieldSpell(g: Game): Co<boolean> {
   if (!inList(g.m, 0x4da2)) return false;
-  throw new NotPorted(`09:4D87 (the field spell ${g.m.rd(0xce26).toString(16)}: 01:40D6 / 4132 / 424D / 422E)`);
+  return yield* fieldSpellCast(g);
 }
 
 /** 09:49C0 — use CE26 (CE25 the id space, CE27 kept): its record (09:5D7F) with CE27 back; CE28 &
@@ -627,11 +628,11 @@ export function* useTarget(g: Game): Co {
     else {
       m.wr(0xce1c, m.rd(0xcd36));
       const r = yield* selectMember(g);
-      if (r !== 0xff) throw new NotPorted("09:521A (the effect of item / spell CE26 on the target CD36)");
-      a = 0x82;
+      if (r !== 0xff) { yield* useEffect(g); a = -1; } // 09:4A02: 09:521A leaves CDEA itself
+      else a = 0x82;
     }
   }
-  m.wr(0xcdea, a);
+  if (a >= 0) m.wr(0xcdea, a);
   // 09:4A05
   if (((m.rd(0xcdea) - 1) & 0xff) < 0x81) return;
   m.wr(0xcd36, m.rd(0xce1c));
@@ -695,7 +696,7 @@ function* useItem(g: Game, a: number): Co {
   hl = (hl + 1) & 0xffff;
   if (yield* specialItem(g)) { listBoxBack(m); return; }
   const id = m.rd(0xce26);
-  if (id === 0xe6) throw new NotPorted("0F:7BC8 (09:4BC4: the field use of item E6)");
+  if (id === 0xe6) { yield* farcall(g, 0x0f, () => itemsLeft(g)); listBoxBack(m); return; } // 09:4BC4, then 09:4C35
   if (id >= 0xd2) { yield* soundBuzz(g); return; }
   if (id < 0x30) { yield* learnSpell(g, hl, id); return; }
   if (id === 0xcb) {

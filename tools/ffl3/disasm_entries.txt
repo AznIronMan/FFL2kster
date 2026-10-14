@@ -97,3 +97,6 @@
 01:7A3E
 # battle effect 14 (02:41A0: rst $30, bank 0E, 00:3740 = jp hl)
 0E:7DBF
+# the shop menu Right / Left handlers (01:7052 table)
+01:7077
+01:7090

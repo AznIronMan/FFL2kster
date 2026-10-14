@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.43.0`
+Version: `1.44.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,14 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.44.0` — Legend III port: Select (the leader rotates through the members), B off a vehicle,
+  the console's Depart and Warp, Continue on the title (a saved game loaded into its map), items
+  and field spells used from the menu (healing, a stat, the key item E6, calling the vehicle), the
+  text engine's dictionary and scene codes and its two other newlines, the map load's third fade
+  in and the follower object — replay wait-exact (`select1`, `ship3`, `ship4`, `cont1`,
+  `menu10`-`menu15`; 38 slice traces); the field sweep passes 412 of 425 traces. A vblank poll
+  entered on line 153 now ends where the original's did (at the next frame's top or a whole frame
+  later, told by the trace).
 - `1.43.0` — Legend III port: the ship's cockpit console, the moving floor up to the warp, the walk
   out onto the world map and a random encounter — the battle wipe, a two-wave battle won with a
   member fallen, the parts declined, the map back — replay wait-exact (`ship1`, `ship2`, `warp1`,

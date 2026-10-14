@@ -271,7 +271,7 @@ function slotCheck(m: Memory, a: number): [boolean, number] {
 
 /** 09:4E0C — the game loaded from slot a: checked (09:4E4E, again while it fails), then its 2D2
  *  bytes -> C500 (09:4F39: hl + 6, SRAM on, 00:1FB1) until they check (09:4F58). */
-function loadSlot(m: Memory, a: number): void {
+export function loadSlot(m: Memory, a: number): void {
   const [z, hl] = slotCheck(m, a);
   if (!z) throw new NotPorted("09:4E0C (slot never valid: the original loops forever)");
   for (let n = 0; ; n++) {
@@ -310,7 +310,7 @@ function* figures(g: Game): Co {
  *  C500 + the record of k (00:1FCD), its sprite tiles (0B:7DCA with a = 1: 0B:7E17, C50D + the
  *  record) -> 8140 + 40 k; an invalid slot: C503 + the record = FF. Then the walking figures
  *  (09:4127). Returns true (z) when all three are empty (C503 & C563 & C5C3 = FF). */
-function* slotsShow(g: Game): Co<boolean> {
+export function* slotsShow(g: Game): Co<boolean> {
   const m = g.m;
   for (let b = 0x03; b; b--) {
     const k = (0x03 - b) & 0xff;
@@ -323,12 +323,13 @@ function* slotsShow(g: Game): Co<boolean> {
     const de = (0x8140 + ((((k << 4) | (k >> 4)) & 0xff) << 2)) & 0xffff;
     yield* farcall(g, 0x0b, () => memberTiles(g, 0x01, rec, de));
   }
+  yield* g.point(0x0944d2); // (the slots' checks and tiles take CPU time)
   yield* figures(g);
   return (((m.rd(0xc503) & m.rd(0xc563) & m.rd(0xc5c3)) + 1) & 0xff) === 0;
 }
 
 /** 09:495E — CD25 = 1 (the next 09:44E2 draws the slot boxes in the fixed order). */
-function slotsWrapped(m: Memory): void {
+export function slotsWrapped(m: Memory): void {
   m.wr(0xcd25, 0x01);
 }
 
@@ -337,7 +338,7 @@ function slotsWrapped(m: Memory): void {
  *  text 6E2F), 09:4565 (slot 1, 6E46), 09:456C (slot 2, 6E5D): CD25 set: CD25 - 1, the order
  *  4565, 455E, 456C; else by CD15: 0: 456C, 4565, 455E; 1: 456C, 455E, 4565 (00:1F6C, 14
  *  bytes); 2 and above: 455E, 4565, 456C (00:1F97, 21 bytes); the end (0, 0); drawn (09:4FEF). */
-function* saveBoxes(g: Game, a: number): Co {
+export function* saveBoxes(g: Game, a: number): Co {
   const m = g.m;
   let [, de] = copy(m, 0x4557, 0xc8b0, 7);
   const p = (0x4551 + ((a * 2) & 0xff)) & 0xffff;
@@ -369,7 +370,7 @@ function* saveBoxes(g: Game, a: number): Co {
 
 /** 09:4473 — the slot cursor: CD15 = a, C080 = 48 + 20 a (swap a, add a, add 48), the boxes with
  *  CD26 (09:44E2). */
-function* slotCursor(g: Game, a: number): Co {
+export function* slotCursor(g: Game, a: number): Co {
   const m = g.m;
   m.wr(0xcd15, a);
   m.wr(0xc080, ((((a << 4) | (a >> 4)) & 0xff) * 2 + 0x48) & 0xff);

@@ -173,7 +173,7 @@ export function* bracketEnter(g: Game, timed = false): Co {
     copy(m, 0x1e40, 0xc0bc, 3);
     copy(m, 0x1e43, 0xc0b9, 3);
   }
-  yield* g.untilVblank();
+  yield* g.untilVblank(true);
   yield* g.reti();
 }
 
@@ -194,7 +194,7 @@ export function* bracketLeave(g: Game): Co {
     copy(m, 0xcdc7, 0xc0bc, 3);
     copy(m, 0xcdcb, 0xc0b9, 3);
   }
-  yield* g.untilVblank();
+  yield* g.untilVblank(true);
   yield* g.reti();
 }
 
