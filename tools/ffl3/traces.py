@@ -433,6 +433,32 @@ def fuzz_sweep(nb=72, nf=36):
                 p = list(rich_party(i)) + [(0xC6F8, 0xFF), (0xC6F9, 0xFF)] + [[], [(0xC761, 0x02, 0x02)], [(0xC76A, 0x02, 0x02)]][fl]
                 out[f"zn{i}{r}{fl}"] = ("field_start", FIELD, "none:100,down:64,none:60,up:24,none:80," + "down:3,none:20," * i + "a:3,none:80,"
                                          + "down:3,none:20," * r + "a:3,none:60,a:3,none:600,a:3,none:200,b:3,none:100", tuple(p))
+    out.update(save_sweep())
+    return out
+
+
+def save_sweep():
+    """The save starts (zyTKNN): each field state made from a player's battery save
+    (tools/ffl3/sav.py state FILE SLOT svT -> ffl3/build/states/field_svT.state, local only), with
+    the party as saved: K = b, battles with the zb keys and Start (formation by NN); l, battles
+    with every member at HP 1 and A every 40 frames (the party falls: the "continue" question);
+    f, the field with the zf keys."""
+    import glob
+    out = {}
+    battle = ((0xC2F0, 0xDB), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
+    for path in sorted(glob.glob("ffl3/build/states/field_sv*.state")):
+        t = path.split("field_sv")[1][:-6]
+        if len(t) != 1:
+            continue
+        st = f"field_sv{t}"
+        for j in range(12):
+            k = FUZZ_FORMATIONS[(j * 31 + 7) % len(FUZZ_FORMATIONS)]
+            out[f"zy{t}b{j:02d}"] = (st, FIELD, fuzz_plan(8000 + j, 160, FUZZ_COMMAND_KEYS), battle + ((0xCA28, k),))
+        for j, k in enumerate((0x25, 0x6F, 0x5E, 0x10)):
+            hp1 = tuple((0xC500 + 0x60 * i + o, v) for i in range(5) for o, v in ((0x10, 1), (0x11, 0)))
+            out[f"zy{t}l{j:02d}"] = (st, FIELD, "none:10," + "a:3,none:37," * 90 + "none:200", hp1 + battle + ((0xCA28, k),))
+        for j in range(8):
+            out[f"zy{t}f{j:02d}"] = (st, FIELD, fuzz_plan(8500 + j, 160, FUZZ_FIELD_KEYS), ())
     return out
 
 

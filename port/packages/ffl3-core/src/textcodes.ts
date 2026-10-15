@@ -1026,7 +1026,10 @@ export function* textCode(g: Game, c: number, hl: number, de: number, b: number)
     case 0x3a: return [yield* flagBranch2(g, hl), de, b];
     case 0x3c: return [yield* yesNo(g, hl), de, b];
     case 0x3e: return [yield* scriptRef(g, 0x40, hl), de, b]; // 00:2EF6
-    case 0x43: yield* g.point(0x002fbf); return [placeSprite(m, hl), de, b]; // sync point (see menu.ts)
+    case 0x43: // sync points 00:2FBF and 00:2FED (see menu.ts)
+      yield* g.point(0x002fbf);
+      if (!m.rd(0xcd1c)) yield* g.point(0x002fed);
+      return [placeSprite(m, hl), de, b];
     case 0x4d: { // 00:306C: the name 72B3 + 11 k (k = the lowest set bit of CDC0; 11 letters,
       // bank as selected), trimmed (CD34 bit 1)
       m.wr(0xcd34, m.rd(0xcd34) | 0x02);

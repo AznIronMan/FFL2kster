@@ -1142,3 +1142,28 @@ removed; the work's di ignored, a code-run work keeping the interrupts, the obje
   member at HP 1 and the enemies' HP 9999, two members fall but the battle script ends the
   battle without CEDA = FF (the traces were kept aside, ffl3/scratch/old_zl2).
 - **Tests:** 1286 FFL3 tests pass.
+
+## 2026-10-15 — Starting from a player's save (1.57.0)
+
+- **`tools/ffl3/sav.py`:** `info FILE` checks the three slots of a battery save (each copy: the
+  magic C6 62 83, the 3-byte checksum of 09:4EFA over the 2D2 bytes kept at C500-C7D1; both
+  copies, A000 + 2D8 k and + B60) and prints each party (name, record head, HP, stats,
+  equipment, abilities +48, spell count), GP, the vehicle C6E3, the place C6E4, the key items,
+  the bag and the story flags (C760 + n / 8, bit 7 - n % 8). `state FILE SLOT T` boots with the
+  file's RAM (the other slots' magic cleared), Continue, A until the field loop 00:0265, and
+  saves `ffl3/build/states/field_svT.state`. The save stays in .private/saves, the state in
+  ffl3/build (both local).
+- **The save sweep** (`save_sweep`, zyTKNN): from each field_svT state, 12 battles with the
+  command keys (b), 4 battles with the party at HP 1 (l) and 8 field runs (f). Tried first with
+  the save the menu8 trace leaves (state svq): 22 of 24 passed.
+- **Sync point 00:2FED** (code 43's figure, where 00:2FBF reads the OAM entry): zyqf03's field
+  menu reached 00:2FBF at 2658 line 2, but the frame work (00:3549 from line 6: the walking
+  figures 00:21A9, frame B, x bit 0 set) ran before the entry was read (00:2FED at line 68), so
+  the figure kept x 18; the port placed it at once and the work set x 19 (one pixel, 96 px over
+  11 frames). Falsified: without the point zyqf03 fails.
+- **Pinned:** zyqf02 frame 1273, 3 px on lines 16, 18 and 28: the frame work's map animation tile
+  bytes (1273 lines 14-49) written one by one while those lines were drawn (one plane new, the
+  other old); the replay accepts such rows on two lines at most.
+- **A lost battle** from svq: the members fall one by one, but the guest (Myron) at HP 1 is
+  never attacked again within 14,000 frames; the "continue" question is still not reached.
+- **Tests:** 1311 FFL3 tests pass.

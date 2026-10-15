@@ -329,4 +329,5 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:1B50 | the event walk's handlers back (sync point) | verified (opening2) |
 | 01:5F12 | the battle wipe after its own sound tick (sync point: a tick past line 0 costs a frame) | verified (ending1) |
 | 0C:7E42 / 7E53 | the last boss C1's scene states (C9DA): HP reset to 60000; from round 2 D897 vs C920; 0C:7EB3 the change into Xagor (CC59 C2, CC5C E3, 0C:6B4F) | verified (xagor1) |
+| 00:2FED | code 43's figure: the OAM entry read (after 00:2FBF's parameters; an interrupt's frame work may come between): sync point | verified (zyqf03) |
 | 02:40A7 | figures DE01 and DE10 trade places (a member's action on a member): starts after the action's CPU time, sync point (zc22) | verified (zc) |

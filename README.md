@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.56.0`
+Version: `1.57.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
 (FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
 (docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers on hold).** The port plays from the title through
@@ -100,6 +100,13 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.57.0` — Legend III: recordings can now start from a player's own battery save
+  (`tools/ffl3/sav.py`: it checks a `.sav` file's three slots, shows each party and its
+  progress, and turns a slot into a starting point; the save and everything made from it stay
+  local). A first set of 24 recordings from a loaded game found one fix: the party figures in
+  the field menu were placed before an interrupt's frame work, which in the original came first
+  (one figure a pixel off). One more frame is pinned with its size (3 pixels of a map animation
+  written while the screen is drawn).
 - `1.56.0` — Legend III: recordings of the battle's second command page (Defend and Cover, reached
   with Start: 24) and of the ship's console with key items and story flags (64 with random
   input, 36 with each item and row chosen, the lift-off scene among them). They found one fix:

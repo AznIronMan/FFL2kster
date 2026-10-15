@@ -672,3 +672,6 @@ Decisions and assumptions:
 - 1.56.0: a frame that differs only because a timing model has no finer record to follow (bytes spread
   evenly between two recorded times) is pinned in the test with its pixel count and documented;
   any other difference is fixed or the trace is not kept.
+- 1.57.0: players' battery saves are user data: they live in .private/saves and the states and
+  traces made from them in the build folders (never committed); the tools read them, the
+  repository ships only the method.

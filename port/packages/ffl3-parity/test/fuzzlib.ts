@@ -13,7 +13,10 @@ import { haveRom, haveTrace, replay, summarize, summarizeWaits, TRACES } from ".
  *  a menu text row drawn while a frame work crossed the vblank (docs/ffl3/FINDINGS.md 1.53.0). */
 // (zk43: the map animation's strip bytes of a jump frame, spread evenly over the lines to 01:49D5
 // by `vramUntil`, land a line or two off the original's on one tile's rows 39-42)
-const RESIDUAL: Record<string, [number, number][]> = { zf13: [[2834, 59]], zk43: [[2211, 15]] };
+// (zyqf02: a frame work's tile bytes (the map animation, 1273 l14-49) written one by one while the
+// lines are drawn: three lines show a tile row with one plane new and one old; the port writes
+// the work at once, and the replay accepts such rows on two lines at most)
+const RESIDUAL: Record<string, [number, number][]> = { zf13: [[2834, 59]], zk43: [[2211, 15]], zyqf02: [[1273, 3]] };
 
 export function inputSweep(kind: string, label: string, suffix = "[0-9]{2}"): void {
   const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => new RegExp(`^z${kind}${suffix}$`).test(n)).sort() : [];
