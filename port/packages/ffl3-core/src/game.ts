@@ -72,6 +72,13 @@ export class Game {
   /** A frame wait is about to set FF95 = n: the number of frames the original was still busy
    *  before it (parity re-timing; 0 in play). */
   onWaitStart: ((n: number) => number) | null = null;
+  /** Parity: whether the original's frame wait (00:3A6D: the count stored, then `halt`) had its
+   *  count taken down by the vblank between the store and the `halt` (a wait entered at the end
+   *  of line 143): it then sleeps until the next interrupt (undefined in play). */
+  onWaitHalt: (() => boolean) | null = null;
+  /** The current frame wait sleeps past the vblank's countdown (`onWaitHalt`): 1 before that
+   *  countdown, 2 after it (woken by the next interrupt once its handler's work is done). */
+  private waitHalt = 0;
   /** A frame wait ended (00:3A77): the trace's wait point. */
   onWaitDone: (() => void) | null = null;
   /** The code is about to poll for vblank (the bracket, 00:1E2E): the frame in which the
@@ -218,17 +225,26 @@ export class Game {
       if (this.waiting === -1) this.resume();
       if (this.waiting === VBLANK && ly >= 144 && this.frame >= this.syncFrame) this.resume();
       let took = this.serve();
+      let ended = false;
       if (this.work && this.reachedAt(this.work.end)) {
         const done = this.work.done;
         // run by the code (00:1E38): it returns with the interrupts off after its di
         if (this.work.code && this.work.di) this.ime = false;
         this.work = null;
         done();
+        ended = true;
         took = this.serve() || took;
       }
-      if (took && this.waiting === WAIT && m.hram[0x15] === 0) {
-        this.onWaitDone?.();
-        this.resume();
+      if (this.waiting === WAIT && m.hram[0x15] === 0) {
+        if (this.waitHalt === 1) {
+          // the countdown came before the `halt`: it sleeps to the next interrupt, then its work
+          if (took && ly >= 144) this.waitHalt = 2;
+        } else if (this.waitHalt === 2) {
+          if ((took || ended) && !this.work) { this.waitHalt = 0; this.onWaitDone?.(); this.resume(); }
+        } else if (took) {
+          this.onWaitDone?.();
+          this.resume();
+        }
       }
       if (took && this.waiting === POLL && this.pollFor?.()) this.resume();
       if (this.waiting === LINE && this.reached() && !this.work) this.resume();
@@ -378,6 +394,7 @@ export class Game {
     const b = n ? this.onWaitStart?.(n) ?? 0 : 0;
     for (let k = 0; k < b; k++) yield BUSY;
     this.m.hram[0x15] = n & 0xff;
+    this.waitHalt = n && this.onWaitHalt?.() ? 1 : 0;
     if (n) yield WAIT;
   }
 

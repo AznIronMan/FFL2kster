@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.57.0`
+Version: `1.58.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
 (FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
 (docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers on hold).** The port plays from the title through
@@ -100,6 +100,13 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.58.0` — Legend III from players' saves: nine published battery saves (from the Past world to
+  Mt. Goht, the final area) gave nine new starting points and 216 recordings from them
+  (battles, lost battles, field runs with the menus and the save); a lost battle and the
+  "continue" question are now recorded too (4 from the start, 36 from the saves). They found
+  four fixes: a recording started mid-frame from a save, a frame wait entered right before a
+  vblank (the game then sleeps to the next interrupt), the map animation's strip bytes landing
+  a line later than modelled, and a rolling tile written at its recorded lines.
 - `1.57.0` — Legend III: recordings can now start from a player's own battery save
   (`tools/ffl3/sav.py`: it checks a `.sav` file's three slots, shows each party and its
   progress, and turns a slot into a starting point; the save and everything made from it stay

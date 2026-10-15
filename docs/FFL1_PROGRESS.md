@@ -461,3 +461,6 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 
 ### 2026-10-15 — No Legend I change (1.57.0)
 - Version bump only (Legend III save starts).
+
+### 2026-10-15 — No Legend I change (1.58.0)
+- Version bump only (Legend III save starts).

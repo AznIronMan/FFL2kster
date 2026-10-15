@@ -441,7 +441,8 @@ def save_sweep():
     """The save starts (zyTKNN): each field state made from a player's battery save
     (tools/ffl3/sav.py state FILE SLOT svT -> ffl3/build/states/field_svT.state, local only), with
     the party as saved: K = b, battles with the zb keys and Start (formation by NN); l, battles
-    with every member at HP 1 and A every 40 frames (the party falls: the "continue" question);
+    with every member at HP 1, the enemies' HP 9999 and A every 40 frames (the party falls: the
+    "continue" question, answered Yes);
     f, the field with the zf keys."""
     import glob
     out = {}
@@ -454,9 +455,12 @@ def save_sweep():
         for j in range(12):
             k = FUZZ_FORMATIONS[(j * 31 + 7) % len(FUZZ_FORMATIONS)]
             out[f"zy{t}b{j:02d}"] = (st, FIELD, fuzz_plan(8000 + j, 160, FUZZ_COMMAND_KEYS), battle + ((0xCA28, k),))
+        # (the enemies' HP 9999 from the first frame wait after frame 900, the battle set up, on an
+        # encounter zone CA2D = 01: the party falls, the loss counted)
         for j, k in enumerate((0x25, 0x6F, 0x5E, 0x10)):
             hp1 = tuple((0xC500 + 0x60 * i + o, v) for i in range(5) for o, v in ((0x10, 1), (0x11, 0)))
-            out[f"zy{t}l{j:02d}"] = (st, FIELD, "none:10," + "a:3,none:37," * 90 + "none:200", hp1 + battle + ((0xCA28, k),))
+            out[f"zy{t}l{j:02d}"] = (st, FIELD, "none:10," + "a:3,none:37," * 220 + "none:200", hp1 + battle + ((0xCA28, k), (0xCA2D, 0x01)),
+                                     None, ((("frame", 900), TANK_ENEMIES),))
         for j in range(8):
             out[f"zy{t}f{j:02d}"] = (st, FIELD, fuzz_plan(8500 + j, 160, FUZZ_FIELD_KEYS), ())
     return out
@@ -497,6 +501,18 @@ for _n, (_w, _len) in MEMBER_WEAPONS.items():
     POKES[_n] = rich_party(0) + tuple((0xC500 + 0x60 * j + 0x40 + i, _w[(j + i) % 5]) for j in range(5) for i in range(2)) \
         + ((0xC2F0, 0xDB), (0xCA28, 0x00), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
     WAIT_POKES[_n] = ((("frame", 600), TANK),)
+# The lost battles (zlNN): the party of field_start with every member at HP 1 against formation
+# LOST_FORMATIONS[NN] on an encounter zone (CA2D = 01: a battle lost where the map's zone is 0 is
+# not counted, 0C:4B6A), the enemies' HP 9999 from the first frame wait after frame 600, A every
+# 40 frames: the party falls, CEDA = FF, the "continue" question (0F:7F8F) answered Yes (the map
+# state back from DD00, 0F:7DC9).
+LOST_FORMATIONS = (0x25, 0x6F, 0x5E, 0x10)
+TANK_ENEMIES = tuple(p for b in range(0xD280, 0xD680, 0x80) for p in ((b + 0x10, 0x0F), (b + 0x11, 0x27), (b + 0x12, 0x0F), (b + 0x13, 0x27)))
+for _j, _k in enumerate(LOST_FORMATIONS):
+    SCENARIOS[f"zl{_j:02d}"] = ("field_start", FIELD, "none:10," + "a:3,none:37," * 120 + "none:200")
+    POKES[f"zl{_j:02d}"] = tuple((0xC500 + 0x60 * i + o, v) for i in range(5) for o, v in ((0x10, 1), (0x11, 0))) \
+        + ((0xCA2D, 0x01), (0xC2F0, 0xDB), (0xCA28, _k), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
+    WAIT_POKES[f"zl{_j:02d}"] = ((("frame", 600), TANK_ENEMIES),)
 for _k, (_gap, _n) in ENEMY_ABILITIES.items():
     SCENARIOS[f"zx{_k:02x}"] = ("field_start", FIELD, "none:10," + f"a:3,none:{_gap - 3}," * (_n // _gap) + "none:10")
     POKES[f"zx{_k:02x}"] = rich_party(_k) + ((0xC2F0, 0xDB), (0xCA28, _k), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
@@ -514,9 +530,10 @@ def main(names):
     try:
         for name in names or list(SCENARIOS) + list(sweep):
             if name in sweep:
-                state, hook, plan, pokes, *save = sweep[name]
-                n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, pokes=pokes, save=save[0] if save else None,
-                                  hook_vblank=not state.startswith("field"))
+                state, hook, plan, pokes, *rest = sweep[name]   # (then save, wait pokes)
+                n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, pokes=pokes, save=rest[0] if rest else None,
+                                  hook_vblank=not state.startswith("field") or state.startswith("field_sv"),   # (a save's state: its first field
+                                  wait_pokes=rest[1] if len(rest) > 1 else ())                     # loop pass may come mid-frame)
             else:
                 state, hook, plan, *save = SCENARIOS[name]
                 n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, pokes=POKES.get(name, ()),

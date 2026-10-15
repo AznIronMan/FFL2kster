@@ -69,7 +69,7 @@ function stripScroll(g: Game, hl: number, once = false): [number, number] {
   for (let k = 0; k < 0x10; k++) {
     const p = hl + k;
     let [ef, el] = end;
-    el -= 2 * (0x0f - k);
+    el += 1 - 2 * (0x0f - k);
     while (el < 0) { ef--; el += 154; }
     if (el >= 0x90 && ef === end[0]) el = 0x90; // written in vblank lines: all at its start
     let b = m.rd(p), c = m.rd(p + 0x10);
@@ -95,24 +95,26 @@ function after(_g: Game, _t: [number, number], fn: () => void): void {
 
 /** 01:57A9 — the tile at hl rolled down a pixel row (its 16 bytes rotated by 2 through
  *  C800-C810). */
-function tileRollDown(m: Memory, hl: number): void {
+function tileRollDown(m: Memory, hl: number, g?: Game): void {
   vramCopy(m, hl, 0xc800, 0x10);
   for (let b = 0; b < 2; b++) {
     for (let p = 0xc80f; p >= 0xc800; p--) m.wr(p + 1, m.rd(p));
     m.wr(0xc800, m.rd(0xc810));
   }
-  vramCopy(m, 0xc800, hl, 0x10);
+  if (g) g.vramPaced(() => vramCopy(m, 0xc800, hl, 0x10), hl, 0x10);
+  else vramCopy(m, 0xc800, hl, 0x10);
 }
 
 /** 01:57CE — the tile at hl rolled up a pixel row (copied to C801-C810, rotated by 2 through
  *  C800-C810, back from C801). */
-function tileRollUp(m: Memory, hl: number): void {
+function tileRollUp(m: Memory, hl: number, g?: Game): void {
   vramCopy(m, hl, 0xc801, 0x10);
   for (let b = 0; b < 2; b++) {
     for (let p = 0xc801; p <= 0xc810; p++) m.wr(p - 1, m.rd(p));
     m.wr(0xc810, m.rd(0xc800));
   }
-  vramCopy(m, 0xc801, hl, 0x10);
+  if (g) g.vramPaced(() => vramCopy(m, 0xc801, hl, 0x10), hl, 0x10);
+  else vramCopy(m, 0xc801, hl, 0x10);
 }
 
 /** 01:5847 (through C800) — the 16 bytes of the tile at hl each rotated right (rrc). */
@@ -136,10 +138,11 @@ function anim5828(m: Memory): void {
 }
 
 /** 01:578C / 01:5798 — at FF93 & 3 = 2 the tile up rolled up (01:57C7), at 0 the tile down rolled
- *  down (01:57A4). */
-function rollPair(m: Memory, up: number, down: number): void {
-  if ((frame(m) & 0x03) === 2) tileRollUp(m, up);
-  if (!(frame(m) & 0x03)) tileRollDown(m, down);
+ *  down (01:57A4); the tile written back by 00:20FF, hblank-paced: at the recorded lines (zycf02). */
+function rollPair(g: Game, up: number, down: number): void {
+  const m = g.m;
+  if ((frame(m) & 0x03) === 2) tileRollUp(m, up, g);
+  if (!(frame(m) & 0x03)) tileRollDown(m, down, g);
 }
 
 /** 01:58A1 — every 16 frames the tiles 97B0 / 9690 and 96D0 / 9790 swapped (32 bytes). */
@@ -195,7 +198,7 @@ export function mapAnimation(g: Game): [number, number] | undefined {
     case 0x04: stripScroll(g, 0x9200); break; // 01:56DF
     case 0x05: stripScroll(g, 0x9680); break; // 01:5719
     case 0x06: stripScroll(g, 0x9000); break; // 01:5714
-    case 0x07: rollPair(m, 0x9020, 0x91b0); break; // 01:578C
+    case 0x07: rollPair(g, 0x9020, 0x91b0); break; // 01:578C
     case 0x08: { // 01:59C2
       const t = stripScroll(g, 0x96c0);
       if ((f & 0x3f) === 0x20) after(g, t, () => tileSwap(m, 0x97e0, 0x96e0, 0x20));
@@ -222,9 +225,9 @@ export function mapAnimation(g: Game): [number, number] | undefined {
     case 0x14: // 01:586A
       if (!(f & 0x1f)) { tileSwap(m, 0x9440, 0x9460, 0x20); tileSwap(m, 0x9540, 0x9560, 0x20); }
       break;
-    case 0x16: rollPair(m, 0x9220, 0x93b0); anim58A1(m); break; // 01:589E
+    case 0x16: rollPair(g, 0x9220, 0x93b0); anim58A1(m); break; // 01:589E
     case 0x17: { const t = stripScroll(g, 0x9000); after(g, t, () => anim58A1(m)); break; } // 01:5899
-    case 0x18: rollPair(m, 0x9220, 0x93b0); break; // 01:5798
+    case 0x18: rollPair(g, 0x9220, 0x93b0); break; // 01:5798
     case 0x19: // 01:58D0
       if (!(f & 0x0f)) tileSwap(m, 0x90c0, 0x92a0, 0x10); // 01:594A
       anim5964(m);

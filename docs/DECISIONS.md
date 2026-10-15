@@ -675,3 +675,5 @@ Decisions and assumptions:
 - 1.57.0: players' battery saves are user data: they live in .private/saves and the states and
   traces made from them in the build folders (never committed); the tools read them, the
   repository ships only the method.
+- 1.58.0: published battery saves (fantasyanime.com, downloaded with the user's approval) are kept
+  locally like the ROM and never committed; the recordings made from them stay local too.

@@ -183,6 +183,15 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     busy += b;
     return b;
   };
+  // a frame wait entered at the end of line 143 (00:3A6D) whose count the vblank took down
+  // before its `halt`: the original slept on to the next interrupt (the trace's wait ended in the
+  // next frame's visible lines after the bracket's STAT handler; zyeb08, zyff03, zyfl00, zyif04)
+  g.onWaitHalt = () => {
+    const s = t.starts[nWaits], e = t.ends[nWaits];
+    // (woken by the bracket's STAT handler, 00:1F27, of the next frame: the trace has its entry)
+    return !!s && !!e && s[1] === 143 && e[0] === s[0] + 1 && e[1] < 144
+      && (t.stat ?? []).some((w) => w[0] === e[0] && w[1] <= e[1]);
+  };
   // the port's vblank polls wait for the frame of the original's (CPU time before them)
   let nSyncs = 0, lateSyncs = 0;
   // (past the trace's last record the original had not reached it yet: the port waits past the end)
@@ -349,7 +358,9 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
       const x = (got[a]! ^ exp[a]!) & (MASKED[addr] ?? 0xff);
       if (x && !ign(addr)) diff.push(addr);
     }
-    const frameOk = g.frame === wf[i];
+    // (the trace keeps the frame of the vblank before the wait's end: a wait woken in the next
+    // frame's visible lines, as the original's end there, is in time too)
+    const frameOk = g.frame === wf[i] || (g.ly < 144 && g.frame === (wf[i] ?? -2) + 1 && t.ends[i]?.[0] === g.frame);
     const oamOnly = frameOk && diff.length > 0 && diff.every(isOam);
     if (!oamOnly && !diff.some(isOam)) { oamTransient += oamPending.length; transient.push(...oamPending); oamPending = []; }
     if (oamOnly) {

@@ -155,3 +155,6 @@ both ROMs; differences are listed first because they are the valuable part.
   with its size rather than special-cased.
 - 1.57.0: a game's battery save is the way to reach later story states without playing them in
   the recorder: decode the slot format, boot with the RAM and Continue into a field state.
+- 1.58.0: a frame wait that stores its count and then halts can lose the vblank's countdown to the
+  instructions between (Legend III's 00:3A6D): entered at the end of the last visible line, it
+  sleeps to the next interrupt. Any port of such a wait needs the trace's start and end lines.

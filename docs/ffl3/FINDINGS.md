@@ -1167,3 +1167,37 @@ removed; the work's di ignored, a code-run work keeping the interrupts, the obje
 - **A lost battle** from svq: the members fall one by one, but the guest (Myron) at HP 1 is
   never attacked again within 14,000 frames; the "continue" question is still not reached.
 - **Tests:** 1311 FFL3 tests pass.
+
+## 2026-10-15 — Nine players' saves, lost battles (1.58.0)
+
+- **The saves:** fantasyanime.com's nine Legend III battery saves (the user's pick; .sav, 8 KiB,
+  slot 0 valid in each; kept in .private/saves, local): s01 Past (before the South Cave), s02
+  South Tower, s03 Chaos Tower, s04 Floatland, s05 Pureland (the Talon, C6E3 3), s06 Pureland
+  after Faye, s07 the Talon crew, s08 Underworld, s09 Mt. Goht. `sav.py state` made field_sva ..
+  field_svi; members with abilities (+48) in s01, s06, s07, s08.
+- **The save sweep** (zy, 24 per state, 240 with svq): all pass after the fixes below.
+- **A save's state starting mid-frame** (svc: the field loop's first pass on line 8): the
+  recording now starts at a field loop pass in vblank (`hook_vblank` for field_sv states, as
+  field_start's); before, every trace from svc was a sound tick off from its first wait.
+- **The frame wait's halt** (00:3A6D: `ldh [$95],a`, then `halt` until FF95 is 0): a wait entered
+  at the end of line 143 has its count taken down by the vblank before its `halt`, which then
+  sleeps to the next interrupt (in the bracket, the STAT handler 00:1F27 of the next frame and its
+  frame work). The trace shows it as a wait that began on line 143 and ended in the next frame's
+  visible lines after a STAT entry; `Game.onWaitHalt` keeps the port asleep past the countdown
+  until the next interrupt's work is done (zyeb08, zyff03, zyfl00, zyif04: the save and battles).
+  The replay counts such a wait in time in the frame after its vblank's.
+- **The strip scroll** (01:5730): each pair is written in the hblank after its read, the last one
+  before 01:5783: it shows from the line after the recorded time (+1; the Chaos Tower's strip,
+  zycf00..07, two lines a pair).
+- **The rolling tiles** (01:578C / 01:5798, map animation 07, 16, 18): their write back is
+  00:20FF's hblank-paced copy, now at the recorded lines (`vramPaced`; zycf02: rows 21-31).
+- **Lost battles** (zlNN from field_start; zyTlNN from the saves): a battle lost where the map's
+  zone CA2D is 0 does not count (0C:4B6A skips CEDA = FF): the recordings put CA2D = 01 (an
+  encounter zone) and the enemies' HP 9999; the "continue" question (0F:7F8F) is answered Yes.
+  (The guest Myron of the early saves: dead at the start of the probes, not needed in the traces.)
+- **Effect 5 still not seen:** scans from svh (Underworld party) of the formations with
+  Searcher / Medusa / Hydra, HP 9999 from frame 1300, 60,000 frames each: no table-2 ability.
+- **Falsified:** without `hook_vblank` the svc traces fail from their first wait; without the
+  halt rule the four traces fail (wait RAM); with the strip's old offset or without the paced
+  roll the Chaos Tower traces fail.
+- **Tests:** 1532 FFL3 tests pass.

@@ -167,6 +167,8 @@ export interface Trace {
   works: ([number, number, number, number] | [number, number, number, number, number, number])[];
   /** [frame, LY] at which each frame wait began (00:3A6D). */
   starts: [number, number][];
+  /** [frame, LY] at which each frame wait ended (the halt left, 00:3A77). */
+  ends: [number, number][];
   /** The times the CPU reached the sync points (tools/ffl3/trace_lib.py POINTS), by bank << 16 |
    *  address. */
   points: Record<number, [number, number][]>;
@@ -201,9 +203,9 @@ function undelta(gz: Uint8Array, size: number, first?: Uint8Array): Uint8Array {
   return out;
 }
 
-function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts" | "points" | "rand" | "sfx" | "song" | "stat" | "paced"> {
+function waitsJson(f: string): Pick<Trace, "waitFrames" | "syncs" | "polls" | "works" | "starts" | "ends" | "points" | "rand" | "sfx" | "song" | "stat" | "paced"> {
   const w = JSON.parse(readFileSync(f, "utf8"));
-  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [], rand: w.rand ?? [], sfx: w.sfx, song: w.song, stat: w.stat, paced: w.paced,
+  return { waitFrames: w.frames, syncs: w.syncs ?? [], polls: w.polls ?? [], works: w.works ?? [], starts: w.starts ?? [], ends: w.ends ?? [], rand: w.rand ?? [], sfx: w.sfx, song: w.song, stat: w.stat, paced: w.paced,
     points: Object.fromEntries(Object.entries(w.points ?? {}).map(([k, v]) => {
       const [b, a] = k.includes(":") ? k.split(":").map((x) => parseInt(x, 16)) as [number, number] : [0, parseInt(k, 16)];
       return [(b << 16) | a, v as [number, number][]];
