@@ -59,6 +59,9 @@ export class Engine {
   *fromStart(): Co<TitleChoice> {
     const g = this.g, m = g.m;
     g.ime = false;
+    // (after the game's reset, jp 00:0200, at the original's time: the code before it took CPU
+    // time, and the LY poll below then catches line 145 of the next frame, zl04)
+    yield* g.point(0x000200);
     m.wr(0xfffd, 0x02); // call 00:374A on the power-on stack (SP FFFE): its return 0204
     m.wr(0xfffc, 0x04);
     yield* g.untilLine(0x91);

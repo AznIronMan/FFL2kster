@@ -366,6 +366,12 @@ def fuzz_sweep(nb=72, nf=36):
     for j, kind in enumerate(FUZZ_SHOPS):
         out[f"zs{j:02d}"] = ("field_start", FIELD, fuzz_plan(3000 + j, 120, FUZZ_SHOP_KEYS),
                              shop_party(j) + ((0xC2F0, 0xD7), (0xCA28, (kind + 1) & 0xFF), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
+    # the third option (zrNN: the shops with the forge, CA2F 00-1E | 80, and the mix, 20-3E | 80):
+    # Right twice to it (01:7077), A, then input weighted to A and the rows (the forge 01:7359,
+    # the mix 01:7470 with the bag's D2-D7)
+    for j, kind in enumerate(FUZZ_SHOPS[:32]):
+        out[f"zr{j:02d}"] = ("field_start", FIELD, "none:120,right:3,none:20,right:3,none:20,a:3,none:60," + fuzz_plan(3500 + j, 100, FUZZ_THIRD_KEYS),
+                             shop_party(j) + ((0xC2F0, 0xD7), (0xCA28, (kind + 1) & 0xFF), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
     # the spell sweep (zmNN): one spell known by every member (C551 + bit), MP 999, a battle with
     # input weighted to A, down and right; the item sweep (ziNN): a bag of 6 item kinds (4 each);
     # the effects (02:4xxx animations, 0B targets) the zb sweep reaches rarely
@@ -402,6 +408,15 @@ def fuzz_sweep(nb=72, nf=36):
             b = 0xC500 + 0x60 * k
             p += [(b + 0x10, 0x05), (b + 0x11, 0x00), (b + 0x14, 0x02), (b + 0x15, 0x00)]
         out[f"zu{iid:02x}"] = ("field_start", FIELD, "none:30,start:3,none:60,a:3,none:60," + fuzz_plan(5000 + iid, 100, FUZZ_USE_KEYS), tuple(p))
+    # the spell books (zu00..zu2F: a bag of book II; the members know no spell, C551-C556 = 0):
+    # 09:4C4C, the spell learned by the member chosen (or known, or 24 known: the messages); the
+    # list scrolled both ways (up weighted)
+    for iid in range(0x00, 0x30):
+        p = list(rich_party(0))
+        p += [(0xC6FF + 2 * i, iid) for i in range(24)] + [(0xC700 + 2 * i, 9) for i in range(24)]
+        for k in range(5):
+            p += [(0xC500 + 0x60 * k + 0x51 + i, 0x00) for i in range(6)]
+        out[f"zu{iid:02x}"] = ("field_start", FIELD, "none:30,start:3,none:60,a:3,none:60," + fuzz_plan(5100 + iid, 100, FUZZ_BOOK_KEYS), tuple(p))
     for j in range(48):
         p = list(rich_party(j))
         for k in range(5):
@@ -409,6 +424,16 @@ def fuzz_sweep(nb=72, nf=36):
             p += [(b + 0x51 + i, (1 << (j % 8)) if i == j // 8 else 0) for i in range(6)]
             p += [(b + 0x10, 0x05), (b + 0x11, 0x00)]
         out[f"zv{j:02d}"] = ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40," + fuzz_plan(5500 + j, 100, FUZZ_USE_KEYS), tuple(p))
+    # a spell back to the bag with nine of its book there (zdNN: the field spells as zv, bag slot 0
+    # nine of the book of the spell known, id 8 (J >> 3 ^ 1) + J & 7, the bit's byte C551 + (id >> 3
+    # ^ 1)): the question 09:6FAE (0B:6DB3, 09:4921), A gives the spell up, B keeps it
+    for j in range(24):
+        p = list(rich_party(j)) + [(0xC6FF, 8 * ((j >> 3) ^ 1) + (j & 7)), (0xC700, 9)]
+        for k in range(5):
+            b = 0xC500 + 0x60 * k
+            p += [(b + 0x51 + i, (1 << (j % 8)) if i == j // 8 else 0) for i in range(6)]
+            p += [(b + 0x10, 0x05), (b + 0x11, 0x00)]
+        out[f"zd{j:02d}"] = ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40," + fuzz_plan(5800 + j, 100, FUZZ_USE_KEYS), tuple(p))
     # the command sweep (zcNN): battles with Start in the input, which turns a member's command
     # page (0B:6095): page 2's Defend (0B:64B4) and Cover (0B:64BE), undone by B (0B:5E93)
     for j in range(24):
@@ -433,7 +458,29 @@ def fuzz_sweep(nb=72, nf=36):
                 p = list(rich_party(i)) + [(0xC6F8, 0xFF), (0xC6F9, 0xFF)] + [[], [(0xC761, 0x02, 0x02)], [(0xC76A, 0x02, 0x02)]][fl]
                 out[f"zn{i}{r}{fl}"] = ("field_start", FIELD, "none:100,down:64,none:60,up:24,none:80," + "down:3,none:20," * i + "a:3,none:80,"
                                          + "down:3,none:20," * r + "a:3,none:60,a:3,none:600,a:3,none:200,b:3,none:100", tuple(p))
+    # the target sweep (zgNN): battles with input weighted to the directions (the target moved
+    # over the members, the enemies, past the edges to a group or all, 0B:698D) and A
+    for j in range(24):
+        k = FUZZ_FORMATIONS[(j * 23 + 11) % len(FUZZ_FORMATIONS)]
+        out[f"zg{j:02d}"] = ("field_start", FIELD, fuzz_plan(6500 + j, 200, FUZZ_TARGET_KEYS), rich_party(j + 7) + battle + ((0xCA28, k),))
     out.update(save_sweep())
+    out.update(continue_sweep())
+    return out
+
+
+FUZZ_TARGET_KEYS = (("a", 5), ("b", 1), ("up", 3), ("down", 3), ("left", 3), ("right", 3))
+
+
+def continue_sweep():
+    """Continue on the title with a player's save (zoNN: .private/saves/sNN.sav, local only): the
+    slot list, A on the first slot (the valid one), the game loaded (09:4E0C, cont.ts: the
+    leader, followers, the vehicle, the status scene), then a short walk."""
+    import glob
+    out = {}
+    for path in sorted(glob.glob(".private/saves/s[0-9][0-9].sav")):
+        n = path.split("/")[-1][1:3]
+        out[f"zo{n}"] = (f"boot:s{n}.sav", TITLE, "none:40,none:23,a:3,none:80,a:3,none:30,a:3,none:400,"
+                                                  + fuzz_plan(9000 + int(n), 40, FUZZ_FIELD_KEYS), ())
     return out
 
 
@@ -463,6 +510,20 @@ def save_sweep():
                                      None, ((("frame", 900), TANK_ENEMIES),))
         for j in range(8):
             out[f"zy{t}f{j:02d}"] = (st, FIELD, fuzz_plan(8500 + j, 160, FUZZ_FIELD_KEYS), ())
+        # the field spells cast where the save stands (zyTsNN: every member knows spell N of 21 20
+        # 25 1B 2C only (C551 + (id >> 3 ^ 1), bit id & 7), MP 999; Start, Down, A to the spells,
+        # then the zu keys): 01:40D6 / 01:4132 after the menu (the step ahead, the warp back)
+        for j, sid in enumerate(FIELD_SPELLS):
+            p = []
+            for i in range(5):
+                b = 0xC500 + 0x60 * i
+                p += [(b + 0x14, 0xE7), (b + 0x15, 0x03), (b + 0x16, 0xE7), (b + 0x17, 0x03)]
+                p += [(b + 0x51 + k, (1 << (sid & 7)) if k == (sid >> 3) ^ 1 else 0) for k in range(6)]
+            out[f"zy{t}s{j:02d}"] = (st, FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40," + fuzz_plan(8700 + j, 100, FUZZ_USE_KEYS), tuple(p))
+        # the field with B weighted (zyTjNN): the jumps on foot (01:47B2, maps 0C and on): a hop, one
+        # or two cells, refused (01:48FF), pushable objects (01:46C5)
+        for j in range(4):
+            out[f"zy{t}j{j:02d}"] = (st, FIELD, fuzz_plan(8800 + j, 160, FUZZ_JUMP_KEYS), ())
     return out
 
 
@@ -471,12 +532,20 @@ FUZZ_COMMAND_KEYS = (("a", 6), ("b", 2), ("up", 2), ("down", 3), ("left", 1), ("
 
 
 FUZZ_USE_KEYS = (("a", 6), ("b", 1), ("up", 1), ("down", 2), ("right", 1))
+FUZZ_JUMP_KEYS = (("b", 4), ("up", 3), ("down", 3), ("left", 3), ("right", 3), ("a", 1))
+FIELD_SPELLS = (0x21, 0x20, 0x25, 0x1B, 0x2C)
+FUZZ_THIRD_KEYS = (("a", 5), ("b", 1), ("up", 2), ("down", 2))
+FUZZ_BOOK_KEYS = (("a", 6), ("b", 1), ("up", 3), ("down", 3), ("right", 1))
 
 EVENT_TYPES = (0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x16, 0x18, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23,
                0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B)
 EVENT_PARAMS = (0x00, 0x01, 0x02, 0x03, 0x05, 0x12, 0x21, 0x47)
 # event 11 has 6 entries (00:196C), event 12 18 (00:16BC): no parameter past them
-EVENT_PARAMS_OF = {0x11: tuple(range(6)), 0x12: tuple(range(0x12))}
+# event 10 (the party, 00:14C0 by CA28 >> 4): past the first eight, the flags by the facing (6),
+# the map's objects again (7), a member's status scene (8), a return stack (A), back to C6E9 (B,
+# E), off the vehicle (C), the place kept (D)
+EVENT_PARAMS_OF = {0x11: tuple(range(6)), 0x12: tuple(range(0x12)),
+                   0x10: EVENT_PARAMS + (0x61, 0x71, 0x81, 0x82, 0x83, 0xA1, 0xA2, 0xB1, 0xC1, 0xD1, 0xE1, 0x31)}
 PLAN_EVENT = "none:10," + "a:3,none:37," * 40 + "b:3,none:40," * 3 + "none:200"
 
 FUZZ_SPELL_KEYS = (("a", 7), ("b", 1), ("up", 1), ("down", 3), ("left", 1), ("right", 3))
@@ -513,6 +582,28 @@ for _j, _k in enumerate(LOST_FORMATIONS):
     POKES[f"zl{_j:02d}"] = tuple((0xC500 + 0x60 * i + o, v) for i in range(5) for o, v in ((0x10, 1), (0x11, 0))) \
         + ((0xCA2D, 0x01), (0xC2F0, 0xDB), (0xCA28, _k), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
     WAIT_POKES[f"zl{_j:02d}"] = ((("frame", 600), TANK_ENEMIES),)
+    # zl04..07: the same battles, the question answered No (Down, then A: 0F:7F8F jp 00:0200, the
+    # game's reset), then the title and on (Down / A presses)
+    _n = f"zl{_j + 4:02d}"
+    SCENARIOS[_n] = ("field_start", FIELD, "none:10," + "a:3,none:37," * 55 + "down:3,none:17,a:3,none:37," * 45 + "none:300")
+    POKES[_n] = POKES[f"zl{_j:02d}"]
+    WAIT_POKES[_n] = WAIT_POKES[f"zl{_j:02d}"]
+# The last battle from a player's save (zj00: field_svi, Mt. Goht, made by tools/ffl3/sav.py from
+# .private/saves/s09.sav, local only): formation 7D (Sol, then Xagor by its transformation), A
+# every 40 frames; the members' HP 9999 from the first frame wait after frame 600 and again every
+# 1500 frames, so the party lasts: Xagor falls, its shattering (02:5167: CC5C & 3 = 3, the SCY
+# bounces, the band flashes, the noise steps).
+TANK_MEMBERS = tuple(p for b in range(0xD000, 0xD280, 0x80) for p in ((b + 0x10, 0x0F), (b + 0x11, 0x27), (b + 0x12, 0x0F), (b + 0x13, 0x27)))
+SCENARIOS["zj00"] = ("field_svi", FIELD, "none:10," + "a:3,none:37," * 2250 + "none:300")
+POKES["zj00"] = ((0xC2F0, 0xDB), (0xCA28, 0x7D), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
+WAIT_POKES["zj00"] = tuple((("frame", f), TANK_MEMBERS) for f in range(600, 90000, 1500))
+# A group refilled (zj01: formation 1D, Fireball + Busybody, from field_start with the rich party):
+# once a Fireball has fallen, a Fireball's battle ability 7E (action 08 -> 0C:499B) copies a
+# monster of its group into the free slot and 02:4F3E (effect 13) shows it (frame 14295); the
+# members' HP 9999 every 1500 frames from 600 (ffl3/scratch/effscan3.py found it).
+SCENARIOS["zj01"] = ("field_start", FIELD, "none:10," + "a:3,none:37," * 425 + "none:300")
+POKES["zj01"] = rich_party(0x1D) + ((0xC2F0, 0xDB), (0xCA28, 0x1D), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
+WAIT_POKES["zj01"] = tuple((("frame", f), TANK_MEMBERS) for f in range(600, 17000, 1500))
 for _k, (_gap, _n) in ENEMY_ABILITIES.items():
     SCENARIOS[f"zx{_k:02x}"] = ("field_start", FIELD, "none:10," + f"a:3,none:{_gap - 3}," * (_n // _gap) + "none:10")
     POKES[f"zx{_k:02x}"] = rich_party(_k) + ((0xC2F0, 0xDB), (0xCA28, _k), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
@@ -532,12 +623,12 @@ def main(names):
             if name in sweep:
                 state, hook, plan, pokes, *rest = sweep[name]   # (then save, wait pokes)
                 n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, pokes=pokes, save=rest[0] if rest else None,
-                                  hook_vblank=not state.startswith("field") or state.startswith("field_sv"),   # (a save's state: its first field
+                                  hook_vblank=not state.startswith(("field", "boot")) or state.startswith("field_sv"),   # (a save's state: its first field
                                   wait_pokes=rest[1] if len(rest) > 1 else ())                     # loop pass may come mid-frame)
             else:
                 state, hook, plan, *save = SCENARIOS[name]
                 n, w = rec.record(name, state, plan_steps(plan), hook=hook, plan=plan, pokes=POKES.get(name, ()),
-                                  save=save[0] if save else None, hook_vblank=len(state) == 3 and state[0] == "m",
+                                  save=save[0] if save else None, hook_vblank=(len(state) == 3 and state[0] == "m") or state.startswith("field_sv"),
                                   wait_pokes=WAIT_POKES.get(name, ()))
             print(f"{name}: {n} frames, {w} waits")
     finally:

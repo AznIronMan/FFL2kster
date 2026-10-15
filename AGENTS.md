@@ -17,7 +17,7 @@ working on FFTOL (Tower of Legends) and its toolkits.
 - Company: Clark & Burke LLC
 - Website: https://www.cnb.llc
 - Developer email: streetkings@cnb.llc
-- Current version: `1.58.1`
+- Current version: `1.59.0`
 
 ## Required Workflow
 

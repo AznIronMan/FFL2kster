@@ -2,4 +2,4 @@
  *  tools/ffl3/traces.py save_sweep): see fuzzlib.ts. */
 import { inputSweep } from "./fuzzlib.js";
 
-inputSweep("y", "save starts", "[a-z][blf][0-9]{2}");
+inputSweep("y", "save starts", "[a-z][blfsj][0-9]{2}");

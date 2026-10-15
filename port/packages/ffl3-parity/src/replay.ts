@@ -8,7 +8,7 @@
  *  (`Game.onPollStart`, the frame and line of the original's 00:1D9E / 00:1DFD, whose di holds
  *  the interrupts of the poll back until its reti), so the interrupts' work in a busy stretch
  *  sees the code's state of that stretch. */
-import { BUSY, LINE, fieldLoop, type Co } from "@ffl3k/core";
+import { BUSY, LINE, Reset, fieldLoop, type Co } from "@ffl3k/core";
 import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, type Trace } from "./index.js";
 
 export interface WaitDiff {
@@ -372,6 +372,9 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
         values: diff.slice(0, 24).map((a) => [a, exp[a - 0x8000]!, got[a - 0x8000]!]) });
     }
   };
+  // the game's reset (jp 00:0200: "continue" declined, the scripted battle C2 lost): the start
+  // code again, the cartridge RAM kept
+  g.onReset = (e) => (e instanceof Reset ? rig.engine.fromStart() : undefined);
   g.start(opts.start ? opts.start(rig) : startFor(rig, t.meta.hook));
   g.frame = -1;
   g.buttons = btn(0);

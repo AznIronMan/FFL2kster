@@ -677,3 +677,7 @@ Decisions and assumptions:
   repository ships only the method.
 - 1.58.0: published battery saves (fantasyanime.com, downloaded with the user's approval) are kept
   locally like the ROM and never committed; the recordings made from them stay local too.
+- 1.59.0: a routine's stores split by an interrupt within one instruction stream (Legend III's
+  code 43 figure placement and the STAT on line 3) are modelled at the routine's exit when that
+  matches most traces; the frames where the original splits them between entries are pinned with
+  their pixel counts (zu20, zu22, zu2e), as 1.56.0's rule.

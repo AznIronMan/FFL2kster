@@ -285,6 +285,10 @@ export class Game {
     return took;
   }
 
+  /** The game's own reset (`Reset`, jp 00:0200): the code to run from there (the start code), or
+   *  undefined to let it end the run (the app restarts the engine itself). */
+  onReset: ((e: unknown) => Co<unknown> | undefined) | null = null;
+
   private resume(): void {
     if (!this.main || this.done) return;
     for (;;) {
@@ -293,6 +297,8 @@ export class Game {
       try {
         r = this.main.next();
       } catch (e) {
+        const co = this.onReset?.(e);
+        if (co) { this.main = co; continue; } // (the jump: the start code runs on at once)
         this.done = true;
         throw e;
       }

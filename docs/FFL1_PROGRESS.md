@@ -467,3 +467,6 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 
 ### 2026-10-15 — No Legend I change (1.58.1)
 - Version bump only.
+
+### 2026-10-15 — No Legend I change (1.59.0)
+- Version bump only.

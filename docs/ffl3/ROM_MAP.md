@@ -321,7 +321,7 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 02:50ED | a monster's transformation (03:7E74 picture to objects, 0E:7D63 new picture) | verified (trans1, xagor1) |
 | 09:410C | battle OAM rows from 09:412F (C090, C050, C060, C070) | ported, unit test |
 | 0B:6E15 | member slot 3, number 6: C680 kept aside at C620 (event 10 2-1) | verified (member1) |
-| 0C:499B / 0C:6B4F / 0C:6B55 / 0C:7E35 | natives: group slot fill, groups rebuilt (0B:44A8), D888 half step (0B:7E96), 999999 | 499B/6B55/7E35 unit test; 6B4F verified (xagor1) |
+| 0C:499B / 0C:6B4F / 0C:6B55 / 0C:7E35 | natives: group slot fill, groups rebuilt (0B:44A8), D888 half step (0B:7E96), 999999 | 6B55/7E35 unit test; 6B4F verified (xagor1); 499B verified (zj01) |
 | 00:20FF | hblank VRAM copy: 5 bytes a line from 00:2120 (none while LYC - LY < 3, 00:210B; again on the next line when mode 2 is seen after them, 00:212E), the last 1-4 from 00:216E; trace record `paced` | verified (battle sweep) |
 | 00:39D8 | the random generator's FF93 read (trace record `rand`) | verified (b23) |
 | 00:01CF | object drawing: CD39 (the vblank DMA hold) restored, the OAM buffer complete (sync point) | verified (map51) |
@@ -330,4 +330,8 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 01:5F12 | the battle wipe after its own sound tick (sync point: a tick past line 0 costs a frame) | verified (ending1) |
 | 0C:7E42 / 7E53 | the last boss C1's scene states (C9DA): HP reset to 60000; from round 2 D897 vs C920; 0C:7EB3 the change into Xagor (CC59 C2, CC5C E3, 0C:6B4F) | verified (xagor1) |
 | 00:2FED | code 43's figure: the OAM entry read (after 00:2FBF's parameters; an interrupt's frame work may come between): sync point | verified (zyqf03) |
+| 00:3054 | code 43's exit: the figure's OAM stores done (a STAT taken among them comes before the rest): sync point, the port writes them here | verified (zu1a) |
+| 00:0200 (reset) | the start code entered again (0F:7F8F, the "continue" question's No): sync point, the reset starts at the original's time | verified (zl04-07) |
+| 01:5FFB | the map load's fade in (CA6B = 2): after its sound tick, before the poll for LY 0 (a tick past line 0 costs a frame): sync point | verified (zygs03) |
+| 02:4F3E | battle effect 13: a monster copied into its group's free slot shown (the grid over C985, the map of C9D6, 7 x 3 frames); battle ability 7E (action 08 -> 0C:499B) | verified (zj01) |
 | 02:40A7 | figures DE01 and DE10 trade places (a member's action on a member): starts after the action's CPU time, sync point (zc22) | verified (zc) |

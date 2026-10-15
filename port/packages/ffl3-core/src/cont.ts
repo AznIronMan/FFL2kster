@@ -242,6 +242,8 @@ export function* loadFadeIn(g: Game): Co {
     m.wr(0xff48, m.rd(0xcdb5));
     m.wr(0xff49, m.rd(0xcdb6));
     yield* soundMain(g);
+    // (the tick's CPU time: when it ends past line 0, the poll for LY 0 waits a frame more, zygs03)
+    yield* g.point(0x015ffb);
     if (!d) break;
   }
   m.wr(0xc0b9, 0xc3);

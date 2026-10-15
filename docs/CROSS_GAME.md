@@ -158,3 +158,7 @@ both ROMs; differences are listed first because they are the valuable part.
 - 1.58.0: a frame wait that stores its count and then halts can lose the vblank's countdown to the
   instructions between (Legend III's 00:3A6D): entered at the end of the last visible line, it
   sleeps to the next interrupt. Any port of such a wait needs the trace's start and end lines.
+- 1.59.0: a game that resets itself (Legend III's `jp 00:0200` after a lost battle) is a jump into
+  the start code from deep inside a frame: the port's reset needs the start code's first
+  instruction as a sync point, so the LCD-off poll and the pending interrupts come at the
+  recorded lines.

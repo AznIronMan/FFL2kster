@@ -110,3 +110,4 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 - 2026-10-15 (1.57.0): save starts (tools/ffl3/sav.py, save_sweep zy); sync point 00:2FED; zyqf02 frame 1273 pinned (3 px); 1311 tests pass.
 - 2026-10-15 (1.58.0): nine players' saves (sva-svi), save sweep 240, lost battles zl 4 + zy 36; wait halt rule, strip +1, paced rolling tiles, vblank start for save states; 1532 tests pass.
 - 2026-10-15 (1.58.1): coverage of the save traces: effect 5, continue question, members' abilities, return points, followers, key items reached.
+- 2026-10-15 (1.59.0): the reset (point 00:0200), spell books (point 00:3054; zu20/22/2e pinned), spells to the bag zd 24, targets zg 24, Continue zo 9, forge and mix zr 32, field spells and jumps from saves zyTs 50 / zyTj 40 (point 01:5FFB), event 10 subs, long battles zj00 (Xagor shatters) and zj01 (effect 13); 1388 of 1473 functions; 1782 tests pass.

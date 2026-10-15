@@ -1213,3 +1213,62 @@ followerJoins, followerObject, placeBack), key items and special items used (key
 specialItemUse, payPoints, textAfter). Still uncalled there: groupMove, the remaining ship2 lift
 paths, cont.ts but followerObject, monsterShatter / monsterSwap / flashBand / noiseStep (battle
 effects of the later bosses), menuitems learnSpell / askDiscard / listUp.
+
+## 2026-10-15 — The game's reset, spell books, targets, Continue, long battles (1.59.0)
+
+- **The game's reset** (zl04-07: a lost battle's "continue" question answered No, 0F:7F8F `jp
+  00:0200`): the start code runs again from the battle's code (LCD off at line 91, C000-CEFF,
+  D000-DFFF, FF8A-FFFC cleared, the title). `Game.onReset` hands the port's `Reset` to the
+  engine's `fromStart`, which now begins with **sync point 00:0200**: the start code starts at
+  the original's time, so its LCD-off poll catches line 145 of the next frame and the pending
+  STAT and vblank come as recorded. Before, the sound ticked a frame off from the reset on.
+- **Spell books** (zu00-2F: a bag of nine of book II, no member knowing a spell; 09:4C4C, the
+  member chosen learns it, or the messages for one known / 24 known): **sync point 00:3054**,
+  code 43's exit (the party figures placed on the learn screen, 00:2FBF): its stores land there,
+  after a STAT taken among them and its frame work (the walking figures' frame B, 00:3549); the
+  port collects them and writes them at the point (zu1a, 116 px over 10 frames before).
+  **Pinned:** zu20, zu22, zu2e, 9 frames of 37 px each: there the STAT comes between the first
+  entry's x and the rest (member 1's first entry ends one pixel off its others); the port cannot
+  split the stores within the instruction stream.
+- **Battle targets** (zg00-23: input weighted to the directions, the target moved over the
+  members, the enemies, past the edges to a group or all, 0B:698D): all pass.
+- **Continue** (zo01-09: the title's Continue with each player's save, the slot list, the game
+  loaded by 09:4E0C and cont.ts, then a short walk; booted from the .sav, local): all pass.
+- **Long battles:** zj00, the last battle from s09 (formation 7D, Sol then Xagor; the members'
+  HP 9999 every 1500 frames; 90,310 frames): Xagor falls and shatters (02:5167 with CC5C & 3 = 3:
+  the SCY bounces, the band flashes, the noise steps). zj01, formation 1D (Fireball + Busybody)
+  from field_start: once a Fireball has fallen, a Fireball's battle ability 7E (table 2 record
+  ff 05 08 13 14 ff: action 08, C9BD 13) copies a monster of its group into the free slot
+  (0C:499B) and **effect 13** (02:4F3E) shows it, frame 14295. Ability 7E belongs to F-Drake,
+  F-Liz., Salamand, Wisper, Fireball, Squid, Amoeba, Baby-D, Young-D, Remora, Diviner, Broomer,
+  Witch, Tomtom, Jerrit, Maitie, Spectrat and Ashura; the earlier scans tanked every enemy from
+  the start, so no slot was ever free (ffl3/scratch/effscan3.py). Effect 13's other sources:
+  table 0 at B6 / B7 (no weapon), table 3 at 1D / A8.
+- **A spell back to the bag** (zd00-23: the spell known and nine of its book in the bag; the spell
+  picked, then the trash column: 09:4D1D): the question 09:6FAE (0B:6DB3, 09:4921) in 9 of 24.
+  (The book of the spell with bit k of byte C551 + i is id 8 (i ^ 1) + k.)
+- **The forge and the mix** (zr00-31: the shops' third option, Right twice and A, then A and the
+  rows): the forge's list (01:7359, 01:741C) and the mix (01:7470: two picks of D2-D7, the
+  result of 01:77E4) are reached; the shop sweep's input almost never got there.
+- **Field spells where the saves stand** (zyTs00-04: spells 21 20 25 1B 2C, each alone): the warp
+  back (1B / 2C, 01:41D6) from s02, s03 and s07: the closing band (01:5F39) and the map load's
+  fade in for CA6B = 2 (01:5F9D). **Sync point 01:5FFB**, after the fade-in loop's sound tick: the
+  loop polls for LY 0 right after the tick at line 143, and a tick that ends past line 0 makes it
+  wait a frame more (zygs03 / 04: the original's frame 402 has no pass; the port ticked a frame
+  early from there, every sound byte a tick off). The same rule as 01:5F12 (the battle wipe).
+- **Jumps on foot** (zyTj00-03: the field from the saves with B weighted): hops, one- and two-cell
+  jumps and a refused jump (01:48FF, zygj02).
+- **Event 10's other subs** (ze108-ze10j: CA28 61, 71, 81-83, A1, A2, B1, C1, D1, E1, 31): the
+  flags by the facing, the map's objects again, a member's status scene (00:15F7, the battle
+  script 0C:5FC8 over the field), a return stack (01:664B), back to C6E9, off the vehicle, the
+  place kept.
+- **Falsified:** without 00:0200 zl04-07 fail (sound); without 00:3054 zu1a fails (116 px) and
+  zu20 shows 79 px a frame instead of 37.
+  Without effect 13 (02:4F3E throwing) zj01 fails at its wait 12363; without 01:5FFB zygs03 / 04
+  fail; with 09:4921 or 01:7470 throwing zd02 / zd04 and zr16 / zr17 fail.
+- **Coverage** (these traces with the earlier runs): 1388 of 1473 functions called (1.58.1:
+  1351). Still uncalled: the ship's remaining lift paths (ship2.ts; the console traces zn were not
+  in a coverage run yet), the step-ahead spell (01:40DD, spell 20 never cast from the menu), the
+  pushable objects (01:46C5), menuitems listUp, the menu side of the text engine's rare codes
+  (textcodes / textmore), and single helpers (events2, banim, benemy, bnative).
+- **Tests:** 1782 FFL3 tests pass.

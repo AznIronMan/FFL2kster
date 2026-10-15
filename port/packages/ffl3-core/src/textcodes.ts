@@ -806,7 +806,8 @@ function arrows(m: Memory, n: number): void {
  *  screen (F7) on one side of 58); nothing when CD1C is set or the position is the same (low
  *  bits aside). From slot 5 on (CD3C not 1) the tiles 4 * slot.. and attribute 0 too. Returns hl
  *  after the operands. */
-function placeSprite(m: Memory, hl: number): number {
+function placeSprite(m: Memory, hl: number, out?: [number, number][]): number {
+  const put = (p: number, v: number): void => { if (out) out.push([p, v]); else m.wr(p, v); };
   let e = m.rd(hl), d = m.rd((hl + 1) & 0xffff);
   let [a, after] = param(m, (hl + 2) & 0xffff);
   if (a === 0 && m.rd(0xcd35)) d = 0;
@@ -821,16 +822,16 @@ function placeSprite(m: Memory, hl: number): number {
   if ((m.rd(at(1)) & 0xfe) === e && (m.rd(at(0)) & 0xfd) === d) return after;
   const d8 = (d + 8) & 0xff, e8 = (e + 8) & 0xff;
   if (l < 0x50 || m.rd(0xcd3c) === 1) {
-    m.wr(at(0), d); m.wr(at(1), e);
-    m.wr(at(4), d8); m.wr(at(5), e);
-    m.wr(at(8), d); m.wr(at(9), e8);
-    m.wr(at(12), d8); m.wr(at(13), e8);
+    put(at(0), d); put(at(1), e);
+    put(at(4), d8); put(at(5), e);
+    put(at(8), d); put(at(9), e8);
+    put(at(12), d8); put(at(13), e8);
     return after;
   }
   const c = (swap(l) * 4) & 0xff;
   const ent: [number, number][] = [[d, e], [d8, e], [d, e8], [d8, e8]];
   ent.forEach(([y, x], k) => {
-    m.wr(at(4 * k), y); m.wr(at(4 * k + 1), x); m.wr(at(4 * k + 2), (c + k) & 0xff); m.wr(at(4 * k + 3), 0);
+    put(at(4 * k), y); put(at(4 * k + 1), x); put(at(4 * k + 2), (c + k) & 0xff); put(at(4 * k + 3), 0);
   });
   return after;
 }
@@ -1026,10 +1027,15 @@ export function* textCode(g: Game, c: number, hl: number, de: number, b: number)
     case 0x3a: return [yield* flagBranch2(g, hl), de, b];
     case 0x3c: return [yield* yesNo(g, hl), de, b];
     case 0x3e: return [yield* scriptRef(g, 0x40, hl), de, b]; // 00:2EF6
-    case 0x43: // sync points 00:2FBF and 00:2FED (see menu.ts)
+    case 0x43: { // sync points 00:2FBF, 00:2FED and 00:3054 (see menu.ts)
       yield* g.point(0x002fbf);
       if (!m.rd(0xcd1c)) yield* g.point(0x002fed);
-      return [placeSprite(m, hl), de, b];
+      const w: [number, number][] = [];
+      const at = placeSprite(m, hl, w);
+      yield* g.point(0x003054);
+      for (const [p, v] of w) m.wr(p, v);
+      return [at, de, b];
+    }
     case 0x4d: { // 00:306C: the name 72B3 + 11 k (k = the lowest set bit of CDC0; 11 letters,
       // bank as selected), trimmed (CD34 bit 1)
       m.wr(0xcd34, m.rd(0xcd34) | 0x02);

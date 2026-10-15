@@ -16,7 +16,16 @@ import { haveRom, haveTrace, replay, summarize, summarizeWaits, TRACES } from ".
 // (zyqf02: a frame work's tile bytes (the map animation, 1273 l14-49) written one by one while the
 // lines are drawn: three lines show a tile row with one plane new and one old; the port writes
 // the work at once, and the replay accepts such rows on two lines at most)
-const RESIDUAL: Record<string, [number, number][]> = { zf13: [[2834, 59]], zk43: [[2211, 15]], zyqf02: [[1273, 3]] };
+// (zu20, zu22, zu2e: a spell book's learn screen places the party's figures (00:2FBF, code 43)
+// while the STAT on line 3 takes its frame work (00:3549, the walking figures' frame sets x bit 0):
+// the original's stores straddle it, the first entry's x before the work and the rest after, so
+// member 1's first entry ends one pixel off its others for 9 frames (37 px each); the port writes
+// the placement at once at 00:3054 and cannot split it within the instruction stream)
+const RESIDUAL: Record<string, [number, number][]> = { zf13: [[2834, 59]], zk43: [[2211, 15]], zyqf02: [[1273, 3]],
+  zu20: [[255, 37], [256, 37], [258, 37], [259, 37], [260, 37], [261, 37], [262, 37], [263, 37], [264, 37]],
+  zu22: [[3071, 37], [3072, 37], [3074, 37], [3075, 37], [3076, 37], [3077, 37], [3078, 37], [3079, 37], [3080, 37]],
+  zu2e: [[1247, 37], [1248, 37], [1250, 37], [1251, 37], [1252, 37], [1253, 37], [1254, 37], [1255, 37], [1256, 37]],
+};
 
 export function inputSweep(kind: string, label: string, suffix = "[0-9]{2}"): void {
   const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => new RegExp(`^z${kind}${suffix}$`).test(n)).sort() : [];

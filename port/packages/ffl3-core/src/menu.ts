@@ -75,8 +75,9 @@ function memberText(g: Game, hl: number, de: number, b: number): [number, number
  *  16 p, top left (y, x), columns first (CD35 with p = 0: y 0; CDEB high nibble: x pushed off
  *  screen (F7) on one side of 58); nothing when CD1C is set or the position is the same (low
  *  bits aside). From slot 5 on (CD3C not 1) the tiles 4 * slot.. and attribute 0 too. */
-function placeSprite(g: Game, hl: number): number {
+function placeSprite(g: Game, hl: number, out?: [number, number][]): number {
   const m = g.m;
+  const put = (p: number, v: number): void => { if (out) out.push([p, v]); else m.wr(p, v); };
   let e = m.rd(hl), d = m.rd((hl + 1) & 0xffff);
   let [a, after] = param(m, (hl + 2) & 0xffff);
   if (a === 0 && m.rd(0xcd35)) d = 0;
@@ -91,16 +92,16 @@ function placeSprite(g: Game, hl: number): number {
   if ((m.rd(at(1)) & 0xfe) === e && (m.rd(at(0)) & 0xfd) === d) return after;
   const d8 = (d + 8) & 0xff, e8 = (e + 8) & 0xff;
   if (l < 0x50 || m.rd(0xcd3c) === 1) {
-    m.wr(at(0), d); m.wr(at(1), e);
-    m.wr(at(4), d8); m.wr(at(5), e);
-    m.wr(at(8), d); m.wr(at(9), e8);
-    m.wr(at(12), d8); m.wr(at(13), e8);
+    put(at(0), d); put(at(1), e);
+    put(at(4), d8); put(at(5), e);
+    put(at(8), d); put(at(9), e8);
+    put(at(12), d8); put(at(13), e8);
     return after;
   }
   const c = (((l << 4) | (l >> 4)) * 4) & 0xff;
   const ent: [number, number][] = [[d, e], [d8, e], [d, e8], [d8, e8]];
   ent.forEach(([y, x], k) => {
-    m.wr(at(4 * k), y); m.wr(at(4 * k + 1), x); m.wr(at(4 * k + 2), (c + k) & 0xff); m.wr(at(4 * k + 3), 0);
+    put(at(4 * k), y); put(at(4 * k + 1), x); put(at(4 * k + 2), (c + k) & 0xff); put(at(4 * k + 3), 0);
   });
   return after;
 }
@@ -126,9 +127,13 @@ function* menuCode(g: Game, c: number, hl: number, de: number, b: number): Co<[n
       // (00:21A9, every 16 frames) write the same entries; the row's CPU time decides the order (zf04)
       yield* g.point(0x002fbf);
       // (and 00:2FED, where it reads the entry: an interrupt's frame work may come in between and
-      // write the walking figures first, zyqf03)
+      // write the walking figures first, zyqf03; its writes land by 00:3054, the exit: a STAT
+      // taken among them puts the work's figures in between, zu1a)
       if (!m.rd(0xcd1c)) yield* g.point(0x002fed);
-      r = [placeSprite(g, hl), de, b];
+      const w: [number, number][] = [];
+      r = [placeSprite(g, hl, w), de, b];
+      yield* g.point(0x003054);
+      for (const [p, v] of w) m.wr(p, v);
       break;
     default: r = yield* menuTextCode(g, c, hl, de, b); // the text engine's handler (00:3175), waits included
   }
