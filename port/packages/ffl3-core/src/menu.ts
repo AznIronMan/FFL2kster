@@ -257,7 +257,10 @@ function* menuShow(g: Game): Co {
   let de = 0x9c00, hl = 0x9e40;
   let b = m.rd(0xcd37) ? 0x0a : 0x12;
   do {
-    [hl, de] = vramCopy(m, hl, de, 0x14);
+    // (each row shows from the lines the original wrote it, a frame work may hold a chunk up to a
+    // frame: a list redrawn after an item's use lands over the frame after, zucf)
+    const d = de;
+    [hl, de] = g.vramPaced(() => vramCopy(m, hl, d, 0x14), d, 0x14, 154);
     de = (de + 0x0c) & 0xffff;
   } while (--b);
   yield* g.point(0x095044);

@@ -264,6 +264,9 @@ function* fieldRestore(g: Game): Co {
  *  (00:3A0C). */
 export function* menuClose(g: Game): Co {
   const m = g.m;
+  // sync point 01:7023: a menu left by an item or spell comes here after its CPU time (the map
+  // animation of the frame works meanwhile; zv45)
+  yield* g.point(0x017023);
   m.wr(0xcd42, 0);
   yield* fadeOut(g);
   oamClear(g);

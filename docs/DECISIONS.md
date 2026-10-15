@@ -665,3 +665,7 @@ Decisions and assumptions:
   reaches it) rather than an audit. Out-of-table parameters (events 11 / 12 past their tables)
   are not swept: the original jumps into data, which no game state does. Ad-hoc helper scripts
   (effect scans, coverage merges) stay in the local scratch area, not in the tools.
+- 1.55.0: battle effects that real play reaches only rarely are recorded from states that make them
+  likely but stay real: long battles (every entity's HP 9999 from a frame wait, WAIT_POKES) and
+  real weapons in the weapon slot. States the game cannot reach (spells or armor as weapons) are
+  not kept as traces, even when they reach more code.

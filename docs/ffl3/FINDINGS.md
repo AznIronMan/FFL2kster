@@ -1077,3 +1077,38 @@ removed; the work's di ignored, a code-run work keeping the interrupts, the obje
   (`Game.onWorkPeek`): a work starting within 8 lines whose STAT is the next line's runs first
   (`Game.untilAt`). Falsified: without it zm31 fails (works mismatch 5639).
 - **Coverage after:** 1272 of 1464 functions called.
+
+## 2026-10-15 — Enemy abilities, weapons, field uses (1.55.0)
+
+- **Where the battle effects come from:** 02:4000 shows C9BD from 09:5466's record of C99B (the
+  table, high nibble) / C99D: table 0 by the item id (a member's Fight with its weapon, an enemy's
+  ordinary attacks 30 / 46 / 4B / 51), table 1 the members' abilities, table 2 the enemies' battle
+  abilities (monster_ability slots with their mask bit: Wolf 86, Amoeba 2D, ...). The enemies
+  choose a battle ability about once in 100 actions and the parties win in about 20, so the
+  sweeps never saw them. A scan of every formation (ffl3/scratch/effscan2.py: HP 9999 for every
+  entity from the first frame wait after frame 600, as WAIT_POKES) and of every item as a weapon
+  (wscan.py) found: zx25 (effects 6, 3), zx1E (7, 9, A), zx54 (C) and zw00 (the weapons 6E, 6F,
+  70: effects D, 4, B). Effects 5 and 8 and the stray tables stay unreached by real states (ids
+  outside the weapons in the weapon slot reach past the table: armor BE gives effect 18).
+- **The LCD blinks** (effect 04, 02:43C8): the LCD switched off and on in the vblank. PyBoy ends
+  its frame at the switch (lcd.py: frame_done, LY 0) and counts one frame with no lines, no
+  interrupts and no code; the code goes on at line 0 of the LCD's new frame. The port had one
+  STAT sound tick and one vblank too many per blink (zw00 CB00, DC80). `Game.lcdRestart` makes
+  the next frame empty and resumes the code at line 0 of the one after; a busy wait counts from
+  there (`frame >= busyUntil`); the replay accepts the blank screen PyBoy shows in a frame the LCD
+  was switched off (`lcdBlanks`). Sync point 02:43C8: the effect starts after the action's CPU
+  time (its line poll came a frame early, zw00 frame 4052).
+- **The field uses** (zuII: a bag of item C0-FF; zvNN: one spell known; 112 traces): sync point
+  01:7023 (the menu screen closed): a menu left by a spell comes after its CPU time, the map
+  animation's frame works meanwhile (zv45: the water tiles 90C0 one step off).
+- **The menu's rows shown** (09:5020): each row's copy (00:20FF, hblank-paced) now lands at the
+  recorded lines (`vramPaced`), a frame work holding a chunk up to a frame (`slack`); the list
+  redrawn after a stat item's use showed a frame early (zuce, zucf, zud0).
+- **A text line drawn at once** (00:3357, the shops' lines): its two copies (00:20FF) now land
+  at the recorded lines too. The line was written in the vblank where the original wrote it a
+  frame later, over lines 16-22 (zs00 frame 2026); it had passed only because the menu rows
+  drawn at once had left the blank row in the port's frame before.
+- **Falsified:** without the empty frame zw00 fails (sound, a stuck wait), without 02:43C8 zw00
+  frame 4058, without 01:7023 zv45, without the paced rows or the slack zucf, without
+  the paced text line the seven shop traces (zs00, zs06, zs09, zs34, zs42, zs44, zs45).
+- **Tests:** 1159 FFL3 tests pass. **Coverage:** 1321 of 1468 functions called.

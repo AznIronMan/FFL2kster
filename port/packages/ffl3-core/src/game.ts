@@ -50,6 +50,17 @@ export class Game {
   buttons = 0;
   /** Interrupt master enable (di/ei/reti). */
   ime = true;
+  /** The LCD was switched off and on (`lcdRestart`): the next frame has no lines. */
+  private phantomNext = false;
+
+  /** The LCD switched off and on again in the vblank (02:43C8): PyBoy ends its frame at the
+   *  switch (lcd.py: frame_done, LY 0 again) and counts one frame with nothing in it; the LCD's
+   *  new frame comes after, the code going on at its line 0 (zw00: the wait armed at [3359, 0]).
+   *  (The few vblank lines the switch cuts off hold nothing.) */
+  *lcdRestart(): Co {
+    this.phantomNext = true;
+    yield* this.until_([this.frame + 2, 0]);
+  }
   frame = 0;
   ly = 0;
   /** The vblank interrupt of the current frame has been taken. */
@@ -88,7 +99,7 @@ export class Game {
   onStatIn: ((f: number) => boolean | undefined) | null = null;
   /** With a trace: the times (frame * 154 + LY) at which the original's hblank copy to `dest`
    *  started near `now` first wrote each of its first `len` bytes, and its last chunk's. */
-  onPaced: ((dest: number, len: number, now: number) => { first: number[]; end: number } | undefined) | null = null;
+  onPaced: ((dest: number, len: number, now: number, slack?: number) => { first: number[]; end: number } | undefined) | null = null;
   /** Parity: the original's time of the next bracket entry / leave, not taken (a look ahead). */
   onNextPoll: (() => [number, number] | undefined) | null = null;
   /** Parity: the same for the battle script's music requests FFBA. */
@@ -185,6 +196,13 @@ export class Game {
   /** Run lines `from`..153 of the current frame. */
   runFrame(from = 0): void {
     const m = this.m, io = m.io;
+    if (from === 0 && this.phantomNext) {
+      // the frame with no lines (`lcdRestart`)
+      this.phantomNext = false;
+      this.onFrameDone?.();
+      this.frame++;
+      return;
+    }
     if (from === 0) { this.vblankTaken = false; this.scxAlt.length = 0; this.lateLines.clear(); }
     else if (from > 144) this.vblankTaken = true; // started after this frame's vblank interrupt
     for (let ly = from; ly < 154; ly++) {
@@ -214,7 +232,7 @@ export class Game {
       }
       if (took && this.waiting === POLL && this.pollFor?.()) this.resume();
       if (this.waiting === LINE && this.reached() && !this.work) this.resume();
-      if (this.waiting === BUSY && this.frame === this.busyUntil && this.vblankTaken) this.resume();
+      if (this.waiting === BUSY && this.frame >= this.busyUntil && this.vblankTaken) this.resume(); // (>=: a frame with no lines, lcdRestart)
       if (ly < 144) this.onLine?.(ly);
     }
     this.onFrameDone?.();
@@ -435,14 +453,14 @@ export class Game {
    *  line; no chunk starts on the lines LYC - 1 and LYC: 00:210B waits while LY is within 3 lines
    *  before LYC). `pacedDone` then waits for the copy's end. RAM and registers stay in the code's
    *  order. */
-  vramPaced<T>(fn: () => T, dest: number, len: number): T {
+  vramPaced<T>(fn: () => T, dest: number, len: number, slack?: number): T {
     if (!this.onPoint) return fn();
     const v = this.m.vram, before = v.slice();
     const r = fn();
     const changed: [number, number][] = [];
     for (let i = 0; i < v.length; i++) if (v[i] !== before[i]) { changed.push([i, v[i]!]); v[i] = before[i]!; }
     const now = this.frame * 154 + this.ly;
-    let rec = this.onPaced?.(dest, len, now);
+    let rec = this.onPaced?.(dest, len, now, slack);
     if (!rec) { // the model
       const lyc = this.m.rd(0xff45);
       // the bytes a line's hblank (or vblank time) writes, and whether the copy moves on after it

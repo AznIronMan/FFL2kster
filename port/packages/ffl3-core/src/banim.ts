@@ -165,10 +165,14 @@ function* shake(g: Game): Co {
 }
 
 /** 02:43C8 — effect 04: twice: from line 91 on, the LCD off (LCDC bit 7), DIV reset, the LCD on
- *  again when DIV bit 2 is set (~1024 cycles), 5 frames. Not modelled: the LCD switch restarting
- *  LY at 0 (the clock goes on) and the DIV poll's few lines (CPU time). */
+ *  again when DIV bit 2 is set (~1024 cycles), 5 frames. The switch ends PyBoy's frame: the trace
+ *  counts a frame with no lines in between (`Game.lcdRestart`; otherwise one STAT sound tick and
+ *  one vblank too many, zw00). */
 function* lcdBlinks(g: Game): Co {
   const m = g.m;
+  // sync point 02:43C8: the effect starts after the action's CPU time (the line poll below would
+  // otherwise come a frame early; zw00 frame 4052)
+  yield* g.point(0x0243c8);
   for (let b = 2; b; b--) {
     if (g.ly < 0x91) yield* g.untilLine(0x91);
     let a = m.rd(LCDC) & 0x7f;
@@ -176,6 +180,7 @@ function* lcdBlinks(g: Game): Co {
     m.wr(0xff04, a); // DIV reset (any write)
     a = m.rd(LCDC) | 0x80;
     m.wr(LCDC, a);
+    yield* g.lcdRestart();
     yield* g.wait(5);
   }
 }

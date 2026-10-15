@@ -69,6 +69,8 @@ export interface ReplayResult {
   chunkTears: number;
   /** Runs of the frame work whose start frame differs from the original's (should be 0). */
   workMismatch: number; nWorks: number;
+  /** Frames the code switched the LCD off in, blank in the trace (PyBoy clears its screen). */
+  lcdBlanks: number;
   /** Bracket entries (00:1D9E / 00:1DFD) the port reached after the original's frame and line
    *  (should be 0), and their count. */
   latePolls: number; nPolls: number;
@@ -235,7 +237,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   if (t.paced) {
     const p = t.paced, T = (r: readonly number[]) => r[0]! * 154 + r[1]!;
     let from = 0;
-    g.onPaced = (dest, len, now) => {
+    g.onPaced = (dest, len, now, slack = 3) => {
       let i = from;
       while (i < p.length && T(p[i]!) < now - 8) i++;
       while (i < p.length && p[i]![2] !== dest) { if (T(p[i]!) > now + 4 * 154) return undefined; i++; }
@@ -244,7 +246,8 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
       let top = dest, last = T(p[i]!);
       for (; i < p.length; i++) {
         const [, , de, k] = p[i]!, at = T(p[i]!);
-        if (de < dest || de > top || at > last + 3) break;
+        // (the copy's next chunk; with `slack`, a frame work or the LYC line may hold it longer)
+        if (de < dest || de > top || at > last + slack) break;
         for (let j = 0; j < k; j++) { const o = de + j - dest; if (o < len && first[o]! < 0) first[o] = at; }
         top = Math.max(top, de + k);
         last = at;
@@ -264,6 +267,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     return ((w[0xc0c2 - 0x8000]! << 8) | w[0xc0c1 - 0x8000]!) + 8;
   };
   // the frame work's runs end when the original's did (hblank-paced copies)
+  let lcdBlanks = 0;
   let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0, rasterTears = 0, objQuirks = 0;
   /** Where the port ran each work (in no time: its VRAM writes are all on that line). */
   const portWork: [number, number][] = [];
@@ -375,7 +379,10 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
       g.runFrame();
       const exp = t.screens.subarray(f * FRAME_BYTES, (f + 1) * FRAME_BYTES);
       const got = rig.ppu.frame;
-      const pixels = screenDiff(got, exp);
+      let pixels = screenDiff(got, exp);
+      // PyBoy clears its screen when the LCD is switched off: a frame in which the code switched it
+      // off (and on again, 02:43C8) shows a blank screen in the trace
+      if (pixels && rig.lcdOff && exp.every((v) => v === exp[0])) { lcdBlanks++; pixels = 0; }
       if (pixels) {
         const olds = [lastGot, f > 0 ? t.screens.subarray((f - 1) * FRAME_BYTES, f * FRAME_BYTES) : null]
           .filter((x): x is Uint8Array => !!x);
@@ -431,7 +438,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   // the cartridge RAM at the end (the saves) as the original's
   const sramDiff: number[] = [];
   if (t.sram) for (let i = 0; i < 0x2000; i++) if (m.sram[i] !== t.sram[0x2000 + i]) sramDiff.push(0xa000 + i);
-  return { trace: t, diffs, waits, sramDiff, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, rasterTears, objQuirks, workMismatch, nWorks, error };
+  return { trace: t, diffs, waits, sramDiff, nWaits, busy, tears, oamLate, oamTransient, transient, lateSyncs, nSyncs, latePolls, nPolls, latePoints, nPoints, nRand, lineTears, chunkTears, rasterTears, objQuirks, workMismatch, nWorks, lcdBlanks, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {

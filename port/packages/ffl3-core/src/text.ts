@@ -149,8 +149,9 @@ function* lineAtOnce(g: Game): Co {
   const m = g.m;
   const n = m.rd(CD(6));
   const at = m.rd16(CD(4));
-  yield* far0(g, 0, function* () { vramCopy(m, 0xc880, at, n); });
-  yield* far0(g, 0, function* () { vramCopy(m, 0xc894, (at + 0x20) & 0xffff, n); });
+  // (hblank-paced: the rows show from the lines the original wrote them, zs00)
+  yield* far0(g, 0, function* () { g.vramPaced(() => vramCopy(m, 0xc880, at, n), at, n); });
+  yield* far0(g, 0, function* () { g.vramPaced(() => vramCopy(m, 0xc894, (at + 0x20) & 0xffff, n), (at + 0x20) & 0xffff, n); });
   m.wr(CD(7), 0);
   const lo = ((m.rd(CD(4)) & 0xe0) | m.rd(CD(2))) + 0x40;
   m.wr(CD(4), lo & 0xff);

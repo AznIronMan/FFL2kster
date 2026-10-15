@@ -451,3 +451,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   694 tests pass, no residual frame (the 3 one-line frames of 1.53.0 closed).
 - Coverage: 743 of 750 `@ffl1k/core` functions called (open: the reflect reaction; rowMove unreachable:
   no text uses codes 1C-1F; the NotPorted classes and `setOptions`, which only the app calls, aside).
+
+### 2026-10-15 — Reflect (1.55.0)
+- The reaction sweep's first six traces with all stats 1: the reflect (06:460E) recorded; 739 of 744
+  functions called.

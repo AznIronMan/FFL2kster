@@ -241,7 +241,7 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:2EF8 -> 00:2F0B / 00:12CA | a script reference's event is called at 00:2F0B; 00:1236 returns through 00:12CA (C2F0, CD3D back); both are sync points (the events' CPU time decides whether a STAT frame work sees CD3D) | verified (parity opening1) |
 | 00:1B2D / 00:1B50 | a frame, then the normal handlers (11A2 / 11E3) with the current ones kept at CA5A / CA5D; back | verified (parity opening1) |
 | 01:41AF / 01:41C0 | a frame of the leader's / an object's scripted walk: map animation, objects, a frame (the leader's steps 01:441D-4609, the objects' 01:50AC-5312) | verified where `opening1` reaches (scripted walks) |
-| 00:3211 and helpers | text engine: flush 00:331B, line at once 00:3357, tile by tile 00:338E (delay 00:3593), box scroll 00:342C / 00:34B2, dictionary 00:308C / 00:30B8, wait for A 00:275C | verified (parity) |
+| 00:3211 and helpers | text engine: flush 00:331B, line at once 00:3357, tile by tile 00:338E (delay 00:3593), box scroll 00:342C / 00:34B2, dictionary 00:308C / 00:30B8, wait for A 00:275C; 00:3357's two copies are 00:20FF's hblank-paced ones (zs00) | verified (parity) |
 
 | 00:0851 / 00:01E7 | Select: C6F3 turned left 2 (the next member leads), sound 3C; 00:01E7 the leader redrawn (00:04F7 a = 0B in bank 0B, 00:04B1, 01:5272, a frame) | verified (select1) |
 | 00:0861 | B in the field: by C6E3 (0 nothing, 1 01:4311, 2 01:4272, 3-8 01:4250 off the vehicle) | verified (ship3, sweep) |
@@ -309,7 +309,7 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 0B:780A / 0B:783B | opening slide: 32 steps of a bend table (0B:78D5) in DE40-DEBF; per frame, interrupts off, SCY/SCX for lines 0-40 as LY reaches them | verified |
 | 0C:4000 | battle script interpreter (opcode table 0C:4320, expression codes 0C:433C, skip table 0C:437C; operand fetch 0C:43C0) | verified (statements reached by battle1/2) |
 | 0C:4A2D | the battle script (tools/ffl3/bscript.py) | data |
-| 02:4394 / 02:4364 | battle effects 00-17 by DE00 (14 and part of 12 jump into bank 0E) | verified for 15, 16, 17 and those battle2 reaches |
+| 02:4394 / 02:4364 | battle effects 00-17 by DE00 (14 and part of 12 jump into bank 0E) | verified for 15, 16, 17 and those battle2 reaches; 03, 04 (02:43C8: the LCD off and on in the vblank, PyBoy's empty frame), 06, 07, 09, 0A, 0B, 0C, 0D (zx, zw00, 1.55.0) |
 | 02:4000 | action display (C9BD effect or member/enemy action, 02:53EE action data) | verified (battle2) |
 | 0B:7E17 | a member's figure tiles (4 from bank 04, + 40 with status: raw copy, read back to C880, the low plane cleared, copied back; each copy 00:20FF, 5 bytes an hblank, stalled on lines with 8+ objects) | verified (battle sweep) |
 | 0C:4017 | the battle script's store (1-3 bytes to CC01/CC02; FFBA / FFBC requests among them) | verified |

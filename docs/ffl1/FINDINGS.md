@@ -490,3 +490,10 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   FF8B, sphere2 FF8B / FF94), the member choice's bc (empty1 FFF6 / 7), the sphere menu's de
   (sphere1 FFF4 / 5), the store lines (yi860 frame 289), the drawn-SCX `waveLate` (yi861: 8 frames
   of one line).
+
+## 2026-10-15 — Reflect (1.55.0)
+
+- The reflect reaction (06:460E) needs an attack that does damage on a member holding 33 / 79:
+  the first six reaction traces now give the members all stats 1 (Defence 1 alone was not
+  enough). Coverage 739 of 744 functions: what is left is rowMove (no text uses 1C-1F) and the
+  classes and setters only the app or a missing hook use.

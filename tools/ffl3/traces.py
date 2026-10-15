@@ -392,8 +392,27 @@ def fuzz_sweep(nb=72, nf=36):
         for i, prm in enumerate(EVENT_PARAMS_OF.get(t, EVENT_PARAMS)):
             out[f"ze{t:02x}{'0123456789abcdefghij'[i]}"] = ("field_start", FIELD, PLAN_EVENT,
                                     rich_party(t + i) + ((0xC2F0, 0xC0 | t), (0xCA28, prm), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
+    # the field uses (zuII: a bag of item II, 24 x 9; zvNN: every member knows spell NN only, MP
+    # 999), the party hurt (HP 5, MP 2 for zu), from the field menu's Items (zu) or Abilities (zv)
+    # with input weighted to A: the field effects of items and spells (09:52E4..), key items
+    for iid in range(0xC0, 0x100):
+        p = list(rich_party(0))
+        p += [(0xC6FF + 2 * i, iid) for i in range(24)] + [(0xC700 + 2 * i, 9) for i in range(24)]
+        for k in range(5):
+            b = 0xC500 + 0x60 * k
+            p += [(b + 0x10, 0x05), (b + 0x11, 0x00), (b + 0x14, 0x02), (b + 0x15, 0x00)]
+        out[f"zu{iid:02x}"] = ("field_start", FIELD, "none:30,start:3,none:60,a:3,none:60," + fuzz_plan(5000 + iid, 100, FUZZ_USE_KEYS), tuple(p))
+    for j in range(48):
+        p = list(rich_party(j))
+        for k in range(5):
+            b = 0xC500 + 0x60 * k
+            p += [(b + 0x51 + i, (1 << (j % 8)) if i == j // 8 else 0) for i in range(6)]
+            p += [(b + 0x10, 0x05), (b + 0x11, 0x00)]
+        out[f"zv{j:02d}"] = ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40," + fuzz_plan(5500 + j, 100, FUZZ_USE_KEYS), tuple(p))
     return out
 
+
+FUZZ_USE_KEYS = (("a", 6), ("b", 1), ("up", 1), ("down", 2), ("right", 1))
 
 EVENT_TYPES = (0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x16, 0x18, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23,
                0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B)
@@ -403,6 +422,31 @@ EVENT_PARAMS_OF = {0x11: tuple(range(6)), 0x12: tuple(range(0x12))}
 PLAN_EVENT = "none:10," + "a:3,none:37," * 40 + "b:3,none:40," * 3 + "none:200"
 
 FUZZ_SPELL_KEYS = (("a", 7), ("b", 1), ("up", 1), ("down", 3), ("left", 1), ("right", 3))
+
+# The enemy abilities (zxKK: formation KK): the battle effects 03-0D (02:4397) come from the action
+# display C9BD of the enemies' battle abilities (09:5466 table 2: monster_ability slots with their
+# mask bit), which the enemies choose rarely (about 1 action in 100) and the parties win first.
+# From field_start (the rich party), A every GAP frames; at the first frame wait from frame 600
+# every entity's HP (D000-D600, +10..+13) is 9999, so the battle goes on; the formation and GAP
+# were found by a scan of every formation (local, ffl3/scratch/effscan2.py): 25 / 43 reaches the
+# effects 6 and 3, 1E / 37 the effects 7, 9 and A, 54 / 46 the effect C.
+ENEMY_ABILITIES = {0x25: (43, 8000), 0x1E: (37, 27000), 0x54: (46, 9500)}
+TANK = tuple(p for b in range(0xD000, 0xD680, 0x80) for p in ((b + 0x10, 0x0F), (b + 0x11, 0x27), (b + 0x12, 0x0F), (b + 0x13, 0x27)))
+# The members' weapons (zw00): a member's Fight shows the action display of its weapon (table 0
+# of 09:5466 by the item id, C99D): the weapons 6E (effect D), 6F (4), 70 (4, B) in the members'
+# first two slots (+40 / +41: member j has W[j], W[j + 1]), formation 0, HP 9999 from frame 600,
+# A every 40 frames (a scan of every item id: ffl3/scratch/wscan.py; ids outside the weapons,
+# which the equipment menu never puts there, reach effects past the table, e.g. armor BE: 18).
+MEMBER_WEAPONS = {"zw00": ((0x6E, 0x6F, 0x70, 0x6E, 0x70), 8000)}
+for _n, (_w, _len) in MEMBER_WEAPONS.items():
+    SCENARIOS[_n] = ("field_start", FIELD, "none:10," + "a:3,none:37," * (_len // 40) + "none:10")
+    POKES[_n] = rich_party(0) + tuple((0xC500 + 0x60 * j + 0x40 + i, _w[(j + i) % 5]) for j in range(5) for i in range(2)) \
+        + ((0xC2F0, 0xDB), (0xCA28, 0x00), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
+    WAIT_POKES[_n] = ((("frame", 600), TANK),)
+for _k, (_gap, _n) in ENEMY_ABILITIES.items():
+    SCENARIOS[f"zx{_k:02x}"] = ("field_start", FIELD, "none:10," + f"a:3,none:{_gap - 3}," * (_n // _gap) + "none:10")
+    POKES[f"zx{_k:02x}"] = rich_party(_k) + ((0xC2F0, 0xDB), (0xCA28, _k), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
+    WAIT_POKES[f"zx{_k:02x}"] = ((("frame", 600), TANK),)
 
 def main(names):
     rec = Recorder()

@@ -146,3 +146,7 @@ both ROMs; differences are listed first because they are the valuable part.
   per line late, the recorder now compares what PyBoy drew (`tilemap_position_list`) instead of
   inferring it from STAT. Both games' "rest the CPU time" points (a count dropped a few cycles
   after a sync point) can let one more interrupt in; the trace's next record decides.
+- 1.55.0: PyBoy ends a frame when the LCD is switched on again (lcd.py: frame_done) and counts a
+  frame with nothing in it; a game that blinks the LCD in its vblank (Legend III's effect 04)
+  needs the port to count that frame too. Legend I's wave and Legend III's menus both write VRAM
+  or registers over lines the CPU time decides; the traces' records of those lines are the way.

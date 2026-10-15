@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.54.0`
+Version: `1.55.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
 (FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
 (docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers on hold).** The port plays from the title through
@@ -100,6 +100,15 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.55.0` — Legend III: recordings for the battle effects only enemy abilities and some weapons
+  show (long battles where every side's HP is set to 9999 partway through, found by scanning
+  every formation and every item), and for every field item and spell used from the menu (112).
+  They found and fixed: an effect that blinks the screen off and on (PyBoy starts a new frame
+  then, so the port now counts that empty frame too, and the effect waits for the original's
+  start), a menu left by a spell that came back too early (the map's water animation one step
+  off), and a list redrawn after a stat item's use and a shop's text line that the port showed a
+  frame early. Legend I:
+  the last reaction, reflect, is now recorded too.
 - `1.54.0` — Legend I and III: targeted recordings for the code the earlier sweeps never reached,
   each one played on the original and replayed on the port. Legend I: every field item and
   ability used from the menu (62), mutants' growth and monsters' meat after won battles (16),

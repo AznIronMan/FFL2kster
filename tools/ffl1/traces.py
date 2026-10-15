@@ -470,7 +470,8 @@ def reaction_sweep():
     for j in range(2 * len(REACTION_ITEMS)):
         iid = REACTION_ITEMS[j % len(REACTION_ITEMS)]
         a = FUZZ_AREAS[(j * 3 + 1) % len(FUZZ_AREAS)]
-        ms = [dict(items=[iid, 0x2E], stats=(20, 99, 99, 20), hp=999) for _ in range(4)]
+        # (the reflect needs an attack that does damage: all stats 1 in the first six)
+        ms = [dict(items=[iid, 0x2E], stats=(1, 1, 1, 1) if j < len(REACTION_ITEMS) else (20, 99, 99, 20), hp=999) for _ in range(4)]
         SCENARIOS[f"yr{j:02d}"] = ("town0", FIELD, "none:60," + "a:3,none:39," * 100 + "none:200")
         POKES[f"yr{j:02d}"] = battle_pokes(a, ms)
 
