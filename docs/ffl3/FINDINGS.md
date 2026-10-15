@@ -1195,9 +1195,21 @@ removed; the work's di ignored, a code-run work keeping the interrupts, the obje
   zone CA2D is 0 does not count (0C:4B6A skips CEDA = FF): the recordings put CA2D = 01 (an
   encounter zone) and the enemies' HP 9999; the "continue" question (0F:7F8F) is answered Yes.
   (The guest Myron of the early saves: dead at the start of the probes, not needed in the traces.)
-- **Effect 5 still not seen:** scans from svh (Underworld party) of the formations with
-  Searcher / Medusa / Hydra, HP 9999 from frame 1300, 60,000 frames each: no table-2 ability.
+- **Effect 5 (scans):** scans from svh (Underworld party) of the formations with Searcher /
+  Medusa / Hydra, HP 9999 from frame 1300, 60,000 frames each, saw no table-2 ability; the save
+  sweep's battles reach it all the same (1.58.1).
 - **Falsified:** without `hook_vblank` the svc traces fail from their first wait; without the
   halt rule the four traces fail (wait RAM); with the strip's old offset or without the paced
   roll the Chaos Tower traces fail.
 - **Tests:** 1532 FFL3 tests pass.
+
+## 2026-10-15 — What the save recordings reach (1.58.1)
+
+A coverage run of fuzzy (the 240 save traces) and fuzzc (zc, zl) alone: 1021 of 1472 functions.
+Newly called against the earlier runs: effect 5 (convergeRoom, convergeNew, convergeMove,
+convergeStep, convergeEffect), the "continue" question (continueQuestion), a member's ability and
+its target (abilityTarget), the ship's return point (returnPointA, map10), followers (followerInit,
+followerJoins, followerObject, placeBack), key items and special items used (keyItemUse,
+specialItemUse, payPoints, textAfter). Still uncalled there: groupMove, the remaining ship2 lift
+paths, cont.ts but followerObject, monsterShatter / monsterSwap / flashBand / noiseStep (battle
+effects of the later bosses), menuitems learnSpell / askDiscard / listUp.

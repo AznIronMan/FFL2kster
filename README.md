@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.58.0`
+Version: `1.58.1`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
 (FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
 (docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers on hold).** The port plays from the title through
@@ -100,6 +100,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.58.1` — Legend III: a coverage run of the save recordings shows they reach what the starting
+  point could not: battle effect 5, the "continue" question, members' abilities in battle, the
+  ship's return points, followers joining and items used from the key-item list.
 - `1.58.0` — Legend III from players' saves: nine published battery saves (from the Past world to
   Mt. Goht, the final area) gave nine new starting points and 216 recordings from them
   (battles, lost battles, field runs with the menus and the save); a lost battle and the

@@ -109,3 +109,4 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 - 2026-10-15 (1.56.0): command page 2 zc 24 (Defend, Cover), ship console zk 64 and zn 36 (the lift-off); sync point 02:40A7; zk43 frame 2211 pinned (15 px); 1286 tests pass.
 - 2026-10-15 (1.57.0): save starts (tools/ffl3/sav.py, save_sweep zy); sync point 00:2FED; zyqf02 frame 1273 pinned (3 px); 1311 tests pass.
 - 2026-10-15 (1.58.0): nine players' saves (sva-svi), save sweep 240, lost battles zl 4 + zy 36; wait halt rule, strip +1, paced rolling tiles, vblank start for save states; 1532 tests pass.
+- 2026-10-15 (1.58.1): coverage of the save traces: effect 5, continue question, members' abilities, return points, followers, key items reached.
