@@ -36,6 +36,15 @@ def _dx(chunks, size, first=None):
     return gzip.compress(bytes(out), 6)
 
 
+VW_SITES = ((0x007C, "hl"), (0x0085, "hl"), (0x0091, "de"), (0x009A, "de"), (0x1BD4, "hl"), (0x1BD7, "hl"))
+
+
+# sync points: {"BB:AAAA": [[frame, LY], ...]} of each time the CPU reaches them (waits.json
+# "points"): the wave's iteration start (00:3E35, FFCB = 0) and end (00:3E7B), the menu's
+# window off (00:26F1)
+POINTS = ((0x00, 0x3E35), (0x00, 0x3E7B), (0x00, 0x26F1))
+
+
 class Recorder:
     def __init__(self, rom="ffl1/input/original.gb"):
         self.rom = rom
@@ -119,15 +128,43 @@ class Recorder:
                 if 0x8000 <= a < 0xA000:
                     vw.append([nframes[0], m[0xFF44], a])
             return at_vw
+        # the field loop's direction read (00:209D, FF8D at 00:20A4): [frame, LY] of each call; read
+        # after the next frame's tick (line 0), the original sees that frame's buttons
+        polls = []
+
+        def at_poll(_):
+            if start:
+                polls.append([nframes[0], pb.memory[0xFF44]])
+        points = {f"{b:02X}:{a:04X}": [] for b, a in POINTS}
+
+        def mk_point(b, a):
+            def at_point(_):
+                if start:
+                    points[f"{b:02X}:{a:04X}"].append([nframes[0], pb.memory[0xFF44]])
+            return at_point
+        # the wave's SCX write (00:3E9B) after PyBoy drew its line: [frame, LY, LYC] when the
+        # handler came a line late or wrote in hblank (mode 0). (Writes late in mode 3 are drawn
+        # either way by PyBoy, by its line's length: not recorded.)
+        wave_late = []
+
+        def at_wave_stat(_):
+            if start:
+                ly, lyc = pb.memory[0xFF44], pb.memory[0xFF45]
+                if lyc < 0x90 and (ly != lyc or pb.memory[0xFF41] & 3 == 0):
+                    wave_late.append([nframes[0], ly, lyc])
         hb, ha = hook
         pb.hook_register(hb, ha, cb, None)
+        pb.hook_register(0, 0x209D, at_poll, None)
+        for b, a in POINTS:
+            pb.hook_register(b, a, mk_point(b, a), None)
+        pb.hook_register(0, 0x3E9B, at_wave_stat, None)
         for i, ((sb, sa), _st) in enumerate(switch):
             pb.hook_register(sb, sa, mk_switch(i), None)
         for mb, ma in marks:
             pb.hook_register(mb, ma, mk_mark(mb, ma), None)
         pb.hook_register(0, 0x00C7, arm, None)
         pb.hook_register(0, 0x00CF, at_halt, None)
-        for a, reg in ((0x007C, "hl"), (0x0085, "hl"), (0x0091, "de"), (0x009A, "de"), (0x1BD4, "hl"), (0x1BD7, "hl")):
+        for a, reg in VW_SITES:
             pb.hook_register(0, a, mk_vw(reg), None)
         try:
             for _ in range(max_pre):
@@ -173,8 +210,12 @@ class Recorder:
         finally:
             pb.hook_deregister(0, 0x00C7)
             pb.hook_deregister(0, 0x00CF)
-            for a in (0x007C, 0x0085, 0x0091, 0x009A, 0x1BD4, 0x1BD7):
+            for a, _r in VW_SITES:
                 pb.hook_deregister(0, a)
+            pb.hook_deregister(0, 0x209D)
+            for b, a in POINTS:
+                pb.hook_deregister(b, a)
+            pb.hook_deregister(0, 0x3E9B)
             for mb, ma in marks:
                 pb.hook_deregister(mb, ma)
             for (sb, sa), _st in switch:
@@ -192,7 +233,7 @@ class Recorder:
         open(f"{out}/prev.bin", "wb").write(prev)
         open(f"{out}/screens.dx.gz", "wb").write(_dx(screens, 160 * 144))
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
-        json.dump({"frames": wait_frames, "vw": vw}, open(f"{out}/waits.json", "w"))
+        json.dump({"frames": wait_frames, "vw": vw, "polls": polls, "points": points, "waveLate": wave_late}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
                    "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))

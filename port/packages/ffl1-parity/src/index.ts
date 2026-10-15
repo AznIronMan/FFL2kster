@@ -49,13 +49,27 @@ export class Rig {
     m.onLcdc = (v) => { if (!(v & 0x80)) this.lcdOff = true; };
     this.ppu = new Ppu(m.vram, m.oam);
     this.g.onLine = (y) => {
-      if (y === 0) { this.ppu.beginFrame(); this.raster = false; this.vramWrites = m.rd(0xc39e) === 0x9f; }
+      if (y === 0) { this.ppu.beginFrame(); this.raster = false; this.vramWrites = m.rd(0xc39e) === 0x9f; this.winOn = false; this.winCount = 0; }
       if (this.g.lineHook) this.raster = true;
-      this.ppu.regs = regsFromIo(m.io);
+      this.ppu.regs = this.windowLatch(regsFromIo(m.io), y);
       this.lineRegs[y] = this.ppu.regs;
       this.ppu.line(y);
     };
   }
+  /** The DMG's window (as PyBoy draws it): it starts on the first line where LY = WY and stays to
+   *  the end of the frame whatever WY becomes (WX and LCDC bit 5 still per line), its rows
+   *  counted by the lines it was drawn on. The renderer takes y - WY as the window row, so WY is
+   *  given as y - that count (or past the screen before it starts). */
+  private winOn = false;
+  private winCount = 0;
+  private windowLatch(r: LcdRegs, y: number): LcdRegs {
+    if (!this.winOn && r.wy === y) this.winOn = true;
+    const shown = this.winOn && (r.lcdc & 0x20) !== 0 && r.wx <= 166;
+    const wy = shown ? y - this.winCount : 0xff;
+    if (shown) this.winCount++;
+    return wy === r.wy ? r : { ...r, wy };
+  }
+
   /** The last frame drawn again with line y taking line src's registers. */
   redraw(y: number, src: number): Uint8Array {
     const m = this.g.m;
@@ -140,6 +154,12 @@ export interface Trace {
   waitFrames: number[];
   /** VRAM writes the original made in hblank with the LCD on: [frame, LY, address]. */
   vramWrites?: [number, number, number][];
+  /** The field loop's direction reads (00:209D): [frame, LY]. */
+  polls?: [number, number][];
+  /** Sync points: "BB:AAAA" -> [frame, LY] of each time the original reached it. */
+  points?: Record<string, [number, number][]>;
+  /** The wave's STAT taken late: [frame, LY at entry, LYC]. */
+  waveLate?: [number, number, number][];
   prevScreen?: Uint8Array;
 }
 
@@ -171,9 +191,9 @@ export function loadTrace(name: string): Trace {
   };
 }
 
-function waitsJson(p: string): { waitFrames: number[]; vramWrites?: [number, number, number][] } {
+function waitsJson(p: string): { waitFrames: number[]; vramWrites?: [number, number, number][]; polls?: [number, number][]; points?: Record<string, [number, number][]>; waveLate?: [number, number, number][] } {
   const w = JSON.parse(readFileSync(p, "utf8"));
-  return { waitFrames: w.frames, ...(w.vw ? { vramWrites: w.vw } : {}) };
+  return { waitFrames: w.frames, ...(w.vw ? { vramWrites: w.vw } : {}), ...(w.polls ? { polls: w.polls } : {}), ...(w.points ? { points: w.points } : {}), ...(w.waveLate ? { waveLate: w.waveLate } : {}) };
 }
 
 export function screenDiff(a: Uint8Array, b: Uint8Array): number {

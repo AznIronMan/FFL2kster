@@ -665,6 +665,10 @@ export function* loadMap(g: Game): Co {
   pushBank(g, 0x06);
   yield* loadLeader(g);
   popBank(g);
+  // sync point 00:037B: the objects' loading (06:054D) can take the original a frame of CPU time
+  // after its wait; the drawing (00:01A0) takes the frame counter's bit 4 for the walking frames
+  // (zs31)
+  yield* g.point(0x00037b);
   m.wr(0xca14, 0);
   drawObjects(g);
   yield* drawView(g);

@@ -3,7 +3,7 @@
  *  with the i-th one recorded; frames the original spent without waiting (CPU-bound stretches,
  *  e.g. VRAM copies paced by the 00:069F handler) are run as busy frames. Same method as
  *  @ffl2k/parity's replay (the TOL engine core's harness), with Legend I's handlers and RAM. */
-import { VSYNC, SoftReset, type Co } from "@ffl1k/core";
+import { VSYNC, POINT, SoftReset, type Co } from "@ffl1k/core";
 import { Ppu, regsFromIo } from "@ffl2k/render";
 import { Rig, loadRom, loadTrace, buttonBits, screenDiff, FRAME_BYTES, tickInFrame, type Trace } from "./index.js";
 
@@ -33,6 +33,8 @@ export interface ReplayOptions {
   setup?: (rig: Rig) => void;
   keepGoing?: boolean;
   watch?: (wait: number, frame: number, exp: Uint8Array, got: Uint8Array) => void;
+  /** Follow the recorded field direction reads (Game.onPoll; default true). */
+  polls?: boolean;
   /** Apply the recorded hblank VRAM write times (Game.pacedWrites; default true). */
   pacedWrites?: boolean;
   /** Stop after this many waits (debugging). */
@@ -49,6 +51,9 @@ export interface ReplayOptions {
 export interface ReplayResult {
   trace: Trace; diffs: FrameDiff[]; waits: WaitDiff[]; nWaits: number; tickPhase: number; busy: number;
   lateWrites: number; rephased: number; tears: number; rasterEdges: number; lcdBlanks: number;
+  /** Field direction reads followed (Game.onPoll), those made after the next tick, and any the
+   *  port reached after the original's frame (should be 0). */
+  nPolls: number; tickedPolls: number; latePolls: number;
   /** Frames drawn with the LCD registers as they were before or during the step, line by line
    *  moving forward (lateLines). */
   lateRegs: number;
@@ -210,16 +215,49 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   const vw = t.vramWrites;
   if (vw && opts.pacedWrites !== false) {
     rig.g.writeTime = (addr) => {
-      while (vwAt < vw.length && (vw[vwAt]![0] * 154 + vw[vwAt]![1] < since || vw[vwAt]![2] !== addr)) vwAt++;
-      if (vwAt >= vw.length) return undefined;
-      const [rf, ly] = vw[vwAt++]!;
-      return rf * 154 + ly;
+      // the records before the last wait are past; the write is the next record of its address
+      // within a short window (the stores the port paces come in the original's order; a store
+      // the port does not pace leaves its record behind)
+      while (vwAt < vw.length && vw[vwAt]![0] * 154 + vw[vwAt]![1] < since) vwAt++;
+      for (let k = vwAt; k < vw.length && k < vwAt + 32; k++) {
+        if (vw[k]![2] !== addr) continue;
+        vwAt = k + 1;
+        return vw[k]![0] * 154 + vw[k]![1];
+      }
+      return undefined;
     };
     rig.g.lineTime = (ly) => (rig.g.frame + off) * 154 + ly;
   }
+  // the field loop's direction reads: the k-th made after the next frame's tick (frame > the
+  // last wait's) -> the port's code resumes after that tick (TICK)
+  let pollAt = 0, nPolls = 0, latePolls = 0, tickedPolls = 0;
+  const polls = t.polls;
+  if (polls && opts.polls !== false) {
+    rig.g.onPoll = () => {
+      const p = polls[pollAt++];
+      nPolls++;
+      if (!p) return false;
+      if (p[0] < f) { latePolls++; if (process.env.FFL1K_POLLLOG && latePolls < 4) console.log(`late poll ${pollAt - 1} [${p}] at f ${f}`); }
+      if (p[0] > f) tickedPolls++;
+      if (process.env.FFL1K_POLLLOG && f > 3436 && f < 3446) console.log(`poll ${pollAt - 1} [${p}] at f ${f} g.frame ${rig.g.frame}`);
+      return p[0] > f;
+    };
+  }
+  rig.g.onTickInFrame = () => { rig.g.buttons = btn(f + 1); };
+  if (t.points) {
+    const pts = t.points;
+    rig.g.onPointTimes = (addr) => pts[`${(addr >> 16).toString(16).toUpperCase().padStart(2, "0")}:${(addr & 0xffff).toString(16).toUpperCase().padStart(4, "0")}`];
+    rig.g.traceFrame = () => rig.g.frame + off;
+    rig.g.lineTime ??= (ly) => (rig.g.frame + off) * 154 + ly;
+  }
+  if (t.waveLate?.length) {
+    const late = new Map(t.waveLate.map(([fr, , lyc]) => [fr * 154 + lyc, fr * 154 + lyc]));
+    rig.g.onWaveLate = (ly) => late.get((rig.g.frame + off) * 154 + ly);
+    rig.g.lineTime ??= (ly) => (rig.g.frame + off) * 154 + ly;
+  }
   rig.g.onWait = (kind) => {
     const prev = f;
-    f = kind === VSYNC && nWaits < wf.length ? wf[nWaits]! : f + 1;
+    f = kind === VSYNC && nWaits < wf.length ? wf[nWaits]! : kind === POINT ? Math.max(f + 1, rig.g.pointFrame) : f + 1;
     off = f - rig.g.frame;
     since = f * 154 + 0x90;
     if (opts.busyFrames !== false && f - prev > 1) {
@@ -328,7 +366,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     }
     diffs.push({ frame: f, pixels, got: rig.ppu.frame.slice(), afterBusy: f - prevDrawn > 1, lcdOff: rig.lcdOff });
   }
-  return { trace: t, diffs, waits, nWaits, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, lateRegs, objOrder, seeds, error };
+  return { trace: t, diffs, waits, nWaits, nPolls, tickedPolls, latePolls, tickPhase, busy, lateWrites, rephased, tears, rasterEdges, lcdBlanks, lateRegs, objOrder, seeds, error };
 }
 
 export function summarizeWaits(w: WaitDiff[]): string {

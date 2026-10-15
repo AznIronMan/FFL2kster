@@ -1350,7 +1350,7 @@ export class Battle {
       r.e = this.itemPower(it);
       this.addRand();
       this.setValue();
-      if (yield* this.subDefence()) return;
+      if (yield* this.subDefence()) { r.hl = 0x499d; return; } // (4938 pops its return address)
       yield* this.damageMsg();
       this.keepHl();
     }
@@ -1430,7 +1430,12 @@ export class Battle {
   /** 06:4A4A — 06:4A3B, 06:4938, then the damage (06:4144). True when 4938 returned early. */
   *magic(): Co<boolean> {
     this.powerValue();
-    if (yield* this.subDefence()) return true;
+    if (yield* this.subDefence()) {
+      // 4938's early return pops its return address into hl: the caller's 41D6 then reads the
+      // "HP" at 06:4A50 (ROM: not a death) (yb16)
+      this.r.hl = 0x4a50;
+      return true;
+    }
     yield* this.damage();
     return false;
   }
@@ -1507,7 +1512,7 @@ export class Battle {
       yield* this.effect();
       this.targetDef();
       this.powerParam();
-      if (yield* this.subDefence()) return;
+      if (yield* this.subDefence()) { r.hl = 0x4b0e; return; } // (4938 pops its return address)
       this.keepHl();
     }
     yield* this.msg0D();

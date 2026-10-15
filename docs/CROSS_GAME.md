@@ -134,3 +134,9 @@ both ROMs; differences are listed first because they are the valuable part.
   `paced`: per chunk at 00:2120 / 00:216E) and the replays apply them at those lines. Legend I's
   battle dissolve 00:1BBE is the case that needed it (the 00:069F handler gives the code the CPU
   in each hblank).
+- 1.53.0: both games' sweeps had left whole menus and effects unrun; the same seeded input sweep
+  reached them in both. CPU time again decided the differences: Legend III needed sync points
+  inside menus and a work's di time, Legend I the direction read after the next tick, its wave's
+  rounds and a menu's close. PyBoy draws the window as the DMG does (from the line where LY = WY to
+  the frame's end); the shared renderer re-tested WY per line, so the Legend I rig latches it.
+

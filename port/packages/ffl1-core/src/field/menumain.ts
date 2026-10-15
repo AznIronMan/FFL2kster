@@ -86,6 +86,9 @@ export class MainMenu extends Menus {
     loadAttributes(g, m.rd(0xc5c9));
     objectTable(m);
     objectSprites(m);
+    // parity: the original's layout and attributes take frames of CPU time; the window goes off
+    // and the palettes on at the line it reached 00:26F1 (yf06)
+    yield* g.untilPoint(g.pointTime(0x26f1));
     windowOff(m);
     playerSprites(g);
     m.wr(0xc5bc, 0);

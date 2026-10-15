@@ -14,6 +14,9 @@ export const VSYNC = 1;
 /** Yielded by a busy loop that polls state set by the frame tick (line 0, LYC = 0): the code
  *  resumes right after the next tick, in that frame (lines 1-143 drawn after it). */
 export const TICK = 2;
+/** Yielded by `untilPoint`: the code goes on after the trace frame `Game.pointFrame` (the frames
+ *  before it are run as busy frames by the replay). */
+export const POINT = 3;
 export type LineHandler = (g: Game, ly: number) => void;
 
 /** Joypad bits as the game stores them (FF8D/FF8E): low nibble buttons, high nibble directions. */
@@ -48,12 +51,28 @@ export class Game {
   onYield: ((kind: number | void) => void) | null = null;
   /** Parity only: the line time (any monotonic clock) of a VRAM write the original made in
    *  hblank, or undefined for at once; with it, the line time of a line about to be drawn.
-   *  Writes done in pacedWrites are then applied line by line, as the original's code did them
-   *  (00:069F hands it the CPU in each line's hblank). Unset: at once (play). */
+   *  VRAM writes made inside the VRAM bracket (00:043D .. 00:044E, the 069F handler giving the code
+   *  the CPU in each line's hblank) are then applied line by line, as the original's were. Unset:
+   *  at once (play). */
   writeTime: ((addr: number) => number | undefined) | null = null;
+  /** Parity only: whether the original made its next field direction read (00:209D) after the
+   *  next frame's tick (the code then resumes after that tick, TICK). */
+  onPoll: (() => boolean) | null = null;
+  /** Parity only: a TICK yielded before this frame's line 0 (its tick reads this frame's buttons). */
+  onTickInFrame: (() => void) | null = null;
   lineTime: ((ly: number) => number) | null = null;
   private timed: number[] = []; // addr, value, time
   private timedAt = 0;
+  /** Writes scheduled at line times (`schedule`; not flushed when the code goes on). */
+  private sched: number[] = []; // addr, value, time
+  private schedAt = 0;
+  /** Parity only: the times [frame, LY] the original reached a sync point (trace "points"). */
+  onPointTimes: ((addr: number) => [number, number][] | undefined) | null = null;
+  /** Parity only: the line time at which the original took the wave's STAT for line ly of this
+   *  frame, when it took it late (trace "waveLate"); undefined: on time. */
+  onWaveLate: ((ly: number) => number | undefined) | null = null;
+  /** Parity only: the trace frame of the next frame to be drawn. */
+  traceFrame: (() => number) | null = null;
   hooks: {
     soundTick?: (g: Game) => void; // 07:4003, from the frame tick
     softReset?: (g: Game) => void; // A+B+Select+Start (00:071C -> 00:0224)
@@ -92,11 +111,16 @@ export class Game {
           from = 1;
         }
         r = this.main.next();
+        this.endDeferIo();
+        this.queuePaced();
         if (!r.done && r.value === TICK && from === 0) {
           // the tick of this very frame: line 0, then on
+          this.onTickInFrame?.();
           this.lineRange(0, 1);
           from = 1;
           r = this.main.next();
+          this.endDeferIo();
+          this.queuePaced();
         }
         if (r.done) this.done = true;
         else {
@@ -128,7 +152,7 @@ export class Game {
     const io = this.m.io;
     for (let ly = a; ly < b; ly++) {
       io[0x44] = ly;
-      if (this.timedAt < this.timed.length) this.applyTimed(ly);
+      if (this.timedAt < this.timed.length || this.schedAt < this.sched.length) this.applyTimed(ly);
       this.lineHook?.(ly);
       this.statCheck(ly);
       this.onLine?.(ly);
@@ -139,43 +163,124 @@ export class Game {
     const io = this.m.io;
     this.lineRange(from, 144);
     io[0x44] = 0x90;
-    if (this.timedAt < this.timed.length) this.applyTimed(0x90);
+    if (this.timedAt < this.timed.length || this.schedAt < this.sched.length) this.applyTimed(0x90);
     if (this.ime && this.m.hram[0x7f]! & 0x01) this.vblank();
     if (waited) this.onYield?.(kind);
     this.onFrameDone?.();
     for (let ly = 0x91; ly < 154; ly++) {
       io[0x44] = ly;
-      if (this.timedAt < this.timed.length) this.applyTimed(ly);
+      if (this.timedAt < this.timed.length || this.schedAt < this.sched.length) this.applyTimed(ly);
       this.statCheck(ly);
     }
   }
 
-  /** Runs fn, a stretch of VRAM writes the original makes in hblanks (00:069F): with writeTime
-   *  set, its writes are undone and replayed at their recorded line times; reads in fn see its
-   *  own earlier writes, as the original's do. */
-  pacedWrites(fn: () => void): void {
-    if (!this.writeTime) return fn();
+  /** The VRAM bracket's writes being logged (parity: `writeTime`): address, old, new. */
+  private paceLog: number[] | null = null;
+  private paceWr: ((a: number, v: number) => void) | null = null;
+
+  /** 00:043D installed the 069F handler: from here VRAM writes are paced (with `writeTime`). */
+  beginPacing(): void {
+    if (!this.writeTime || this.paceLog) return;
     const m = this.m, log: number[] = [], wr = m.wr;
+    this.paceLog = log;
+    this.paceWr = wr;
     m.wr = (a: number, v: number) => {
-      if (a >= 0x8000 && a < 0xa000) log.push(a, m.rd(a), v & 0xff);
+      if (m.pacedSite && a >= 0x8000 && a < 0xa000) log.push(a, m.rd(a), v & 0xff);
       wr.call(m, a, v);
     };
-    try {
-      fn();
-    } finally {
-      m.wr = wr;
-    }
+  }
+
+  /** The normal STAT handler back (00:044E / 044F): no more pacing. */
+  endPacing(): void {
+    if (!this.paceLog) return;
+    this.queuePaced();
+    this.m.wr = this.paceWr!;
+    this.paceLog = null;
+    this.paceWr = null;
+  }
+
+  /** The logged writes undone (reads in the code saw them, as the original's do) and queued at
+   *  their recorded line times. */
+  private queuePaced(): void {
+    const log = this.paceLog, wr = this.paceWr;
+    if (!log || !log.length || !wr) return;
+    const m = this.m;
     for (let i = log.length - 3; i >= 0; i -= 3) wr.call(m, log[i]!, log[i + 1]!);
     for (let i = 0; i < log.length; i += 3) {
-      const t = this.writeTime(log[i]!);
+      const t = this.writeTime!(log[i]!);
       if (t === undefined && this.timedAt >= this.timed.length) wr.call(m, log[i]!, log[i + 2]!);
       else this.timed.push(log[i]!, log[i + 2]!, t ?? -1);
     }
+    log.length = 0;
   }
 
   /** The timed writes made before this line (in an earlier hblank). */
+  private pointAt = new Map<number, number>();
+  /** The trace frame after which `untilPoint` resumes (read by the replay with POINT). */
+  pointFrame = 0;
+
+  /** Parity: a sync point — the line time at which the original reached addr (its next recorded
+   *  time), for the writes due on that line (`schedule`); undefined without a record (play). */
+  pointTime(addr: number): number | undefined {
+    const ts = this.onPointTimes?.(addr);
+    if (!ts || !this.traceFrame) return undefined;
+    const k = this.pointAt.get(addr) ?? 0;
+    this.pointAt.set(addr, k + 1);
+    const p = ts[k];
+    return p ? p[0] * 154 + p[1] : undefined;
+  }
+
+  /** Parity: the code goes on in the frame of line time t (the port does not resume in the middle
+   *  of a frame): the frames before it pass, and until the code's next wait its writes to the LCD
+   *  registers (FF40-FF4B) land on t's line, after the ones scheduled there. */
+  *untilPoint(t: number | undefined): Co {
+    if (t === undefined || !this.traceFrame) return;
+    const f = Math.floor(t / 154);
+    if (this.traceFrame() < f) {
+      this.pointFrame = f - 1;
+      yield POINT;
+    }
+    this.deferIo(t);
+  }
+
+  private ioWr: ((a: number, v: number) => void) | null = null;
+  private deferIo(t: number): void {
+    if (this.ioWr) return;
+    const m = this.m, wr = m.wr;
+    this.ioWr = wr;
+    m.wr = (a: number, v: number) => {
+      if (a >= 0xff40 && a <= 0xff4b && a !== 0xff44 && a !== 0xff46) this.schedule(t, a, v);
+      else wr.call(m, a, v);
+    };
+  }
+  private endDeferIo(): void {
+    if (!this.ioWr) return;
+    this.m.wr = this.ioWr;
+    this.ioWr = null;
+  }
+
+  /** Parity: the write of v at addr at line time t (as `lineTime`), in time order. */
+  schedule(t: number, addr: number, v: number): void {
+    const z = this.sched;
+    let i = z.length;
+    while (i > this.schedAt && z[i - 1]! > t) i -= 3; // in time order (equal times: as made)
+    z.splice(i, 0, addr, v & 0xff, t);
+  }
+
   private applyTimed(ly: number): void {
-    const now = this.lineTime ? this.lineTime(ly) : Infinity, q = this.timed;
+    const now = this.lineTime ? this.lineTime(ly) : Infinity;
+    if (this.schedAt < this.sched.length) {
+      const z = this.sched;
+      let j = this.schedAt;
+      while (j < z.length && z[j + 2]! < now) {
+        this.m.wr(z[j]!, z[j + 1]!);
+        j += 3;
+      }
+      this.schedAt = j;
+      if (j >= z.length) { this.sched = []; this.schedAt = 0; }
+    }
+    if (this.timedAt >= this.timed.length) return;
+    const q = this.timed;
     let i = this.timedAt;
     while (i < q.length && q[i + 2]! < now) {
       this.m.wr(q[i]!, q[i + 1]!);

@@ -9,8 +9,9 @@ compact storage). Per trace directory build/traces/NAME:
   waits.json    also "syncs": the frame of every end of the VRAM bracket's mode-1 poll (00:1E35, after
                 00:1D9E / 00:1DFD), which the port's replay aligns its own polls to, and "polls": [frame, LY]
                 of every entry to 00:1D9E / 00:1DFD (di: the interrupts stay off until the poll's reti), and
-                "works": [frame, LY, end frame, end LY] of every run of the frame work 00:3557 (from 00:3549,
-                CDC5 0 -> 1; it ends back at 00:3552), whose hblank-paced VRAM copies span lines, and
+                "works": [frame, LY, end frame, end LY(, di frame, di LY)] of every run of the frame work 00:3557
+                (from 00:3549, CDC5 0 -> 1; it ends back at 00:3552; the field branch's di at 00:356B, after
+                which an interrupt waits), whose hblank-paced VRAM copies span lines, and
                 "starts": [frame, LY] at which each frame wait began (00:3A6D), "ends": [frame, LY] at which
                 each ended (00:3A77, the code resumed; diagnostic: a long vblank handler resumes it in the next
                 frame), and "points": {"BB:AAAA":
@@ -168,10 +169,17 @@ class Recorder:
             if start:
                 open_work[:] = [nframes[0] if recording[0] else -1, pb.memory[0xFF44]]
 
+        work_di = []
+
+        def at_work_di(_):
+            if start and open_work and pb.memory[0xCDC5] == 1:
+                work_di[:] = [nframes[0] if recording[0] else -1, pb.memory[0xFF44]]
+
         def at_work_end(_):
             if start and open_work and pb.memory[0xCDC5] == 1:
-                works.append(open_work + [nframes[0] if recording[0] else -1, pb.memory[0xFF44]])
+                works.append(open_work + [nframes[0] if recording[0] else -1, pb.memory[0xFF44]] + work_di)
                 open_work.clear()
+                work_di.clear()
 
         last_vbl = [None, 0]  # frame of the latest vblank interrupt (00:0040), count of them
 
@@ -244,6 +252,7 @@ class Recorder:
         pb.hook_register(0, 0x2120, at_paced, 5)
         pb.hook_register(0, 0x216E, at_paced, 1)
         pb.hook_register(0, 0x3552, at_work_end, None)
+        pb.hook_register(0, 0x356B, at_work_di, None)
         try:
             for _ in range(max_pre):
                 pb.tick(1, True)
@@ -307,6 +316,7 @@ class Recorder:
             pb.hook_deregister(0, 0x2120)
             pb.hook_deregister(0, 0x216E)
             pb.hook_deregister(0, 0x3552)
+            pb.hook_deregister(0, 0x356B)
             for mb, ma in marks:
                 pb.hook_deregister(mb, ma)
             for (sb, sa), _st in switch:
@@ -372,7 +382,7 @@ def _sram(pb):
 # 0F:7E3B the wave set-up's handler switch (after the bracket, the fade levels and copies)
 POINTS = ((0x00, 0x1E49), (0x09, 0x5014), (0x01, 0x7DCA), (0x0F, 0x7B75), (0x02, 0x5278), (0x0B, 0x5D2B), (0x00, 0x2F0B), (0x00, 0x12CA), (0x0F, 0x7EB9), (0x0F, 0x7EBF), (0x0F, 0x7E89), (0x0F, 0x7E8F), (0x0F, 0x7E74), (0x09, 0x40B1), (0x09, 0x504F), (0x09, 0x5044), (0x0B, 0x7E7A), (0x01, 0x5783), (0x00, 0x026C), (0x00, 0x0272), (0x00, 0x0275), (0x01, 0x5F2B), (0x00, 0x027B), (0x01, 0x49CA), (0x01, 0x49CD), (0x01, 0x49D5), (0x09, 0x44D2), (0x0B, 0x7E17),
           (0x00, 0x02D3), (0x00, 0x02E4), (0x00, 0x10DC), (0x00, 0x1152), (0x00, 0x1175), (0x00, 0x1A2B), (0x0B, 0x4008), (0x0F, 0x7F10), (0x00, 0x023B), (0x0F, 0x7E3B),
-          (0x00, 0x01CF), (0x00, 0x1B50), (0x01, 0x5F12))
+          (0x00, 0x01CF), (0x00, 0x1B50), (0x01, 0x5F12), (0x02, 0x4167), (0x0B, 0x675E), (0x0B, 0x678C), (0x00, 0x2FBF), (0x00, 0x037B), (0x00, 0x1DF6))
 
 
 def plan_steps(plan):

@@ -78,6 +78,7 @@ export function* vramBegin(g: Game): Co {
   m.wr(0xc39e, 0x9f);
   m.wr(0xc39f, 0x06);
   g.ime = true; // reti
+  g.beginPacing();
 }
 
 /** 00:044E — wait, then the normal STAT handler 00:06D0. (00:044F without the wait.) */
@@ -86,6 +87,7 @@ export function* vramEnd(g: Game): Co {
   statNormal(g);
 }
 export function statNormal(g: Game): void {
+  g.endPacing();
   const m = g.m;
   m.wr(0xc39d, 0xc3);
   m.wr(0xc39e, 0xd0);
@@ -93,31 +95,42 @@ export function statNormal(g: Game): void {
   g.ime = true;
 }
 
+/** The bracket helpers' stores (00:007C / 0085 / 0091 / 009A) are recorded by the trace: paced. */
+function paced<T>(g: Game, fn: () => T): T {
+  const m = g.m, site = m.pacedSite;
+  m.pacedSite = true;
+  try {
+    return fn();
+  } finally {
+    m.pacedSite = site;
+  }
+}
+
 /** 00:00A3 — VRAM fill b bytes with a. */
 export function* vramFill(g: Game, hl: number, b: number, a: number): Co<number> {
   yield* vramBegin(g);
-  const r = fill(g.m, hl, b, a);
+  const r = paced(g, () => fill(g.m, hl, b, a));
   yield* vramEnd(g);
   return r;
 }
 /** 00:00AC — VRAM fill bc bytes with a. */
 export function* vramFill16(g: Game, hl: number, bc: number, a: number): Co<number> {
   yield* vramBegin(g);
-  const r = fill16(g.m, hl, bc, a);
+  const r = paced(g, () => fill16(g.m, hl, bc, a));
   yield* vramEnd(g);
   return r;
 }
 /** 00:00B5 — VRAM copy b bytes. */
 export function* vramCopy(g: Game, hl: number, de: number, b: number): Co<[number, number]> {
   yield* vramBegin(g);
-  const r = copy(g.m, hl, de, b);
+  const r = paced(g, () => copy(g.m, hl, de, b));
   yield* vramEnd(g);
   return r;
 }
 /** 00:00BE — VRAM copy bc bytes. */
 export function* vramCopy16(g: Game, hl: number, de: number, bc: number): Co<[number, number]> {
   yield* vramBegin(g);
-  const r = copy16(g.m, hl, de, bc);
+  const r = paced(g, () => copy16(g.m, hl, de, bc));
   yield* vramEnd(g);
   return r;
 }

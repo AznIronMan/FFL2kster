@@ -75,7 +75,9 @@ export class Game {
    *  original's run ended (parity re-timing: its hblank-paced VRAM copies take lines, during which
    *  CDC5 stays set and the interrupts stay off unless the work enabled them); undefined in
    *  play. */
-  onWork: (() => [number, number] | undefined) | null = null;
+  /** The original's end of the frame work just run and, for a work that enabled the interrupts,
+   *  the time of its di (00:356B): [end frame, end LY, di frame, di LY]. */
+  onWork: (() => [number, number] | [number, number, number, number] | undefined) | null = null;
   /** Parity: the original's time of the game's next write of a sound effect request FFBC (the
    *  code before it took CPU time; undefined: none recorded). */
   onSfx: (() => [number, number] | undefined) | null = null;
@@ -115,7 +117,7 @@ export class Game {
   private syncFrame = -Infinity;
   private lineAt: [number, number] = [-Infinity, 0];
   /** An interrupt handler's work still running in the original (see `handlerBusy`). */
-  private work: { end: [number, number]; holds: boolean; done: () => void } | null = null;
+  private work: { end: [number, number]; holds: boolean; done: () => void; di?: [number, number]; code?: boolean } | null = null;
   /** Register writes the interrupt handlers make at later lines (hblank waits), by line. */
   private readonly lineWork = new Map<number, (() => void)[]>();
   /** Writes due at a later frame and line (`at`), in order. */
@@ -198,6 +200,8 @@ export class Game {
       let took = this.serve();
       if (this.work && this.reachedAt(this.work.end)) {
         const done = this.work.done;
+        // run by the code (00:1E38): it returns with the interrupts off after its di
+        if (this.work.code && this.work.di) this.ime = false;
         this.work = null;
         done();
         took = this.serve() || took;
@@ -220,7 +224,7 @@ export class Game {
   serve(): boolean {
     const m = this.m, io = m.io;
     let took = false;
-    while (this.ime && !this.work?.holds) {
+    while (this.ime && !this.workHolds()) {
       const p = io[0x0f]! & m.hram[0x7f]! & 0x1f;
       if (!p) break;
       const bit = p & 1 ? 1 : p & 2 ? 2 : p & 4 ? 4 : p & 8 ? 8 : 16;
@@ -284,9 +288,23 @@ export class Game {
   /** From an interrupt handler: its work goes on until `end` in the original (CPU time); `done`
    *  runs then. With `holds` (the handler left the interrupts off), no interrupt is taken
    *  before. */
-  handlerBusy(end: [number, number], holds: boolean, done: () => void): void {
+  handlerBusy(end: [number, number], holds: boolean, done: () => void, di?: [number, number]): void {
     if (this.work) throw new Error("handler work overlaps another");
-    this.work = { end, holds, done };
+    this.work = { end, holds, done, ...(di ? { di } : {}) };
+  }
+
+  /** The work just run was called by the code (00:1E38 from 00:1D9E), not by the STAT handler. */
+  workFromCode(): void {
+    if (this.work) this.work.code = true;
+  }
+
+  /** A running work keeps the interrupts off: it never enabled them, or it is past its di
+   *  (00:356B; an interrupt requested on the di's own line came before it). */
+  private workHolds(): boolean {
+    const w = this.work;
+    if (!w) return false;
+    if (w.holds) return true;
+    return !!w.di && (this.frame > w.di[0] || (this.frame === w.di[0] && this.ly > w.di[1]));
   }
 
   // ---------------------------------------------------------------- waits used by ported code
@@ -314,7 +332,7 @@ export class Game {
 
   /** A frame work is still running and has enabled the interrupts (01:5730's reti). */
   get workIrq(): boolean {
-    return !!this.work && !this.work.holds;
+    return !!this.work && !this.workHolds();
   }
 
   /** From the code itself (not an interrupt): the frame work it just ran (00:1E38) goes on until

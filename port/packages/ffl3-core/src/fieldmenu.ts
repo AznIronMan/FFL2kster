@@ -85,11 +85,14 @@ export function cursorsHide(m: Memory): void {
 
 /** 0B:7D60 — the menu frame tiles composed in VRAM: tile 9D (90D0) -> 90E0, tile 9C (90C0) ->
  *  90F0; then the 64 bytes 9040-907F = (90C0 + i & mask) | (9080 + i), the mask 0B:7DAA[i / 2]
- *  (each pair of bytes after an hblank poll 0B:7D9D: CPU time). */
+ *  (each pair of bytes after an hblank poll 0B:7D9D: CPU time). Its copies go through rst $18
+ *  (00:378A), which returns with reti: the interrupts are on from there (in the STAT frame work a
+ *  STAT meanwhile nests: the sound only, zf22). */
 function frameTilesCompose(g: Game): void {
   const m = g.m;
   let de = 0x90e0;
   [, de] = far0Sync(g, 0, () => vramCopy(m, 0x90d0, de, 0x10));
+  g.ime = true;
   far0Sync(g, 0, () => vramCopy(m, 0x90c0, de, 0x10));
   for (let i = 0; i < 0x20; i++) {
     const c = m.rd(0x7daa + i);

@@ -264,6 +264,14 @@ export function fieldWork(g: Game): void {
   const m = g.m;
   mapAnimation(g);
   drawObjects(g);
+  // the work runs in no time here: the objects' DMA stays held (CD39, 00:01A0) until the original
+  // completed the buffer (00:01CF), so a vblank before that shows the old objects (zf13)
+  const t = g.objectsOam;
+  if (t && !g.reachedAt(t)) {
+    const cd39 = m.rd(0xcd39);
+    m.wr(0xcd39, 1);
+    g.at(t[0], t[1], () => m.wr(0xcd39, cd39));
+  }
   scroll(m);
   shake(m);
   if (m.rd(0xff40) & 0x20) oamHideBelow(m, 0x60);

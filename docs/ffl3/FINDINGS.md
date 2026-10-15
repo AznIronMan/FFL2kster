@@ -1004,3 +1004,53 @@ slice 41/41 (quake1, ending1 added), all with the sound state compared; all trac
 Falsification (ffl3/scratch/mut19.py): each fails a trace — the transformation's SCY 40 written as
 41 (trans1), the ability flags left out of 0B:44A8 (xagor1), C623's level byte left out of 0B:6E15
 (member1). Slice 44/44, field 425/425, battle 125/125.
+
+## 2026-10-14 — The input sweep (1.53.0)
+
+- **Coverage first.** A V8 coverage run of `@ffl3k/core` over every trace (slice 44, field 425,
+  battle 125) showed 1116 of 1464 functions called: the sweeps press A on the defaults, so the
+  battle item / ability / spell lists and targets, selling, the forge, the mix, the clinic, the
+  services, most battle animations, the yes/no question and many field items had never run
+  against the original. The 1.51.0 claim that nothing ported was left unverified was wrong; it
+  held only for the NotPorted branches.
+- **The input sweep** (`tools/ffl3/traces.py fuzz_sweep`, `ffl3-parity/test/fuzz{b,f,s}.test.ts`):
+  seeded random single-button input (the plan is fixed text in trace.json, the same on both
+  sides) from field_start with a rich party poked at the hook (every spell, MP 999, a bag of 24
+  item kinds chosen by the seed). zbNN (72): a battle first (formation by the seed); zfNN (36):
+  the field (walking, the menus, Select); zsNN (64): a shop, forge, mix, clinic or service
+  (map event 17, CA28 = kind + 1, the materials D2-D7 in the bag, GP 120 or 999990, members
+  hurt for the clinic).
+- **What it found** (each fixed, each falsified below):
+  - 02:4167 — the frozen-figure mask DC81 (effect 17) set after the frame's vblank in the
+    original: the flip 00:3E26 turned one more pair (zb02). Sync point.
+  - 0B:675E — the target choice's CDEB set after the list's CPU time; the frame work's cursor
+    figures (00:2247) cycle CE1E by it (zb19, zb12, zb15, zb22). Sync point.
+  - 0B:678C — a target move (0B:698D, its searches) takes CPU time before the cursor kind CDEB
+    the frame work's figures read (zb00, zb20, zb21). Sync point. (Holding CE1C back until it as
+    well changed nothing: dropped.)
+  - 00:2FBF — text code 43 places a member's object; the frame work's walking figures (00:21A9)
+    write the same entries (zf04). Sync point (both copies: menu.ts and textcodes.ts).
+  - 00:037B — after the objects' loading (06:054D) the original can be a frame later than its
+    wait; the drawing takes FF93 bit 4 for the walking frame (C250; zs31 and 7 more shops,
+    zf19). Sync point.
+  - 00:1DF6 — text end: CD3D drops after the text's CPU time; one more STAT frame work ran
+    before it (zb36). Sync point.
+  - The field work's di (00:356B): a work that enabled the interrupts (01:5730's reti) takes no
+    interrupt after its di; recorded per work (works[4..5]); a work run by the code (00:1E38 from
+    00:1D9E) returns with them off, so the vblank it outlasted goes to the bracket's handler
+    (1EFA: FF93 + 1; zf13's map animation swapped once more).
+  - rst $18 (00:378A) returns with reti: the menu frame tiles' compose (0B:7D60) runs with the
+    interrupts on, so a STAT during the frame work nests (the sound only) instead of starting
+    another work at its end (zf22, 3,500 frames of drift).
+  - The field work's objects (00:01A0) hold the DMA (CD39) until the buffer is complete
+    (00:01CF); the port's work runs in no time, so CD39 stays set until the recorded 01CF
+    (zf13: the vblank in between showed the old objects).
+- **Result:** every trace re-recorded (768): slice 44/44, field 425/425, battle 125/125, input
+  sweep 172/172 (battles 72/72, shops 64/64, field 36/36 with one residual frame kept as an exact
+  expectation: zf13 frame 2834, 59 pixels of a menu text row drawn during a work that crossed the
+  vblank; state identical).
+
+Falsification (ffl3/scratch/mut20.py): each fails its traces — sync points 02:4167 (zb02), 0B:675E
+(zb19, zb12), 0B:678C (zb00), 00:2FBF in menu.ts (zf04), 00:037B (zs31, zs07), 00:1DF6 (zb36)
+removed; the work's di ignored, a code-run work keeping the interrupts, the objects' DMA not held
+(zf13); rst $18's reti not modelled (zf22).

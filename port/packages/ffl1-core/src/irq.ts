@@ -43,7 +43,12 @@ export function installInterrupts(g: Game): void {
   g.statHandlers.set(0x3e8d, (g, ly) => {
     const m = g.m;
     if (ly < 0x90) {
-      m.io[0x43] = m.rd(0xc600 + m.hram[0x4b]!);
+      const v = m.rd(0xc600 + m.hram[0x4b]!);
+      // parity: the original took this STAT late (held by the frame tick): this line keeps the
+      // SCX before, the value lands before the next line (whose own STAT follows at once)
+      const late = g.onWaveLate?.(ly);
+      if (late !== undefined) g.schedule(late, 0xff43, v);
+      else m.io[0x43] = v;
       m.hram[0x4b] = (m.hram[0x4b]! + 1) & 0xff;
     }
     m.io[0x45] = (m.io[0x45]! + 1) & 0xff;

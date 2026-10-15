@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.52.0`
+Version: `1.53.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
 data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
 data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
@@ -100,6 +100,17 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.53.0` — Legend I and III: a coverage run showed code in both ports that no recorded run had
+  ever exercised (the sweeps mostly pressed A on the defaults). A new input sweep plays seeded
+  random buttons with a party given every spell and a full bag through battles, the field and
+  every kind of shop, forge, mix, clinic and service (172 Legend III and 137 Legend I recordings).
+  It found real differences, now fixed: in Legend III the battle target cursors, the figure flips,
+  a menu sprite and the walking frame drawn at the original's moment, a frame work that took one
+  interrupt too many, and a menu that drifted 3,500 frames; in Legend I a battle that reported a
+  second death (the original's "no damage" exit leaves a stray address the death check reads), a
+  step taken on a released button, the teleport's wave, menu tiles drawn line by line and the menu
+  window closing in mid-frame. Every trace re-recorded; all exact but four frames that differ by
+  one line each (documented).
 - `1.52.0` — Legend I: the battle dissolve (the field tiles fading into the battle) is now
   checked line by line against the original: the recorder notes when each of its writes happened
   and the replay draws them at those lines. The last two frames of Legend I that differed now

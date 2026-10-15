@@ -12,6 +12,9 @@
 export type Segments = Record<string, Uint8Array>; // "07" -> 0x4000 bytes
 
 export class Memory {
+  /** Parity: a VRAM store whose time the trace records and the port paces (the dissolve's
+   *  00:1BD4 / 1BD7; the trace also records the fills and copies 00:007C / 0085 / 0091 / 009A). */
+  pacedSite = false;
   readonly vram = new Uint8Array(0x2000);
   /** MBC2 RAM: 512 nibbles, stored one per byte (low nibble). */
   readonly sram = new Uint8Array(0x200);

@@ -552,7 +552,7 @@ function inList(m: Memory, hl: number): boolean {
   }
 }
 
-/** 09:4DB4 — the items E8 E9 E7 F5 (09:4DC9; CA16 = it) go through 0F:7CB0 (not ported); others:
+/** 09:4DB4 — the items E8 E9 E7 F5 (09:4DC9; CA16 = it) go through 0F:7CB0 (fieldfx.ts specialItemUse); others:
  *  false (z). */
 function* specialItem(g: Game): Co<boolean> {
   if (!inList(g.m, 0x4dc9)) return false;
@@ -601,7 +601,7 @@ function* shortOfPoints(g: Game): Co<boolean> {
 }
 
 /** 09:4D79 — the field spells 21 20 25 1B 2C (09:4DA2; CA16 = it) go through 01:40D6 / 01:4132 /
- *  01:424D / 01:422E (not ported); others: false (z). */
+ *  01:424D / 01:422E (fieldfx.ts fieldSpellCast); others: false (z). */
 function* fieldSpell(g: Game): Co<boolean> {
   if (!inList(g.m, 0x4da2)) return false;
   return yield* fieldSpellCast(g);
@@ -610,7 +610,7 @@ function* fieldSpell(g: Game): Co<boolean> {
 /** 09:49C0 — use CE26 (CE25 the id space, CE27 kept): its record (09:5D7F) with CE27 back; CE28 &
  *  60 0: the buzzer, CDEA = 81; a spell (CE25 = CE27 = 0, CE26 below 30) of the field (09:4D79) or
  *  short of points (09:4A2C): CDEA = 80; else CE1C = CD36, the target (09:4165): cancelled CDEA =
- *  82, else the effect (09:521A, not ported). Then (09:4A05) CDEA - 1 of 81 and above: CD36 =
+ *  82, else the effect (09:521A, fieldfx.ts useEffect). Then (09:4A05) CDEA - 1 of 81 and above: CD36 =
  *  CE1C, the objects hidden (0F:7D97), CD15 / C080 / C081 back from CD1D-CD1F. */
 export function* useTarget(g: Game): Co {
   const m = g.m;
@@ -686,7 +686,7 @@ function* learnSpell(g: Game, hl: number, a: number): Co {
 }
 
 /** 09:4BC8 — use the bag entry a (C6FF + 2a): CE26 = its id; the special items (09:4DB4): 09:4C35;
- *  E6: 0F:7BC8 (not ported); D2 and above: the buzzer; below 30: a spell book (09:4C4C); CB: sound
+ *  E6: 0F:7BC8 (fieldfx.ts itemsLeft); D2 and above: the buzzer; below 30: a spell book (09:4C4C); CB: sound
  *  19, one used (09:4BB3), the party healed (01:7701); else CE25 = 0, CE27 = 1, (CD-D0: C683 = FF
  *  meanwhile) the use (09:49C0); C0 and above with CDEA 0: one used (09:4BB3); then 09:4C1D. */
 function* useItem(g: Game, a: number): Co {

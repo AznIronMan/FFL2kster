@@ -41,7 +41,7 @@ function* pendingEvents(g: Game): Co {
 }
 
 /** 01:6374 — on map 01 in a vehicle (C6E3), flags E8 and CF clear, inside C290 60-1AF and C2B0
- *  200-37F: the vehicle is pushed out (not ported). */
+ *  200-37F: the vehicle is pushed out (01:63AD). */
 function* map01Push(g: Game): Co {
   const m = g.m;
   if (!m.rd(0xc6e3) || m.rd(0xc6e8) !== 0x01) return;
@@ -152,7 +152,7 @@ function talkTarget(g: Game): boolean {
   return true;
 }
 
-/** 00:0945 — A in the field: on the return point (01:6313) or in vehicle 2, not ported; else the
+/** 00:0945 — A in the field: on the return point (01:6313); in vehicle 2 the map from 00:0935; else the
  *  object faced (01:431E), a frame, then by its type C350: 0 its words (0A:4004[C200 - 1], text
  *  mode 08, then the window closed), 3 a sign (0A:791E[C200 - 1] for C200 below 9). */
 function* fieldA(g: Game): Co {

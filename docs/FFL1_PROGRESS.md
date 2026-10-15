@@ -18,7 +18,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
       built app (1.15.0), with music since 1.16.0 (see the log)
 - [x] A4. Field and battle parity sweeps recorded with counts against the original ROM — field 200
       traces (every map), battle 24 traces + slice 17 (see the log; the 2 residual frames closed in 1.52.0)
-- [ ] A5. All suites green (FFL2kster suite and its byte-identical no-op build included), CI green
+- [x] A5. All suites green (FFL2kster suite and its byte-identical no-op build included), CI green
 
 ## Milestone 1 — one verified enemy-data slice
 
@@ -62,11 +62,11 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | Phase | Status | Evidence |
 |---|---|---|
 | P0 importer + scaffold | done (importer); core scaffold with P1 | `@ffl1k/importer`: golden tests equal `ffl1/data` for monsters, items, encounters, meat, text, maps (records, events, warps, shops, prices, 110 layouts, attributes), music, graphics (hashes from `tools/ffl1/golden_export.py`); 2 mutation checks fail as expected; 11 tests |
-| P1 vertical slice | in progress | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 16 traces, 0 differences); sound driver and the web player to come |
-| P2 full field | in progress | field + event sweep: 327 traces (every map; trigger cells, objects, talk and text-started events: commands 0, 1, 3-F), 333,695 waits, 0 state differences; 0 residual frames since 1.52.0 (the battle dissolve 00:1BBE drawn at the line times the original wrote it) |
-| P3 full battle | in progress | battle sweep 33 traces, 95,039 waits, 0 differences, plus flee2 (a monster flees): all 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters and event battles (field sweep) frame-exact; sound verified separately |
-| P4 platforms | not started | |
-| P5 extras | not started | |
+| P1 vertical slice | done | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 17 traces); the sound driver (1.16.0, sound RAM compared in 53 traces) and the web player (1.15.0, A3) |
+| P2 full field | done (1.53.0: input sweep) | field + event sweep: 327 traces (every map; trigger cells, objects, talk and text-started events: commands 0, 1, 3-F), 333,695 waits, 0 state differences; 0 residual frames since 1.52.0 (the battle dissolve 00:1BBE drawn at the line times the original wrote it); 1.53.0: a coverage run (665 of 740 functions run by the traces) and the input sweep (seeded random buttons, random items in the party and the bag: yf 48 field, ys 41 facilities) reached the item uses, the menus, selling and the teleport; fixes: the direction read after the next tick (00:209D), the bracket helpers' stores paced, the wave's rounds (00:3E35 / 3E7B), the window latched as PyBoy draws it, the menu's close (00:26F1); 3 frames of one line each kept as exact expectations (yf06 2914 / 2915, yf36 4102) |
+| P3 full battle | done (1.53.0: input sweep) | battle sweep 33 traces, 95,039 waits, 0 differences, plus flee2 (a monster flees): all 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters and event battles (field sweep) frame-exact; sound verified separately; 1.53.0: the input sweep's 48 battles (random items, classes, stats) frame-exact after the fix of 06:4938's early exit (its popped return address in HL, read by the death check) |
+| P4 platforms | on hold (installers held by the owner) | |
+| P5 extras | partly (fast text, fast-forward, colours, sound, controls in the web player) | |
 
 ## Log
 
@@ -424,4 +424,19 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   sound all green (442 tests).
 - Falsified (each fails fsw097 and/or fsw101): line time one frame late or early, 4 lines late or
   early, the search start one frame late.
+
+### 2026-10-14 — The input sweep (1.53.0)
+- Coverage: a V8 run over every trace showed 665 of 740 `@ffl1k/core` functions called; the
+  item uses, meat, the equipment and sphere windows, selling and the save write had never run.
+- The input sweep (`tools/ffl1/traces.py fuzz_sweep`, `ffl1-parity/test/fuzz{b,f,s}.test.ts`):
+  137 traces of seeded random buttons with random party items, classes, stats, bag and GP (yb 48
+  battles, yf 48 field maps, ys 41 facilities). Findings and fixes: docs/ffl1/FINDINGS.md 1.53.0.
+- Every Legend I trace re-recorded (waits.json gains `polls`, `points`, `waveLate`; `vw` now
+  feeds the bracket helpers' pacing): slice 17/17, battle sweep 33/33, field sweep 324/324, sound
+  53/53, input sweep 137/137 (3 one-line frames kept as exact expectations); 586 tests.
+- Falsified (ffl3/scratch/mut21.py; each fails its traces): 06:4938's HL ignored (yb16), the
+  direction read after the tick ignored and the in-frame tick's buttons (ys00, ys25), the helper
+  copies unpaced (yf21-44), the dissolve unpaced (fsw097 / 101), the wave's rounds untimed and its
+  late STAT ignored (yf06, yf36), the window not latched and the menu close point removed (yf06).
+  Two survived and were dropped: the screen's metatiles paced, the wave table's own store lines.
 

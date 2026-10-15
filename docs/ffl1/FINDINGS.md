@@ -388,3 +388,51 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   over ~18 frames (fsw097: 129-147; fsw101: 108-126), 116-640 stores a frame, a few each line.
   Recorded per store (`vw` in waits.json: frame, LY, address) and replayed at those line times,
   the two residual frames match; one frame or 4 lines off fails them.
+
+## 2026-10-14 — The input sweep (1.53.0)
+
+- Coverage first: a V8 coverage run of `@ffl1k/core` over every trace showed 665 of 740
+  functions called. Field item uses (items.ts 8/30), meat, the equipment and sphere windows,
+  selling (the BCD price routines), the save write and others had never run against the original.
+- The input sweep (`tools/ffl1/traces.py fuzz_sweep`, `ffl1-parity/test/fuzz{b,f,s}.test.ts`):
+  seeded random single-button input from the first town's field loop with random items poked
+  into the party (8 slots each, uses from the item table) and the bag (CC7C, 8 pairs), random
+  classes, HP and stats, GP 120 / 50000 / 999999 (BCD): ybNN (48) a battle (area by the seed),
+  yfNN (48) the field of a map warped to (FIELD_SWEEP), ysNN (41) a facility (command 4: shops
+  00-18, inn F0, house of life F1, guilds F2-FF).
+- **06:4938's early exit** (the damage at or below 0: "no damage") is `pop hl; ret`: it drops its
+  caller's frame and leaves HL = the popped return address, so 06:4AA5 / 4A53 / 4AB1 go on to
+  06:41D6 (the death check) reading the "HP" at 06:4A50 (ROM: C3 44, not a death); 4966 and 4AFC
+  return with HL = 499D / 4B0E. The port had left HL on the target's HP, so a target at 0 HP
+  "fell" a second time (yb16: the message, then every action after it).
+- **The field direction read** (00:209D) comes after the objects' moves (00:1E26), whose CPU time
+  can take the original past the next frame's tick (line 0): it then reads that frame's buttons.
+  The trace records each read's time (`polls`); a read after the next tick resumes the port's
+  code after it (TICK), and a TICK before a frame's line 0 now ticks with that frame's buttons
+  (`Game.onTickInFrame`). ys00 / ys25: a step taken on a released direction.
+- **The VRAM bracket's helpers** (00:00A3 / 00AC / 00B5 / 00BE: the stores 00:007C / 0085 / 0091
+  / 009A) run in the lines' hblanks; their stores are recorded (`vw`) and the port's are applied at
+  those lines (`Game.beginPacing` from 00:043D to 00:044E, only for those stores and the
+  dissolve's). The menu's tiles copied over three frames were the after-busy frames of yf21 / 24 /
+  30 / 40 / 44 (1,120-2,120 pixels). Pacing every bracket store (other routines included) misplaced
+  records and was dropped; the screen's metatiles (00:14F0) paced too changed nothing (mutation).
+- **The window** as PyBoy (and the DMG) draw it: it starts on the first line where LY = WY and
+  stays to the end of the frame whatever WY becomes; the shared renderer took y >= WY per line. The
+  FFL1 rig latches it (`Rig.windowLatch`): the menu's close (00:26CE) turns WY to 90 in mid-frame
+  and the box stayed on screen to the frame's end (yf06 frames 292, 3674, 3792).
+- **The menu's close** (00:26CE): the tileset, the layout and the attributes take the original
+  frames of CPU time before the window goes off (00:26F1) and the palettes on (00:3DE0); the trace
+  records 00:26F1 (`points`) and the port's code goes on in that frame, its LCD register writes
+  landing on that line (`Game.untilPoint`, `schedule`).
+- **The wave** (00:3DF5, the teleport item 00:3777): 60 rounds of per-line SCX from C600 through
+  the STAT handler 00:3E8D; a round (the 144-byte table, the frame tick) takes the CPU one frame
+  or two. The trace records each round's start (00:3E35, FFCB = 0) and the end (00:3E7B); the
+  port's rounds land there (`Game.schedule`; the table stores' own lines changed nothing). yf06: SCX F4 / FFCB 90
+  in the port against F0 / 20 (the last round two frames long) left the screen 4 pixels off
+  until the next map; now state-exact.
+- The wave's STAT handler taken late in its line (held by the frame tick): written in hblank, its
+  SCX missed the line in PyBoy (recorded at 00:3E9B as `waveLate`, the port's write then lands
+  before the next line; yf36 frame 4103). Open (pixel level, state identical): yf06 frames 2914 /
+  2915 and yf36 4102, one line each written late in mode 3, which PyBoy draws with the old SCX or
+  the new by the line's length (54, 13 and 70 pixels; kept as exact expectations in the test).
+

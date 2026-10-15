@@ -77,19 +77,19 @@ export class Engine {
     m.hram[0x3d] = m.rd(0xc3aa);
     yield* vramBegin(g);
     const rrc = (v: number) => ((v >> 1) | ((v & 1) << 7)) & 0xff;
-    // the passes run in the lines' hblanks (00:069F) over ~18 frames: paced (Game.pacedWrites)
-    g.pacedWrites(() => {
-      let d = 0x3f;
-      for (let e = 5; e; e--) {
-        let hl = 0x8800;
-        for (let n = 4 * 256; n; n--) {
-          m.wr(hl, m.rd(hl) & d); hl++;
-          m.wr(hl, m.rd(hl) & d); hl++;
-          d = rrc(rrc(d));
-        }
-        d = rrc(rrc(rrc(d)));
+    // the passes run in the lines' hblanks (00:069F) over ~18 frames (paced: Game.beginPacing)
+    let d = 0x3f;
+    m.pacedSite = true;
+    for (let e = 5; e; e--) {
+      let hl = 0x8800;
+      for (let n = 4 * 256; n; n--) {
+        m.wr(hl, m.rd(hl) & d); hl++;
+        m.wr(hl, m.rd(hl) & d); hl++;
+        d = rrc(rrc(d));
       }
-    });
+      d = rrc(rrc(rrc(d)));
+    }
+    m.pacedSite = false;
     yield* vramEnd(g);
     g.selectBank(0x06);
     // the stack at 06:4009: CFFC from the field loop's event, 0x10 deeper per text-started event

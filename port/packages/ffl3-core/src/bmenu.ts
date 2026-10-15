@@ -1356,6 +1356,9 @@ function* targetSelect(g: Game): Co {
   m.wr(0xce1e, 1);
   m.wr(0xcd39, 1);
   farSync(g, 0x0f, () => listCursorsOff(m));
+  // sync point 0B:675E: the frame work's cursor figures (00:2247) read CDEB and cycle CE1E; the
+  // original sets CDEB here after the list's CPU time, often after the next frame's work (zb19)
+  yield* g.point(0x0b675e);
   targetKind(m);
   targetBoxes(g);
   yield* menu(g);
@@ -1366,6 +1369,9 @@ function* targetSelect(g: Game): Co {
     if (i < 4) { yield* soundBuzz(g); return false; }
     // 0B:677C / 6780 / 6784 / 6787 -> 0B:6789
     yield* targetMove(g, i === 4 ? 3 : i === 5 ? 2 : i === 6 ? 0 : 1);
+    // sync point 0B:678C: the move (0B:698D, its searches) takes CPU time before the cursor kind
+    // CDEB that the frame work's cursor figures (00:2247) read (zb00, zb20, zb21)
+    yield* g.point(0x0b678c);
     targetKind(m);
     const a = (m.rd(0xce24) - 1) & 0xff;
     if (a) return false;

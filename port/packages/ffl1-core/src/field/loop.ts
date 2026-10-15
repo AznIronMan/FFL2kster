@@ -1,7 +1,7 @@
 /** Legend I field main loop (00:1212-2A5C): map changes, the player's step and scroll, objects'
  *  random walk, tile animation, step checks (triggers, encounters, damage floors), buttons and the
  *  event executor 00:16E0 (C3AB pending, C3A9 command, C3AA parameter). */
-import type { Game, Co } from "../game.js";
+import { TICK, type Game, type Co } from "../game.js";
 import type { Memory } from "../memory.js";
 import { vsync, joyRepeat, rand, sub16 } from "../sys.js";
 import { cell, cellAttr, passable } from "./map.js";
@@ -58,6 +58,9 @@ export class FieldEngine {
       this.g.ui.fieldFrame = this.g.frame;
       yield* this.step();
       this.npcWalk();
+      // parity only: the original reached the direction read (00:209D) after the next frame's
+      // tick (its objects' CPU time), so it read that frame's buttons
+      if (this.g.onPoll?.()) yield TICK;
       this.input();
       this.stepCheck();
       yield* this.buttons();

@@ -653,3 +653,10 @@ Decisions and assumptions:
   line times (Legend I `Game.pacedWrites` + `writeTime` / `lineTime`, set by the parity replay
   only); the game logic sees its own writes at once, and the player applies them at once. Exact
   residual expectations in a sweep are removed when they reach 0 rather than kept as allowances.
+- 1.53.0: "verified" means a trace ran the code and a mutation of it fails a trace; a coverage run
+  over every trace (V8, `@vitest/coverage-v8` installed with `--no-save`) decides what no trace
+  ran. Code the planned sweeps never choose is reached by the input sweep: seeded random single
+  buttons from a rich, poked state, the plan stored as text so both sides replay it. CPU time the
+  ports do not model is taken from records at the places a sweep shows it matters (sync points,
+  the work's di, the field direction read, the wave's rounds), each kept only while removing it
+  fails a trace.

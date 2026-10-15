@@ -72,7 +72,7 @@ function* effectDispatch(g: Game, a: number): Co {
     case 0x14: yield* rst30(g, 0x0e, 0x3740, () => bigMonsterEffect(g)); return; // 02:41A0
     case 0x15: yield* figuresOn(g); return;
     case 0x16: yield* figuresOff(g); return;
-    case 0x17: figureMask(g); return;
+    case 0x17: yield* figureMask(g); return;
     default:
       throw new NotPorted(`02:4397 effect ${a.toString(16).toUpperCase().padStart(2, "0")} (past the table 02:4364)`);
   }
@@ -1352,7 +1352,7 @@ function* figuresBuild(g: Game): Co {
     [hl, de, c] = figurePair(g, hl, de, c);
     b = (b - 1) & 0xff;
   } while (b);
-  figureMask(g);
+  yield* figureMask(g);
   m.wr(0xcbff, 0x01);
   yield* g.wait(1);
 }
@@ -1395,8 +1395,11 @@ function figureObject(g: Game, hl: number, a: number, c: number): [number, numbe
   return [hl, c];
 }
 
-/** 02:4167 — DC81 = the frozen-figure mask (02:416E). */
-function figureMask(g: Game): void {
+/** 02:4167 — DC81 = the frozen-figure mask (02:416E). Sync point 02:4167: the vblank's flips
+ *  (00:3E26) read DC81, and the original's script reaches it after the frame's vblank when the
+ *  port's would be before (zb02). */
+function* figureMask(g: Game): Co {
+  yield* g.point(0x024167);
   g.m.wr(0xdc81, frozenMask(g));
 }
 

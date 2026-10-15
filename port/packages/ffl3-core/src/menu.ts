@@ -122,7 +122,11 @@ function* menuCode(g: Game, c: number, hl: number, de: number, b: number): Co<[n
       break;
     }
     case 0x1f: r = memberText(g, hl, de, b); break;
-    case 0x43: r = [placeSprite(g, hl), de, b]; break;
+    case 0x43: // sync point 00:2FBF: the object it places and the frame work's walking figures
+      // (00:21A9, every 16 frames) write the same entries; the row's CPU time decides the order (zf04)
+      yield* g.point(0x002fbf);
+      r = [placeSprite(g, hl), de, b];
+      break;
     default: r = yield* menuTextCode(g, c, hl, de, b); // the text engine's handler (00:3175), waits included
   }
   return [r[0], (r[1] - 1) & 0xffff, (r[2] + 1) & 0xff];

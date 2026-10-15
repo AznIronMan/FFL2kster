@@ -310,6 +310,10 @@ export class FieldItems {
     m.wr(0xff41, 0xc0);
     m.wr(0xff45, 0);
     g.ime = true;
+    // parity: each round's start (00:3E35: FFCB = 0, the new table) and the end (00:3E7B) at the
+    // original's times: its rounds take the CPU a frame or more (the table, the frame tick)
+    const starts = g.onPointTimes?.(0x3e35), ends = g.onPointTimes?.(0x3e7b);
+    if (starts && ends && g.traceFrame && g.lineTime) return yield* this.waveTimed(starts, ends);
     for (let a = 0x3c; a; a--) {
       m.hram[0x4c] = a >> 4;
       m.hram[0x4b] = 0;
@@ -332,6 +336,42 @@ export class FieldItems {
     m.wr(0xc39f, m.hram[0x48]!);
     m.wr(0xff41, m.hram[0x46]!);
     g.ime = true;
+  }
+
+  /** The wave's rounds at the recorded times (parity): each round's FFCC, FFCB = 0 and its 144
+   *  table bytes land on the line of its start (00:3E35; the STAT handler 00:3E8D reads them from
+   *  there), the frame tick once a round, and the handlers back at the recorded end. */
+  private *waveTimed(starts: [number, number][], ends: [number, number][]): Co {
+    const g = this.g, m = this.m;
+    const t = (p: [number, number]) => p[0] * 154 + p[1];
+    const now = g.lineTime!(0) - 10; // the code runs in the vblank before this frame
+    let i = starts.findIndex((p) => t(p) >= now);
+    if (i < 0) i = starts.length;
+    for (let a = 0x3c; a; a--, i++) {
+      const p = starts[i] ?? [g.traceFrame!(), 0];
+      const shift = a >> 4;
+      let l: number = m.hram[0x4a]!;
+      g.schedule(t(p), 0xffcc, shift);
+      g.schedule(t(p), 0xffcb, 0);
+      for (let k = 0; k < 0x90; k++) {
+        let c = m.rd(0x1200 | l);
+        for (let s = shift; s; s--) c = (c >> 1) | (c & 0x80);
+        g.schedule(t(p), 0xc600 + k, (m.hram[0x49]! + c) & 0xff);
+        l = (l + 1) & 0xff;
+        if (m.rd(0x1200 | l) === 0x80) l = 0x2f;
+      }
+      sysFns.frameTick(g);
+      while (g.traceFrame!() <= p[0]) yield; // LY polling until 0x90 (not a rst $10 wait)
+      l = (m.hram[0x4a]! + 1) & 0xff;
+      if (m.rd(0x1200 | l) === 0x80) l = 0x2f;
+      m.hram[0x4a] = l;
+    }
+    const last = starts[i - 1] ?? [0, 0];
+    const e = ends.find((p) => t(p) > t(last)) ?? [g.traceFrame!(), 0];
+    g.schedule(t(e), 0xc39e, m.hram[0x47]!);
+    g.schedule(t(e), 0xc39f, m.hram[0x48]!);
+    g.schedule(t(e), 0xff41, m.hram[0x46]!);
+    while (g.traceFrame!() <= e[0]) yield;
   }
 
   /** 00:3A75 — needs item `power` (removed, and once more); progress A = 2, 5 = 6; event 1F. */

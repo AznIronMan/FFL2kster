@@ -326,6 +326,64 @@ POKES = {
 }
 
 
+# The input sweep: seeded random single-button input (the plan is fixed text, the same on both
+# sides) with random items poked into the party (8 slots each) and the bag (CC7C, 8 pairs), from
+# the first town's field loop: ybNN a battle (area by the seed), yfNN the field of a map warped to
+# (FIELD_SWEEP), ysNN a facility (command 4: shops 00-18, inn F0, house of life F1, guild F2-FF).
+# Reaches the menus, item uses, selling, meat and the battle choices the planned sweeps skip.
+def fuzz_plan(seed, n, keys):
+    import random
+    r = random.Random(seed)
+    names, weights = [k for k, _ in keys], [w for _, w in keys]
+    out = ["none:10"]
+    for _ in range(n):
+        k = r.choices(names, weights)[0]
+        hold = 3 if k in ("a", "b", "start", "select") or r.random() < 0.6 else r.randint(8, 24)
+        out += [f"{k}:{hold}", f"none:{r.randint(10, 40)}"]
+    out.append("none:200")
+    return ",".join(out)
+
+
+FUZZ_BATTLE_KEYS = (("a", 7), ("b", 2), ("up", 2), ("down", 3), ("left", 1), ("right", 2))
+FUZZ_FIELD_KEYS = (("a", 5), ("b", 2), ("up", 3), ("down", 3), ("left", 3), ("right", 3), ("start", 2), ("select", 1))
+FUZZ_FACILITY_KEYS = (("a", 5), ("b", 2), ("up", 2), ("down", 3), ("left", 1), ("right", 2))
+FUZZ_AREAS = sorted({_a for _a, _ms, _k in SWEEP.values()})
+FUZZ_FACILITIES = list(range(0x00, 0x19)) + [0xF0, 0xF1] + list(range(0xF2, 0x100))
+
+
+def fuzz_party(seed):
+    import random
+    r = random.Random(seed)
+    p = []
+    for i in range(4):
+        items = [r.randrange(0, 0xFF) for _ in range(8)]
+        flags = (0x83, 0x23, 0x43, 0x83)[(seed + i) % 4]
+        p += member(i, items, hp=r.choice((999, 300, 40)), flags=flags, cls=r.randrange(0, 0xC8),
+                    stats=tuple(r.randrange(5, 99) for _ in range(4)))
+    for k in range(8):
+        iid = r.randrange(0, 0xFF)
+        p += [(0xCC7C + 2 * k, iid), (0xCC7D + 2 * k, _uses(iid))]
+    gp = r.choice((0x999999, 0x000120, 0x050000))
+    p += [(0xCC8D, gp & 0xFF), (0xCC8E, (gp >> 8) & 0xFF), (0xCC8F, gp >> 16)]
+    return p
+
+
+def fuzz_sweep(nb=48, nf=48, ns=len(FUZZ_FACILITIES)):
+    maps = sorted(FIELD_SWEEP)
+    for j in range(nb):
+        a = FUZZ_AREAS[(j * 7) % len(FUZZ_AREAS)]
+        SCENARIOS[f"yb{j:02d}"] = ("town0", FIELD, fuzz_plan(5000 + j, 160, FUZZ_BATTLE_KEYS))
+        POKES[f"yb{j:02d}"] = fuzz_party(j) + [(0xC3A9, 0x08), (0xC3AA, a), (0xC3AB, 0x01)]
+    for j in range(nf):
+        SCENARIOS[f"yf{j:02d}"] = ("town0", FIELD, fuzz_plan(6000 + j, 160, FUZZ_FIELD_KEYS))
+        POKES[f"yf{j:02d}"] = fuzz_party(100 + j) + POKES_FSW(FIELD_SWEEP[maps[(j * 13) % len(maps)]])
+    for j in range(ns):
+        SCENARIOS[f"ys{j:02d}"] = ("town0", FIELD, fuzz_plan(7000 + j, 120, FUZZ_FACILITY_KEYS))
+        POKES[f"ys{j:02d}"] = fuzz_party(200 + j) + [(0xC3A9, 0x04), (0xC3AA, FUZZ_FACILITIES[j]), (0xC3AB, 0x01)]
+
+
+fuzz_sweep()
+
 def plan_for(name):
     if name in SCENARIOS:
         return SCENARIOS[name]

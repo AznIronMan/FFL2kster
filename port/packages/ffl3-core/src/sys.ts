@@ -141,6 +141,7 @@ export function decompress(m: Memory, hl: number, end: number, dest: number): nu
 function* bracketWork(g: Game): Co {
   if (!g.m.rd(0xcd3d)) return;
   g.hooks.statWork?.(g);
+  g.workFromCode();
   if (g.workIrq) {
     // the work turned the interrupts on (01:5730's reti) until its di (00:356B): a STAT
     // meanwhile nests (CDC5 set: the sound only)
@@ -207,9 +208,12 @@ export function* textBegin(g: Game): Co {
   yield* bracketEnter(g, true);
 }
 
-/** 00:1DF3 — leave the bracket, CD3D - 1. */
+/** 00:1DF3 — leave the bracket, CD3D - 1. Sync point 00:1DF6: while CD3D is set the STAT frame
+ *  work runs (00:3549); the text's CPU time decides whether one more comes before the count drops
+ *  (zb36). */
 export function* textEnd(g: Game): Co {
   yield* bracketLeave(g);
+  yield* g.point(0x001df6);
   g.m.wr(0xcd3d, g.m.rd(0xcd3d) - 1);
 }
 

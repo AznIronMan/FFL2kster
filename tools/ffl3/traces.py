@@ -293,6 +293,81 @@ def battle_sweep():
 # Xagor appears through the transformation of 7D's C1, effect 12 / 0E:7D63: trace trans1.)
 
 
+
+# ---------------------------------------------------------------- the input sweep
+#
+# Seeded random single-button input (plan text in trace.json; same plan on both sides) from
+# field_start with a rich party poked at the hook: every spell (C551-C556 + 0x60 k = FF), MP
+# 999/999 (+14 / +16), the bag (C6FF, 24 pairs) filled with 24 item kinds (9 each) chosen by the
+# seed. zbNN: a battle first (map event 1B, formation by the seed), then the field; zfNN: the
+# field (walking, the menus, Select). Reaches the menus, lists, targets and effects the
+# A-every-40-frames sweeps never choose.
+
+FUZZ_BATTLE_KEYS = (("a", 7), ("b", 2), ("up", 2), ("down", 3), ("left", 1), ("right", 2))
+FUZZ_FIELD_KEYS = (("a", 5), ("b", 2), ("up", 3), ("down", 3), ("left", 3), ("right", 3), ("start", 2), ("select", 1))
+
+
+def fuzz_plan(seed, n, keys):
+    import random
+    r = random.Random(seed)
+    names, weights = [k for k, _ in keys], [w for _, w in keys]
+    out = ["none:10"]
+    for _ in range(n):
+        k = r.choices(names, weights)[0]
+        hold = 3 if k in ("a", "b", "start", "select") or r.random() < 0.6 else r.randint(8, 24)
+        out += [f"{k}:{hold}", f"none:{r.randint(10, 40)}"]
+    out.append("none:200")
+    return ",".join(out)
+
+
+FUZZ_ITEMS = [i for i in range(0x30, 0xFF)]
+
+
+def rich_party(seed):
+    p = []
+    for k in range(5):
+        b = 0xC500 + 0x60 * k
+        p += [(b + 0x14, 0xE7), (b + 0x15, 0x03), (b + 0x16, 0xE7), (b + 0x17, 0x03)]
+        p += [(b + 0x51 + i, 0xFF) for i in range(6)]
+    start = (24 * seed) % len(FUZZ_ITEMS)
+    for i in range(24):
+        p += [(0xC6FF + 2 * i, FUZZ_ITEMS[(start + i) % len(FUZZ_ITEMS)]), (0xC700 + 2 * i, 9)]
+    return tuple(p)
+
+
+FUZZ_FORMATIONS = [k for k in range(0x7E) if k != 0x42]
+FUZZ_SHOP_KEYS = (("a", 5), ("b", 2), ("up", 2), ("down", 3), ("left", 1), ("right", 2))
+# shop kinds (CA2F = CA28 - 1): shops with the forge (00-1F | 80) or the mix (20-3F | 80), plain
+# shops, clinics (40-4F), services (50-57)
+FUZZ_SHOPS = ([0x80 | k for k in range(0, 0x20, 2)] + [0x80 | k for k in range(0x20, 0x40, 2)]
+              + list(range(1, 0x40, 4)) + list(range(0x40, 0x50, 2)) + list(range(0x50, 0x58)))
+
+
+def shop_party(seed):
+    p = list(rich_party(seed))
+    for i, iid in enumerate((0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7)):
+        p += [(0xC6FF + 2 * i, iid), (0xC700 + 2 * i, 9)]
+    gp = 999990 if seed % 2 else 120
+    p += [(0xC6E0, gp & 0xFF), (0xC6E1, (gp >> 8) & 0xFF), (0xC6E2, gp >> 16)]
+    for k in range(5):   # some damage for the clinics
+        b = 0xC500 + 0x60 * k
+        p += [(b + 0x10, 0x05), (b + 0x11, 0x00), (b + 0x14, 0x02), (b + 0x15, 0x00)]
+    return tuple(p)
+
+
+def fuzz_sweep(nb=72, nf=36):
+    out = {}
+    for j in range(nb):
+        k = FUZZ_FORMATIONS[(j * 37) % len(FUZZ_FORMATIONS)]
+        out[f"zb{j:02d}"] = ("field_start", FIELD, fuzz_plan(1000 + j, 160, FUZZ_BATTLE_KEYS),
+                             rich_party(j) + ((0xC2F0, 0xDB), (0xCA28, k), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
+    for j in range(nf):
+        out[f"zf{j:02d}"] = ("field_start", FIELD, fuzz_plan(2000 + j, 160, FUZZ_FIELD_KEYS), rich_party(j + 3))
+    for j, kind in enumerate(FUZZ_SHOPS):
+        out[f"zs{j:02d}"] = ("field_start", FIELD, fuzz_plan(3000 + j, 120, FUZZ_SHOP_KEYS),
+                             shop_party(j) + ((0xC2F0, 0xD7), (0xCA28, (kind + 1) & 0xFF), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
+    return out
+
 def main(names):
     rec = Recorder()
     sweep = map_sweep() if not names or any(n.startswith("map") and len(n) == 5 for n in names) else {}
@@ -300,6 +375,8 @@ def main(names):
         sweep.update(talk_sweep())
     if not names or any(len(n) == 3 and n[0] == "b" for n in names):
         sweep.update(battle_sweep())
+    if not names or any(n.startswith("z") for n in names):
+        sweep.update(fuzz_sweep())
     try:
         for name in names or list(SCENARIOS) + list(sweep):
             if name in sweep:

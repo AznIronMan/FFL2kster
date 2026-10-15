@@ -123,7 +123,10 @@ export function statWork(g: Game, frameWork: (g: Game) => void): void {
     const end = g.onWork?.();
     const enabled = g.ime;
     g.ime = ime;
-    if (end && !g.reachedAt(end)) { g.handlerBusy(end, !enabled, dec); return; }
+    if (end && !g.reachedAt([end[0], end[1]])) {
+      g.handlerBusy([end[0], end[1]], !enabled, dec, end.length > 2 ? [end[2]!, end[3]!] : undefined);
+      return;
+    }
   }
   dec();
 }
