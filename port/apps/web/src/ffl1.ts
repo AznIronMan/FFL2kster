@@ -110,7 +110,7 @@ export function showFfl1Summary(app: HTMLElement, pkg: Ffl1DataPackage): void {
     el("p", { class: "lead" }, pkg.verified ? "Legend I game data is ready on this device." : "Legend I game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showFfl1Player(app, pkg), "primary"),
       ...gameLinks(1).map((l) => button(l.label, l.run)),
-      el("span", { class: "muted" }, "Legend I is in progress: the title, a new game, towns, menus, shops and battles play, with music; the world map's random encounters are not ported yet."))),
+      el("span", { class: "muted" }, "Legend I is ported from power-on to the ending: the title, the field and the world map with its encounters, towns, menus, shops, battles, music and sound. Every recorded run of the original replays on it screen for screen."))),
     savesPanel(),
     el("p", { class: "muted" }, "Legend I uses these options: fast text, fast-forward, colours, sound and controls. The others apply to Legend II for now."),
     optionsPanel(),

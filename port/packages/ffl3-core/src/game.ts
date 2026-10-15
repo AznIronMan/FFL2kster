@@ -78,6 +78,8 @@ export class Game {
   /** The original's end of the frame work just run and, for a work that enabled the interrupts,
    *  the time of its di (00:356B): [end frame, end LY, di frame, di LY]. */
   onWork: (() => [number, number] | [number, number, number, number] | undefined) | null = null;
+  /** Parity: the original's next frame work not yet run ([frame, LY, ...]; a look ahead). */
+  onWorkPeek: (() => number[] | undefined) | null = null;
   /** Parity: the original's time of the game's next write of a sound effect request FFBC (the
    *  code before it took CPU time; undefined: none recorded). */
   onSfx: (() => [number, number] | undefined) | null = null;
@@ -339,6 +341,12 @@ export class Game {
    *  the end the replay gave (`handlerBusy`). */
   *workDone(): Co {
     if (this.work) yield* this.until_(this.work.end);
+  }
+
+  /** Until frame f, line l (the interrupts due meanwhile are taken; a handler's work is waited
+   *  for). */
+  *untilAt(p: [number, number]): Co {
+    yield* this.until_(p);
   }
 
   private *until_(p: [number, number] | undefined): Co {

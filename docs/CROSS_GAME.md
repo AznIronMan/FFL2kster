@@ -139,4 +139,10 @@ both ROMs; differences are listed first because they are the valuable part.
   inside menus and a work's di time, Legend I the direction read after the next tick, its wave's
   rounds and a menu's close. PyBoy draws the window as the DMG does (from the line where LY = WY to
   the frame's end); the shared renderer re-tested WY per line, so the Legend I rig latches it.
-
+- 1.54.0: targeted recordings for what the input sweeps left unrun. In Legend I the reset path
+  (A+B+Select+Start) was handled only by the app's driver; both ports now restart from inside the
+  engine (Legend III already did through `Reset`). PyBoy draws a line with the registers of the
+  moment its mode 3 ends, catching up to the CPU's cycle + 4 of a write: when a game writes SCX
+  per line late, the recorder now compares what PyBoy drew (`tilemap_position_list`) instead of
+  inferring it from STAT. Both games' "rest the CPU time" points (a count dropped a few cycles
+  after a sync point) can let one more interrupt in; the trace's next record decides.

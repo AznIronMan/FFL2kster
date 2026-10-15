@@ -160,6 +160,8 @@ export interface Trace {
   points?: Record<string, [number, number][]>;
   /** The wave's STAT taken late: [frame, LY at entry, LYC]. */
   waveLate?: [number, number, number][];
+  /** The wave's table stores of a round started on a drawn line: its point, the frame, LY of each. */
+  waveStores?: { p: [number, number]; f: number; ly: number[] }[];
   prevScreen?: Uint8Array;
 }
 
@@ -191,9 +193,9 @@ export function loadTrace(name: string): Trace {
   };
 }
 
-function waitsJson(p: string): { waitFrames: number[]; vramWrites?: [number, number, number][]; polls?: [number, number][]; points?: Record<string, [number, number][]>; waveLate?: [number, number, number][] } {
+function waitsJson(p: string): { waitFrames: number[]; vramWrites?: [number, number, number][]; polls?: [number, number][]; points?: Record<string, [number, number][]>; waveLate?: [number, number, number][]; waveStores?: { p: [number, number]; f: number; ly: number[] }[] } {
   const w = JSON.parse(readFileSync(p, "utf8"));
-  return { waitFrames: w.frames, ...(w.vw ? { vramWrites: w.vw } : {}), ...(w.polls ? { polls: w.polls } : {}), ...(w.points ? { points: w.points } : {}), ...(w.waveLate ? { waveLate: w.waveLate } : {}) };
+  return { waitFrames: w.frames, ...(w.vw ? { vramWrites: w.vw } : {}), ...(w.polls ? { polls: w.polls } : {}), ...(w.points ? { points: w.points } : {}), ...(w.waveLate ? { waveLate: w.waveLate } : {}), ...(w.waveStores?.length ? { waveStores: w.waveStores } : {}) };
 }
 
 export function screenDiff(a: Uint8Array, b: Uint8Array): number {

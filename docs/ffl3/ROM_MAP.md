@@ -15,7 +15,7 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:11E3 | STAT handler (via C0BC): reti | verified (hook) |
 | 00:11A2 work | DMA (CD39 = 0), joypad 00:36F1, CA26, then while FF95 counts: FF95 - 1, the tile list C100 (00:3757), FF93/94 + 1; scroll 00:3D2B, shake 00:108F, sound 00:1F3A; can run into the next frame (9253/144 to 9254/7 in `opening1`) | verified (parity opening1) |
 | 00:1D9E / 00:1DFD | VRAM bracket enter / leave (nested, CDCE): IE/STAT/LYC and vectors saved to CDD0/CDCF/CDCA/CDC7/CDCB; IE \| 3, STAT 40, LYC 3, STAT -> 00:1F27, vblank -> 00:1EFA; di at the entry, then the switch, then the poll for mode 1, then reti (interrupts that came meanwhile are taken by the new handlers) | verified (parity title1/title2/newgame1; hooks) |
-| 00:1D98 / 00:1DF3 | CD3D + 1 then enter / leave then CD3D - 1 | verified (parity) |
+| 00:1D98 / 00:1DF3 | CD3D + 1 then enter / leave then CD3D - 1 (00:1DFA, 40 T after 00:1DF6: a STAT on the next line comes first, its frame work with CD3D still set) | verified (parity; zm31 1.54.0) |
 | 00:1EFA | bracket vblank: 00:3E26 sprite flip (CBFF), DMA, joypad, CDAF \|= FF8B, FF93/94 + 1, FF95 - 1 | verified (parity) |
 | 00:1F27 | bracket STAT (LYC 3): sound (00:1F3A, bank 0F pushed), then 00:3549 while CD3D | verified (parity) |
 | 00:3549 / 00:3557 | once (CDC5): CDC4 or WY = 50 -> bank 01 00:3575 (field work, then di); else 00:2192 party figures + 00:1ED7; ends back at 00:3552 | verified (parity title1/title2/newgame1; hooks) |

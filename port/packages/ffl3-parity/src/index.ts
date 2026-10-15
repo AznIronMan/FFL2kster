@@ -163,8 +163,8 @@ export interface Trace {
   syncs: number[];
   /** [frame, LY] of the original's entries to 00:1D9E / 00:1DFD (di before the poll). */
   polls: [number, number][];
-  /** [frame, LY, end frame, end LY] of the original's runs of the frame work 00:3557. */
-  works: [number, number, number, number][];
+  /** [frame, LY, end frame, end LY(, di frame, di LY)] of the original's runs of the frame work 00:3557. */
+  works: ([number, number, number, number] | [number, number, number, number, number, number])[];
   /** [frame, LY] at which each frame wait began (00:3A6D). */
   starts: [number, number][];
   /** The times the CPU reached the sync points (tools/ffl3/trace_lib.py POINTS), by bank << 16 |

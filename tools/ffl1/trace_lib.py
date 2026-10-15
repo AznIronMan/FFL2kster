@@ -141,19 +141,51 @@ class Recorder:
             def at_point(_):
                 if start:
                     points[f"{b:02X}:{a:04X}"].append([nframes[0], pb.memory[0xFF44]])
+                    if (b, a) == (0x00, 0x3E35):
+                        wave_point[0] = points["00:3E35"][-1]
             return at_point
-        # the wave's SCX write (00:3E9B) after PyBoy drew its line: [frame, LY, LYC] when the
-        # handler came a line late or wrote in hblank (mode 0). (Writes late in mode 3 are drawn
-        # either way by PyBoy, by its line's length: not recorded.)
+        # the wave's SCX writes (00:3E9B) PyBoy drew its line without: [frame, LY, LYC] of each
+        # handler (for line LYC) whose value (A) is not the SCX PyBoy drew line LYC with
+        # (tilemap_position_list, taken at its mode 0): the handler came a line late, or wrote
+        # after PyBoy's draw moment (the end of mode 3, whose length depends on the line)
         wave_late = []
+        wave_pending = []
 
         def at_wave_stat(_):
             if start:
                 ly, lyc = pb.memory[0xFF44], pb.memory[0xFF45]
-                if lyc < 0x90 and (ly != lyc or pb.memory[0xFF41] & 3 == 0):
-                    wave_late.append([nframes[0], ly, lyc])
+                if lyc < 0x90:
+                    wave_pending.append((nframes[0], ly, lyc, pb.register_file.A))
+
+        def wave_drawn():
+            if wave_pending:
+                pos = pb.screen.tilemap_position_list
+                for fr, ly, lyc, a in wave_pending:
+                    if pos[lyc][0] != a:
+                        wave_late.append([fr, ly, lyc])
+                wave_pending.clear()
+        # the wave's table stores (00:3E4F, E = the byte) of a round whose first store came on a
+        # drawn line (its start ran past the vblank): the stores race the beam, the STAT handler
+        # reads each line's byte: {"p": [frame, LY] of its 00:3E35, "f": frame, "ly": [LY of
+        # each store until the vblank]} (waits.json "waveStores")
+        wave_stores = []
+        wave_point = [None]
+
+        def at_wave_store(_):
+            if not start:
+                return
+            e, ly = pb.register_file.E, pb.memory[0xFF44]
+            if e == 0:
+                if ly < 0x90 and wave_point[0] is not None:
+                    wave_stores.append({"p": wave_point[0], "f": nframes[0], "ly": [ly]})
+                else:
+                    wave_point[0] = None
+            elif wave_point[0] is not None and wave_stores and wave_stores[-1]["p"] is wave_point[0] \
+                    and ly < 0x90 and len(wave_stores[-1]["ly"]) == e:
+                wave_stores[-1]["ly"].append(ly)
         hb, ha = hook
         pb.hook_register(hb, ha, cb, None)
+        pb.hook_register(0, 0x3E4F, at_wave_store, None)
         pb.hook_register(0, 0x209D, at_poll, None)
         for b, a in POINTS:
             pb.hook_register(b, a, mk_point(b, a), None)
@@ -196,6 +228,7 @@ class Recorder:
                     pb.button_press(k)
                 held = want
                 pb.tick(1, True)
+                wave_drawn()
                 nframes[0] += 1
                 m = pb.memory
                 screens.append(LUT[np.asarray(pb.screen.ndarray)[:, :, 0]].tobytes())
@@ -213,6 +246,7 @@ class Recorder:
             for a, _r in VW_SITES:
                 pb.hook_deregister(0, a)
             pb.hook_deregister(0, 0x209D)
+            pb.hook_deregister(0, 0x3E4F)
             for b, a in POINTS:
                 pb.hook_deregister(b, a)
             pb.hook_deregister(0, 0x3E9B)
@@ -233,7 +267,7 @@ class Recorder:
         open(f"{out}/prev.bin", "wb").write(prev)
         open(f"{out}/screens.dx.gz", "wb").write(_dx(screens, 160 * 144))
         open(f"{out}/waits.dx.gz", "wb").write(_dx(waits, 0x8000, start["mem"]))
-        json.dump({"frames": wait_frames, "vw": vw, "polls": polls, "points": points, "waveLate": wave_late}, open(f"{out}/waits.json", "w"))
+        json.dump({"frames": wait_frames, "vw": vw, "polls": polls, "points": points, "waveLate": wave_late, "waveStores": wave_stores}, open(f"{out}/waits.json", "w"))
         json.dump({"lean": True, "state": state, "plan": plan, "hook": f"{hb:02X}:{ha:04X}",
                    "pokes": [f"{pk[0]:04X}={pk[1]:02X}" + (f"/{pk[2]:02X}" if len(pk) > 2 else "") for pk in pokes], "start": {k: v for k, v in start.items() if k != "mem"},
                    "frames": frames, **(meta or {})}, open(f"{out}/trace.json", "w"))

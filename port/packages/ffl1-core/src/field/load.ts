@@ -153,8 +153,8 @@ export function clearObjects(m: Memory): void {
 }
 
 /** 00:2586 — objects of the event list at FFFB/FFFC (bank 02) into C55C (16 x row, col, command,
- *  parameter, sprite/flags). */
-export function placeObjects(g: Game): void {
+ *  parameter, sprite/flags). Returns de at the end (the list position). */
+export function placeObjects(g: Game): number {
   const m = g.m;
   let de = m.hram[0x7b]! | (m.hram[0x7c]! << 8);
   g.selectBank(0x02);
@@ -179,7 +179,7 @@ export function placeObjects(g: Game): void {
       else { de += 6; continue; }
     } else {
       de++;
-      if (a === 0x81) return;
+      if (a === 0x81) return de;
       if (a === 0xff) {
         if (flagBit(m, m.rd(de))) { de += 6; continue; }
         const f = m.rd(de);
@@ -196,7 +196,7 @@ export function placeObjects(g: Game): void {
         hl += 5;
       }
     }
-    if (--b === 0) return;
+    if (--b === 0) return de;
   }
 }
 

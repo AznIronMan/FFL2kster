@@ -210,11 +210,15 @@ export function* textBegin(g: Game): Co {
 
 /** 00:1DF3 — leave the bracket, CD3D - 1. Sync point 00:1DF6: while CD3D is set the STAT frame
  *  work runs (00:3549); the text's CPU time decides whether one more comes before the count drops
- *  (zb36). */
+ *  (zb36). The drop is 40 T after the sync point (00:1DFA): a STAT on the next line can come
+ *  first, its frame work (after the sound tick) still with CD3D set (zm31). */
 export function* textEnd(g: Game): Co {
   yield* bracketLeave(g);
   yield* g.point(0x001df6);
-  g.m.wr(0xcd3d, g.m.rd(0xcd3d) - 1);
+  const m = g.m, w = g.onWorkPeek?.();
+  if (w && w[0] === g.frame && w[1]! > g.ly && w[1]! <= g.ly + 8 && m.io[0x45] === g.ly + 1 && m.io[0x41]! & 0x40)
+    yield* g.untilAt([g.frame, g.ly + 1]);
+  m.wr(0xcd3d, m.rd(0xcd3d) - 1);
 }
 
 /** 00:358B — wait one frame. */

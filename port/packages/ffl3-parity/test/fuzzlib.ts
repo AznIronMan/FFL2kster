@@ -1,6 +1,8 @@
 /** Legend III input sweep (tools/ffl3/traces.py fuzz_sweep): seeded random single-button input
  *  from field_start with a rich party poked (every spell, MP, a bag of 24 item kinds), into a
- *  battle (zbNN), the field (zfNN) or a shop / forge / mix / clinic / service (zsNN); every trace
+ *  battle (zbNN), the field (zfNN) or a shop / forge / mix / clinic / service (zsNN), and the
+ *  targeted battles: one spell known (zmNN), a bag of 6 item kinds (ziNN), and the map events
+ *  (zeTTP: type TT, parameter P); every trace
  *  replayed wait-exact and screen-exact. Skipped
  *  without the ROM or the traces. */
 import { describe, expect, it } from "vitest";
@@ -11,8 +13,8 @@ import { haveRom, haveTrace, replay, summarize, summarizeWaits, TRACES } from ".
  *  a menu text row drawn while a frame work crossed the vblank (docs/ffl3/FINDINGS.md 1.53.0). */
 const RESIDUAL: Record<string, [number, number][]> = { zf13: [[2834, 59]] };
 
-export function inputSweep(kind: string, label: string): void {
-  const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => new RegExp(`^z${kind}[0-9]{2}$`).test(n)).sort() : [];
+export function inputSweep(kind: string, label: string, suffix = "[0-9]{2}"): void {
+  const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => new RegExp(`^z${kind}${suffix}$`).test(n)).sort() : [];
   const totals = { traces: 0, passed: 0, waits: 0, frames: 0 };
   const errors: Record<string, string[]> = {};
 

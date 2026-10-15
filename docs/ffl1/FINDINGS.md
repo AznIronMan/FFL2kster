@@ -436,3 +436,57 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   2915 and yf36 4102, one line each written late in mode 3, which PyBoy draws with the old SCX or
   the new by the line's length (54, 13 and 70 pixels; kept as exact expectations in the test).
 
+## 2026-10-15 — Targeted sweeps (1.54.0)
+
+- **What was left:** after the input sweep, the coverage run (`@ffl1k/core`) still showed 42 of
+  752 functions never called: the field uses of most items, the growth of mutants, the meat, the
+  reaction items, the spheres, the title's sound test and name deletion, Continue, the sale of a
+  worn item. Each got a recording that reaches it (`tools/ffl1/traces.py`): yiXXv (62: every
+  field-usable item 00-17 and ability 80-86 in every slot and the bag, members hurt and with a
+  status, input weighted to A and the menu), ygNN (16: won battles in area 16, two monsters (flags
+  43) and two mutants (flags 23; the battle record's race +00 & C0 = 40), the 128 random counters
+  C300 seeded per trace), yrNN (12: the reaction items 33 / 79 reflect, CD-CF inflict, D0 spikes
+  chosen each round), yvNN (12: shops with every item worn), title2 (the cursor, B eleven times
+  with Down + Start held: the sound test), newgame2 (a letter, its deletion, B with the name
+  empty), reset1 (save, A+B+Select+Start, Continue), sphere1 / sphere2, empty1. All pass.
+- **Soft reset** (00:071C `jp z,$0224` in the frame tick): the port threw `SoftReset` to its
+  driver (the web player rebooted; the replay stopped). Now `Engine` restarts the code itself
+  (`Game.restart`: di, the boot coroutine; a reset from inside the code unwinds it); the frame's
+  lines go on as in the original. The direction reads made by the port's code before the reset
+  (it runs at the frame's start, the original's reset comes at line 0) are dropped in the replay
+  (`Game.onRestart`). reset1.
+- **The mutants' uses change** (06:549A): + or - were taken as a random 0..field 3 / 4 (06:54F5's
+  e); 06:54D2 / 54E0 reload a after the random call, and 00:07D3 keeps de, so the change is the
+  item's field 3 itself (the random draw only advances its counter). yg02.
+- **The spheres' quake and shake** (00:1779 / 00:1793, called from the bag's sphere row 00:2857 /
+  00:2889) end with `jp $1AB8`: C5BD / C5BE / C3AB cleared and the bank C5D0 selected. The
+  menu's calls lacked that tail (FF8B 2 against 0, FF94 1 against 0). sphere1, sphere2.
+- **The member choice** (00:295F): on an empty slot it asks again with bc = CC00 + the record
+  offset as the menu's page window (FFF6 / FFF7: CC / 3E for slot 2); the port kept its previous
+  b / c. empty1 (the menu's Save, then Abil, slots 1-3 empty).
+- **The spheres' menu** (00:2820) is asked again with de = the end of the object list placed by
+  00:2586 (FFF4 / FFF5 = 63A7), e = a + 5 when C5E2 bit 7 skips the placing. sphere1.
+- **The teleport wave started late** (yi860 frame 289, yi861 2746): a round whose frame tick ran
+  past the poll's vblank starts on line 0, and its 144 table stores race the STAT handler (260 T
+  of each line; the loop 184 T a byte at shift 3): lines 1-13 read the old table. The trace now
+  records the line of each store of such a round (`waveStores`, from 00:3E4F) and the port lands
+  each store on its line.
+- **PyBoy's drawing of a line** (the residual frames yf06 2914 / 2915, yf36 4102 and 13 more in
+  the teleport traces): PyBoy renders a line when its mode 3 ends (lcd.py: the switch to mode 0)
+  with the SCX of that moment, catching up to the CPU's cycle + 4 of `ldh [$43],a`. The recorder
+  no longer guesses from the mode at 00:3E9B: after each frame it compares the SCX PyBoy drew
+  each line with (`tilemap_position_list`) with the value the handler wrote for it, and records
+  the lines drawn without it (`waveLate`). Legend I has no residual frame left.
+- **Still unrun:** the reflect reaction (06:460E, with its message pair 06:40B2): the reaction
+  sweep reached inflict (CD-CF), spikes (D0) and the counter (06:4636: an attack that did no
+  damage), but no damaging attack on a member holding 33 / 79 yet (area 16 and Defence 1 tried).
+  rowMove (text codes 1E / 1F, 00:09F2): no text of the three tables (dialogue, battle, UI) uses
+  1C-1F. Also uncalled by design: the NotPorted classes, the `SoftReset` class (only without the
+  engine's hook) and `Engine.setOptions` (the app's). Dead code removed: `PopReturn`,
+  `Memory.romAt`.
+- **Coverage after:** 743 of 750 functions called.
+- **Falsified** (each fails its trace when removed): the restart (reset1 throws), the reads
+  dropped at the restart (reset1 frame 1513), the uses change (yg02 CC50), the 1AB8 tail (sphere1
+  FF8B, sphere2 FF8B / FF94), the member choice's bc (empty1 FFF6 / 7), the sphere menu's de
+  (sphere1 FFF4 / 5), the store lines (yi860 frame 289), the drawn-SCX `waveLate` (yi861: 8 frames
+  of one line).

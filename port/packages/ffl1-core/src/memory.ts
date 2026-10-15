@@ -90,14 +90,6 @@ export class Memory {
     this.wr(a + 1, (v >> 8) & 0xff);
   }
 
-  /** Read address a with ROM bank `bank` mapped (4000-7FFF only; 8000+ reads RAM). */
-  romAt(bank: number, a: number): number {
-    a &= 0xffff;
-    if (a < 0x4000) return this.seg(0)?.[a] ?? 0xff;
-    if (a >= 0x8000) return this.rd(a);
-    return this.seg(bank)?.[a - 0x4000] ?? 0xff;
-  }
-
   /** rst $28 (00:0028): FF8B = bank, write 2100; returns the previous bank. (The original ends
    *  with reti: interrupts are enabled after every bank switch; see Game.selectBank.) */
   selectBank(b: number): number {

@@ -22,6 +22,22 @@ SCENARIOS = {
     "probe1": ("boot", TITLE, "none:60,a:3,none:20,a:1500,none:200"),
     "newgame1": ("boot", TITLE, "none:60,a:3,none:20,a:330,none:100,down:2,none:10,a:2,none:60,a:2,none:8,right:2,"
                                 "none:8,a:2,none:8,right:2,none:8,a:2,none:8,start:2,none:600", "town0"),
+    # the title's cursor (Left / Right, 03:7E11), Select, then B eleven times, the last with
+    # Down + Start held: the sound test (03:7E4A): entries, the cursor, A plays
+    "title2": ("boot", TITLE, "none:60,left:2,none:10,right:2,none:10,select:2,none:10," + "b:2,none:8," * 10
+               + "down+start:6,down+start+b:3,down+start:6,none:60,up:2,none:10,up:2,none:10,a:2,none:120,"
+               "right:2,none:10,up:2,none:10,up:2,none:10,a:2,none:120,left:2,none:10,down:2,none:10,down:2,"
+               "none:10,a:2,none:200"),
+    # name entry: a letter, B deletes it, B with the name empty goes back to the class select
+    # (03:7BA6), then the new game as newgame1
+    "newgame2": ("boot", TITLE, "none:60,a:3,none:20,a:330,none:100,down:2,none:10,a:2,none:60,a:2,none:8,right:2,"
+                                "none:8,a:2,none:8,b:2,none:8,b:2,none:8,b:2,none:60,a:2,none:60,a:2,none:8,right:2,"
+                                "none:8,a:2,none:8,right:2,none:8,a:2,none:8,start:2,none:600"),
+    # save (main menu 3, 00:26FE), soft reset (A+B+Select+Start, 00:06DB), the title's CONTINUE
+    # (the save valid: the cursor on it), continue (00:1224: the saved map), a walk
+    "reset1": ("town0", FIELD, "none:30,start:3,none:40,down:3,none:15,down:3,none:15,down:3,none:15,a:3,none:60,"
+                               "a:3,none:200,b:3,none:40,b:3,none:60,a+b+select+start:10,none:400,a:3,none:600,"
+                               "up:30,none:10,right:20,none:60"),
     "walk1": ("town0", FIELD, "up:40,none:10,right:20,none:10,a:2,none:120,a:2,none:60,a:2,none:60,down:30,left:40,none:30"),
     "walk2": ("town0", FIELD, "right:100,up:16,a:2,none:90,a:2,none:90,a:2,none:60,up:48,a:2,none:90,a:2,none:90,a:2,none:60,"
                               "right:64,up:30,a:2,none:90,a:2,none:90,a:2,none:60,left:40,up:40,a:2,none:90,a:2,none:90,a:2,none:90"),
@@ -383,6 +399,120 @@ def fuzz_sweep(nb=48, nf=48, ns=len(FUZZ_FACILITIES)):
 
 
 fuzz_sweep()
+
+
+# The item sweep (yiXXv): each field-usable item (06:7700 byte 0 bit 1; effects 00:3739 for 00-17,
+# 00:3769 for abilities 80-86) in every member's slots and the bag, members hurt and with a status
+# by the seed, then seeded input weighted to A and the menu: the field effects the input sweep's
+# random items rarely reach (heal, cure, restore, heart, stat and HP ups, recharge, combine, the
+# spheres, the event items, teleport).
+FIELD_USE_ITEMS = list(range(0x00, 0x18)) + list(range(0x80, 0x87))
+FUZZ_ITEM_KEYS = (("a", 7), ("b", 1), ("up", 2), ("down", 3), ("right", 1), ("start", 1))
+
+
+def item_party(seed, iid):
+    import random
+    r = random.Random(seed)
+    partner = {0x15: 0x16, 0x16: 0x15}.get(iid, iid)
+    p = []
+    for i in range(4):
+        items = [iid] * 6 + [partner, iid]
+        p += member(i, items, hp=r.choice((999, 300, 120)), flags=(0x83, 0x23, 0x43, 0x83)[i],
+                    cls=r.randrange(0, 0xC8), stats=tuple(r.randrange(5, 99) for _ in range(4)),
+                    status=r.choice((0x00, 0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40)))
+        p += [(0xCC00 + 31 * i + 6, r.choice((1, 10, 60)))]  # current HP below the maximum
+    for k in range(8):
+        it = partner if k == 1 else iid
+        p += [(0xCC7C + 2 * k, it), (0xCC7D + 2 * k, _uses(it))]
+    return p
+
+
+def item_sweep(variants=2):
+    for iid in FIELD_USE_ITEMS:
+        for v in range(variants):
+            n = f"yi{iid:02x}{v}"
+            seed = 8000 + iid * 4 + v
+            SCENARIOS[n] = ("town0", FIELD, "none:10,start:3,none:30," + fuzz_plan(seed, 140, FUZZ_ITEM_KEYS))
+            POKES[n] = item_party(seed, iid)
+
+
+item_sweep()
+
+
+# The growth sweep (ygNN): battles the party wins (the strongest weapons 3C, 3F, 46, 48; A every
+# 37-41 frames; area 16, the first world zone) with two monsters (flags 43) and two mutants (flags
+# 23: the battle record's race +00 & C0 = 40): the mutants' growth (06:539E: a new ability, HP,
+# stats, uses) and the monsters' meat.
+def growth_sweep(n=16):
+    for j in range(n):
+        ms = [dict(items=[0x3C, 0x48], flags=0x43, stats=(99, 99, 99, 99), cls=0x10 + j),
+              dict(items=[0x3F, 0x46], flags=0x43, stats=(90, 99, 80, 99), cls=0x30 + j),
+              dict(items=[0x3C, 0x3F], flags=0x23, stats=(99, 99, 99, 50), cls=0x50 + 3 * j),
+              dict(items=[0x48, 0x46], flags=0x23, stats=(99, 99, 99, 50), cls=0x80 + 3 * j)]
+        gap = 37 + j % 5
+        SCENARIOS[f"yg{j:02d}"] = ("town0", FIELD, "none:60," + f"a:3,none:{gap}," * 110 + "none:300")
+        # the 128 random counters (C300, one per call site: 00:0018) seeded by the index, so the
+        # growth rolls (06:53B8: C30B) and the meat differ from battle to battle
+        import random
+        rr = random.Random(9000 + j)
+        POKES[f"yg{j:02d}"] = battle_pokes(16, ms) + [(0xC300 + k, rr.randrange(256)) for k in range(0x80)]
+
+
+growth_sweep()
+
+
+# The reaction sweep (yrNN): every member's first item a reaction (06:45FC, field 1 bits 1, 2, 4:
+# reflect 33 / 79, inflict CD-CF, spikes D0), chosen each round (A only), the enemies attacking.
+REACTION_ITEMS = (0x33, 0x79, 0xCD, 0xCE, 0xCF, 0xD0)
+
+
+def reaction_sweep():
+    for j in range(2 * len(REACTION_ITEMS)):
+        iid = REACTION_ITEMS[j % len(REACTION_ITEMS)]
+        a = FUZZ_AREAS[(j * 3 + 1) % len(FUZZ_AREAS)]
+        ms = [dict(items=[iid, 0x2E], stats=(20, 99, 99, 20), hp=999) for _ in range(4)]
+        SCENARIOS[f"yr{j:02d}"] = ("town0", FIELD, "none:60," + "a:3,none:39," * 100 + "none:200")
+        POKES[f"yr{j:02d}"] = battle_pokes(a, ms)
+
+
+reaction_sweep()
+
+# The sale sweep (yvNN): shops (command 4, 00-18) with every item worn (uses 1 .. full - 1, by
+# the seed): the sale price of a used item (00:330B: price * (uses * 16 / full) / 32, BCD digits).
+def sale_sweep(n=12):
+    import random
+    for j in range(n):
+        r = random.Random(9500 + j)
+        p = []
+        for i in range(4):
+            items = [r.randrange(0x18, 0x80) for _ in range(8)]
+            p += member(i, items, hp=500, flags=(0x83, 0x23, 0x43, 0x83)[i])
+            for k, iid in enumerate(items):
+                full = _uses(iid)
+                if 1 < full < 0xFE:
+                    p.append((0xCC00 + 31 * i + 0x10 + 2 * k, r.randrange(1, full)))
+        for k in range(8):
+            iid = r.randrange(0x18, 0x80)
+            full = _uses(iid)
+            p += [(0xCC7C + 2 * k, iid), (0xCC7D + 2 * k, r.randrange(1, full) if 1 < full < 0xFE else full)]
+        SCENARIOS[f"yv{j:02d}"] = ("town0", FIELD, fuzz_plan(9600 + j, 120, (("a", 6), ("b", 1), ("down", 3), ("up", 1))))
+        POKES[f"yv{j:02d}"] = p + [(0xC3A9, 0x04), (0xC3AA, (j * 2) % 0x19), (0xC3AB, 0x01)]
+
+
+sale_sweep()
+
+# The spheres (bag row 9, 00:2810; progress nibble 0A = the count, CC96 high): sphere1 uses one
+# (nibble 4 = a + 5, the objects, the quake 00:1Bxx); sphere2 with the story at stage 2 (nibble 0,
+# CC91 high) on map 1: every sphere shown, the shakes, nibble 0A = 5
+PLAN_SPHERES = ("none:30,start:3,none:40,right:3,none:15,a:3,none:40," + "down:3,none:12," * 9
+                + "a:3,none:60,a:3,none:240,down:3,none:12,a:3,none:240,b:3,none:40,b:3,none:40,b:3,none:60")
+# (empty1: the menu's Save, then Abil, the member choice on the empty slots 1-3: 00:2977 asks again
+# with bc = CC00 + the record offset as the page window)
+SCENARIOS["empty1"] = ("town0", FIELD, PLAN_SPHERES.replace("right:3", "down:3", 1))
+SCENARIOS["sphere1"] = ("town0", FIELD, PLAN_SPHERES)
+POKES["sphere1"] = [(0xCC96, 0x30, 0xF0)]
+SCENARIOS["sphere2"] = ("town0", FIELD, PLAN_SPHERES)
+POKES["sphere2"] = [(0xCC96, 0x40, 0xF0), (0xCC91, 0x20, 0xF0)]
 
 def plan_for(name):
     if name in SCENARIOS:

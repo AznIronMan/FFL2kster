@@ -1,18 +1,18 @@
 /** Legend I input sweep (tools/ffl1/traces.py fuzz_sweep): seeded random single-button input from
  *  the first town's field loop with random items poked into the party and the bag, into a battle
- *  (ybNN), the field of a warped-to map (yfNN) or a facility (ysNN); every trace replayed
+ *  (ybNN), the field of a warped-to map (yfNN) or a facility (ysNN), the item sweep (yiXXv:
+ *  one field-usable item everywhere, input weighted to A and the menu) and the targeted battles
+ *  and shops (ygNN growth and meat, yrNN reactions, yvNN sales of worn items); every trace replayed
  *  wait-exact and screen-exact. Skipped without the ROM or the traces. */
 import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync } from "node:fs";
 import { haveRom, haveTrace, replay, summarize, summarizeWaits, TRACES } from "../src/index.js";
 
-/** Known residual frames, exactly as they stand (any change fails): one line the wave (00:3DF5)
- *  wrote late in its mode 3, which PyBoy drew with the SCX before (its moment of drawing a line
- *  depends on the line's length; docs/ffl1/FINDINGS.md 1.53.0). */
-const RESIDUAL: Record<string, [number, number][]> = { yf06: [[2914, 54], [2915, 13]], yf36: [[4102, 70]] };
+/** Known residual frames, exactly as they stand (any change fails): none. */
+const RESIDUAL: Record<string, [number, number][]> = {};
 
-export function inputSweep(kind: string, label: string): void {
-  const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => new RegExp(`^y${kind}[0-9]{2}$`).test(n)).sort() : [];
+export function inputSweep(kind: string, label: string, suffix = "[0-9]{2}"): void {
+  const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => new RegExp(`^y${kind}${suffix}$`).test(n)).sort() : [];
   const totals = { traces: 0, passed: 0, waits: 0, late: 0, tears: 0, raster: 0, blank: 0, rephased: 0 };
   describe.skipIf(!haveRom() || names.length === 0)(`FFL1 input sweep (${label})`, () => {
     for (const name of names) {

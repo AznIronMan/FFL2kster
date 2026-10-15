@@ -1054,3 +1054,26 @@ Falsification (ffl3/scratch/mut20.py): each fails its traces — sync points 02:
 (zb19, zb12), 0B:678C (zb00), 00:2FBF in menu.ts (zf04), 00:037B (zs31, zs07), 00:1DF6 (zb36)
 removed; the work's di ignored, a code-run work keeping the interrupts, the objects' DMA not held
 (zf13); rst $18's reti not modelled (zf22).
+
+## 2026-10-15 — Targeted sweeps (1.54.0)
+
+- **The event sweep** (zeTTP, 176 traces): from field_start a map event of every type the story
+  traces reach rarely (C2F0 = C0 | type: 08 / 09 falls, 10 the party, 11 screens, 12 specials,
+  13, 16, 18 items and texts, 1E scenes, 1F patches, 20-23 hurt / revive / rest / menu, 25-2B
+  rocks, objects, walks, morphs, texts, switches) with eight parameters each (event 11: its six
+  entries 00:196C, event 12: its eighteen 00:16BC; parameters past a table jump into data in the
+  original and are not swept). All pass.
+- **The spell and item battles** (zmNN: one spell known by every member, 48; ziNN: a bag of six
+  item kinds, 35): all pass, but they reached almost nothing new: the member actions do not use
+  the effect lists of 02:53EE, and the effects 03-0D of the dispatcher 02:4397 come from the
+  action display C9BD of enemy abilities (tables 0 and 2 of 09:5466, e.g. 2:2D -> EC -> 7 in
+  formation 35). A scan of every formation (ffl3/scratch/effscan.py, A every 40 frames, 6000
+  frames each) reached effect 7 only: the parties win too soon for the rarer enemy abilities.
+  Open: effects 03-06, 08-0D and the uncalled event / ship / continue routines (coverage below).
+- **Text end** (00:1DF3): the count CD3D drops 40 T after the sync point 00:1DF6 (00:1DFA); when
+  the next line's STAT (LYC) comes in between, its frame work (after the sound tick) still runs
+  with CD3D set. zm31: a work at 731 line 6 after the text end at 731 line 2 (works 6148/6149,
+  all later works one frame off, no pixel). The port now looks at the next recorded work
+  (`Game.onWorkPeek`): a work starting within 8 lines whose STAT is the next line's runs first
+  (`Game.untilAt`). Falsified: without it zm31 fails (works mismatch 5639).
+- **Coverage after:** 1272 of 1464 functions called.

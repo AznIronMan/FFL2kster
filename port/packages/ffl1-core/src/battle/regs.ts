@@ -24,9 +24,3 @@ export class Regs {
     }
   }
 }
-
-/** Thrown to leave a routine and its caller at once (the original pops the caller's return
- *  address: `pop hl; ret` / `pop hl; jp ...`). Caught at the level the original returns to. */
-export class PopReturn extends Error {
-  constructor(readonly levels = 1) { super("pop-return"); }
-}

@@ -108,7 +108,7 @@ export function showFfl3Summary(app: HTMLElement, pkg: Ffl3DataPackage): void {
     el("p", { class: "lead" }, pkg.verified ? "Legend III game data is ready on this device." : "Legend III game data is ready on this device — imported in UNVERIFIED mode."),
     el("section", { class: "panel" }, el("div", { class: "row" }, button("Play", () => showFfl3Player(app, pkg), "primary"),
       ...gameLinks(3).map((l) => button(l.label, l.run)),
-      el("span", { class: "muted" }, "Legend III is in progress: from power-on through the opening, the field, menus, shops, the ship, the world map and battles, with music and sound; parts no recorded run has reached yet (the late story, the ending) may still differ from the original."))),
+      el("span", { class: "muted" }, "Legend III is ported from power-on to the ending: the opening, the field, menus, shops, the ship, the world map, battles, music and sound. Every recorded run of the original replays on it screen for screen."))),
     savesPanel(),
     el("p", { class: "muted" }, "Legend III uses these options: fast-forward, colours, sound and controls. The others apply to Legend II for now."),
     optionsPanel(),

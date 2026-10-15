@@ -353,10 +353,15 @@ export class FieldItems {
       let l: number = m.hram[0x4a]!;
       g.schedule(t(p), 0xffcc, shift);
       g.schedule(t(p), 0xffcb, 0);
+      // a round whose stores came on drawn lines (its start ran past the poll's vblank) races
+      // the beam: the STAT handler reads each line's byte; each store at its recorded line, the
+      // rest at the vblank
+      const race = g.onWaveStores?.(p[0], p[1]);
       for (let k = 0; k < 0x90; k++) {
         let c = m.rd(0x1200 | l);
         for (let s = shift; s; s--) c = (c >> 1) | (c & 0x80);
-        g.schedule(t(p), 0xc600 + k, (m.hram[0x49]! + c) & 0xff);
+        const at = !race ? t(p) : race.f * 154 + (race.ly[k] ?? 0x8f) + 0.5;
+        g.schedule(at, 0xc600 + k, (m.hram[0x49]! + c) & 0xff);
         l = (l + 1) & 0xff;
         if (m.rd(0x1200 | l) === 0x80) l = 0x2f;
       }

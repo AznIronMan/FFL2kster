@@ -42,6 +42,8 @@ export class Engine {
     installInterrupts(this.g);
     this.sound = new SoundDriver(this.g);
     this.g.hooks.soundTick = () => this.sound.update();
+    // 00:071C: A+B+Select+Start jumps to the start 00:0224 (h = C3: hl = C3A0 at the jump)
+    this.g.hooks.softReset = (g) => g.restart(this.run(this.boot(0xc3)));
     this.text = new TextEngine(this.g);
     this.title = new Title(this.g, this.text);
     const self = this;
@@ -55,8 +57,10 @@ export class Engine {
     this.menu = new MainMenu(this.g, this.text, this.field, {
       useItem: (_g, a, slot) => self.items.use(a, slot),
       equip: (g) => equip(g),
-      quake: () => self.events.quake(),
-      shake: () => self.events.shake(),
+      // 00:1779 / 00:1793 end with jp 00:1AB8 (C5BD/C5BE, C3AB cleared; the bank C5D0 back)
+      // also when the spheres (00:2857 / 00:2889) call them
+      quake: function* () { yield* self.events.quake(); self.field.eventEnd(); },
+      shake: function* () { yield* self.events.shake(); self.field.eventEnd(); },
     });
     this.items.menu = this.menu;
     this.facilities = new Facilities(this.g, this.menu, this.title, this.dialogue);

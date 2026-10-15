@@ -23,6 +23,12 @@ const TRACES: [string, string][] = [
   ["flee1", "Run until the escape succeeds (one failed try), the map back"],
   ["power1", "power-on from the start code 00:0224 (DIV seed from the trace), the title, a new game begun"],
   ["defeat1", "a party at 1 HP wiped out: game over, a button, the restart (00:0224) and the title"],
+  ["title2", "the title's cursor, Select, B eleven times with Down + Start held: the sound test (03:7E4A)"],
+  ["newgame2", "name entry: a letter, its deletion (03:7BA6), B with the name empty: the class select again"],
+  ["reset1", "save, A+B+Select+Start (00:071C: the start 00:0224), the title's CONTINUE, the saved map"],
+  ["sphere1", "the bag's sphere row (00:2810): a sphere used, the objects placed, the quake (00:1779, 1AB8)"],
+  ["sphere2", "the spheres at story stage 2 on map 1: every sphere shown, the shakes (00:1793), nibble 0A = 5"],
+  ["empty1", "the menu's Save, then Abil: the member choice on empty slots (00:2977: bc = CC00 + the offset)"],
 ];
 
 describe.skipIf(!haveRom())("FFL1 scenario parity", () => {

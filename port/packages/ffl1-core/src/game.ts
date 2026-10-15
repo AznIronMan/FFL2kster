@@ -28,6 +28,9 @@ export interface GameOptions {
 }
 export const DEFAULT_OPTIONS: Readonly<GameOptions> = Object.freeze({ fastText: false });
 
+/** Unwinds the code at a soft reset (`Game.restart` from inside it). */
+class Restart extends Error {}
+
 export class Game {
   readonly m: Memory;
   readonly options: GameOptions = { ...DEFAULT_OPTIONS };
@@ -71,6 +74,9 @@ export class Game {
   /** Parity only: the line time at which the original took the wave's STAT for line ly of this
    *  frame, when it took it late (trace "waveLate"); undefined: on time. */
   onWaveLate: ((ly: number) => number | undefined) | null = null;
+  /** Parity: the wave round started at [frame, LY] raced the beam: the frame and LY of each table
+   *  store until the vblank (waits.json "waveStores"); undefined when it started in the vblank. */
+  onWaveStores: ((frame: number, ly: number) => { f: number; ly: number[] } | undefined) | null = null;
   /** Parity only: the trace frame of the next frame to be drawn. */
   traceFrame: (() => number) | null = null;
   hooks: {
@@ -88,6 +94,24 @@ export class Game {
   start(main: Co): void {
     this.main = main;
     this.done = false;
+  }
+
+  /** Parity: a soft reset (`restart`): the records of the code before it are left behind. */
+  onRestart: (() => void) | null = null;
+
+  /** The code is running (`main.next()`), not an interrupt handler between its yields. */
+  private inMain = false;
+
+  /** A+B+Select+Start in the frame tick (00:071C jp 00:0224, from the STAT handler or a direct
+   *  call): the code starts again with `co` (di, the stack reset); the frame's lines go on. */
+  restart(co: Co): void {
+    this.main = co;
+    this.done = false;
+    this.tickPending = false;
+    this.busyFrames = 0;
+    this.ime = false;
+    this.onRestart?.();
+    if (this.inMain) throw new Restart();
   }
 
   /** rst $28: select a ROM bank; the original returns with reti (interrupts enabled). */
@@ -110,7 +134,9 @@ export class Game {
           this.lineRange(0, 1);
           from = 1;
         }
+        this.inMain = true;
         r = this.main.next();
+        this.inMain = false;
         this.endDeferIo();
         this.queuePaced();
         if (!r.done && r.value === TICK && from === 0) {
@@ -118,7 +144,9 @@ export class Game {
           this.onTickInFrame?.();
           this.lineRange(0, 1);
           from = 1;
+          this.inMain = true;
           r = this.main.next();
+          this.inMain = false;
           this.endDeferIo();
           this.queuePaced();
         }
@@ -130,8 +158,11 @@ export class Game {
           this.onWait?.(kind);
         }
       } catch (e) {
-        this.done = true;
-        throw e;
+        this.inMain = false;
+        if (!(e instanceof Restart)) {
+          this.done = true;
+          throw e;
+        }
       }
     }
     for (let k = 0; this.busyFrames > 0; k++) {

@@ -366,7 +366,43 @@ def fuzz_sweep(nb=72, nf=36):
     for j, kind in enumerate(FUZZ_SHOPS):
         out[f"zs{j:02d}"] = ("field_start", FIELD, fuzz_plan(3000 + j, 120, FUZZ_SHOP_KEYS),
                              shop_party(j) + ((0xC2F0, 0xD7), (0xCA28, (kind + 1) & 0xFF), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
+    # the spell sweep (zmNN): one spell known by every member (C551 + bit), MP 999, a battle with
+    # input weighted to A, down and right; the item sweep (ziNN): a bag of 6 item kinds (4 each);
+    # the effects (02:4xxx animations, 0B targets) the zb sweep reaches rarely
+    battle = ((0xC2F0, 0xDB), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
+    for j in range(48):
+        p = list(rich_party(j))
+        for k in range(5):
+            b = 0xC500 + 0x60 * k
+            p += [(b + 0x51 + i, (1 << (j % 8)) if i == j // 8 else 0) for i in range(6)]
+        k = FUZZ_FORMATIONS[(j * 11) % len(FUZZ_FORMATIONS)]
+        out[f"zm{j:02d}"] = ("field_start", FIELD, fuzz_plan(4000 + j, 200, FUZZ_SPELL_KEYS), tuple(p) + battle + ((0xCA28, k),))
+    for j in range((len(FUZZ_ITEMS) + 5) // 6):
+        p = list(rich_party(j))
+        kinds = [FUZZ_ITEMS[(6 * j + i) % len(FUZZ_ITEMS)] for i in range(6)]
+        for i in range(24):
+            p += [(0xC6FF + 2 * i, kinds[i % 6]), (0xC700 + 2 * i, 9)]
+        k = FUZZ_FORMATIONS[(j * 13 + 5) % len(FUZZ_FORMATIONS)]
+        out[f"zi{j:02d}"] = ("field_start", FIELD, fuzz_plan(4500 + j, 200, FUZZ_SPELL_KEYS), tuple(p) + battle + ((0xCA28, k),))
+    # the event sweep (zeTTP): a map event of type TT (C2F0 = C0 | TT, a step made) with
+    # parameter CA28 from EVENT_PARAMS[P], from field_start, then A every 40 frames and B: the
+    # event types the story traces reach rarely (falls, screens, specials, items, scenes, patches,
+    # the party's rest and revival, the menu, rocks, objects, walks, morphs, switches)
+    for t in EVENT_TYPES:
+        for i, prm in enumerate(EVENT_PARAMS_OF.get(t, EVENT_PARAMS)):
+            out[f"ze{t:02x}{'0123456789abcdefghij'[i]}"] = ("field_start", FIELD, PLAN_EVENT,
+                                    rich_party(t + i) + ((0xC2F0, 0xC0 | t), (0xCA28, prm), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0)))
     return out
+
+
+EVENT_TYPES = (0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x16, 0x18, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23,
+               0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B)
+EVENT_PARAMS = (0x00, 0x01, 0x02, 0x03, 0x05, 0x12, 0x21, 0x47)
+# event 11 has 6 entries (00:196C), event 12 18 (00:16BC): no parameter past them
+EVENT_PARAMS_OF = {0x11: tuple(range(6)), 0x12: tuple(range(0x12))}
+PLAN_EVENT = "none:10," + "a:3,none:37," * 40 + "b:3,none:40," * 3 + "none:200"
+
+FUZZ_SPELL_KEYS = (("a", 7), ("b", 1), ("up", 1), ("down", 3), ("left", 1), ("right", 3))
 
 def main(names):
     rec = Recorder()

@@ -66,6 +66,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | P2 full field | done (1.53.0: input sweep) | field + event sweep: 327 traces (every map; trigger cells, objects, talk and text-started events: commands 0, 1, 3-F), 333,695 waits, 0 state differences; 0 residual frames since 1.52.0 (the battle dissolve 00:1BBE drawn at the line times the original wrote it); 1.53.0: a coverage run (665 of 740 functions run by the traces) and the input sweep (seeded random buttons, random items in the party and the bag: yf 48 field, ys 41 facilities) reached the item uses, the menus, selling and the teleport; fixes: the direction read after the next tick (00:209D), the bracket helpers' stores paced, the wave's rounds (00:3E35 / 3E7B), the window latched as PyBoy draws it, the menu's close (00:26F1); 3 frames of one line each kept as exact expectations (yf06 2914 / 2915, yf36 4102) |
 | P3 full battle | done (1.53.0: input sweep) | battle sweep 33 traces, 95,039 waits, 0 differences, plus flee2 (a monster flees): all 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters and event battles (field sweep) frame-exact; sound verified separately; 1.53.0: the input sweep's 48 battles (random items, classes, stats) frame-exact after the fix of 06:4938's early exit (its popped return address in HL, read by the death check) |
 | P4 platforms | on hold (installers held by the owner) | |
+| 1.54.0 targeted sweeps | done | yi 62, yg 16, yr 12, yv 12 and 6 single traces for the code the sweeps had not run; 5 fixes; 743 of 750 functions called; 0 residual frames |
 | P5 extras | partly (fast text, fast-forward, colours, sound, controls in the web player) | |
 
 ## Log
@@ -440,3 +441,13 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
   late STAT ignored (yf06, yf36), the window not latched and the menu close point removed (yf06).
   Two survived and were dropped: the screen's metatiles paced, the wave table's own store lines.
 
+### 2026-10-15 — Targeted sweeps (1.54.0)
+- The functions the input sweep left uncalled got recordings that reach them: yi (62 field item
+  and ability uses), yg (16 growth / meat battles), yr (12 reactions), yv (12 sales of worn
+  items), title2, newgame2, reset1, sphere1, sphere2, empty1. Findings and fixes:
+  docs/ffl1/FINDINGS.md 1.54.0 (the soft reset, the uses change, the 1AB8 tail of the spheres'
+  quake / shake, two menus' page windows, the late wave's store lines, PyBoy's drawn SCX).
+- Every Legend I trace re-recorded (waits.json: `waveStores`; `waveLate` from the drawn SCX):
+  694 tests pass, no residual frame (the 3 one-line frames of 1.53.0 closed).
+- Coverage: 743 of 750 `@ffl1k/core` functions called (open: the reflect reaction; rowMove unreachable:
+  no text uses codes 1C-1F; the NotPorted classes and `setOptions`, which only the app calls, aside).

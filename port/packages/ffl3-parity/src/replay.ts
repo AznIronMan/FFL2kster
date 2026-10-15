@@ -267,6 +267,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
   let nWorks = 0, workMismatch = 0, lineTears = 0, chunkTears = 0, rasterTears = 0, objQuirks = 0;
   /** Where the port ran each work (in no time: its VRAM writes are all on that line). */
   const portWork: [number, number][] = [];
+  g.onWorkPeek = () => t.works[nWorks];
   g.onWork = () => {
     portWork.push([g.frame, g.ly]);
     const w = t.works[nWorks++];
@@ -275,7 +276,7 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     // the original's handler may start the work later (CPU time: a long sound tick from a STAT
     // taken in vblank), but not before the port's
     if (!(w[0] === g.frame || (w[0] === g.frame + 1 && g.ly >= 144))) workMismatch++;
-    return w.length > 5 ? [w[2], w[3], w[4], w[5]] : [w[2], w[3]];
+    return w.length > 5 ? [w[2]!, w[3]!, w[4]!, w[5]!] : [w[2]!, w[3]!];
   };
   /** The visible lines of frame f over which the original's frame work wrote and the port's did
    *  not yet (from the port's line, or the original's start if earlier, to the original's end). */

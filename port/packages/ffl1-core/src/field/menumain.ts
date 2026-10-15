@@ -163,8 +163,11 @@ export class MainMenu extends Menus {
       m.wr(0xc3ac, a);
       const off = recordOffset(a);
       m.hram[0x4d] = off;
+      // bc = CC00 + the offset: an empty slot asks again with that bc (the page window, FFF6/7)
+      this.b = 0xcc; this.c = off;
       if (m.rd(0xcc00 | off) === 0xff) continue;
-      return m.rd(0xcc00 | ((off + 0x0a) & 0xff)) & 0xa0;
+      this.c = (off + 0x0a) & 0xff;
+      return m.rd(0xcc00 | this.c) & 0xa0;
     }
   }
 
@@ -368,7 +371,9 @@ export class MainMenu extends Menus {
         return -1;
       }
       setNibble(m, 4, a + 5);
-      if (!(m.rd(0xc5e2) & 0x80)) placeObjects(g);
+      // de: e = a + 5 (00:2844), then the object list's end (the next menu's page window)
+      this.de = (this.de & 0xff00) | ((a + 5) & 0xff);
+      if (!(m.rd(0xc5e2) & 0x80)) this.de = placeObjects(g);
       m.hram[0x64] = 0x0c;
       yield* this.calls.quake(g);
     }

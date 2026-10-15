@@ -83,7 +83,7 @@ function showImporter(message?: string) {
   };
   app.replaceChildren(
     el("h1", {}, TITLE),
-    el("p", { class: "lead" }, "This engine ships with no game content. Choose your own copy of the game ROM (Legend II, or Legend I or III in progress); it is read only on this device to build the game data."),
+    el("p", { class: "lead" }, "This engine ships with no game content. Choose your own copy of the game ROM (Legend I, II or III); it is read only on this device to build the game data."),
     el("section", { class: "panel" }, drop, status),
   );
 }

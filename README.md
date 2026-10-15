@@ -6,10 +6,10 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.53.0`
-Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) in progress —
-data milestones 1–7 done (docs/FFL1_PROGRESS.md); Legend III (FFL3kster) started —
-data milestones 1-7 done (docs/FFL3_PROGRESS.md).** The port plays from the title through
+Version: `1.54.0`
+Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
+(FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
+(docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers on hold).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -27,7 +27,7 @@ gathering (milestones 1–7) is complete. See `docs/PORT_PLAN.md` (the active co
 | **FFTOL** | The project (this folder and the GitHub repository `fftol`). |
 | **Tower of Legends** (short **TOL**) | Full title. Private working title: an unrelated Steam game already uses it, so a public or store release needs a distinguisher (see `docs/END_GOAL.md`). |
 | **F²** | Logo mark (visual glyph only). |
-| **FFL1kster**, **FFL2kster**, **FFL3kster** | Per-game toolkits for Legend I, II and III. **FFL2kster** is complete (the Python package `ffl2kster`, its CLI and the Legend II port); **FFL1kster** (`ffl1kster`, `@ffl1k/*`) and **FFL3kster** (`ffl3kster`) are in progress. |
+| **FFL1kster**, **FFL2kster**, **FFL3kster** | Per-game toolkits for Legend I, II and III. **FFL2kster** is complete (the Python package `ffl2kster`, its CLI and the Legend II port); **FFL1kster** (`ffl1kster`, `@ffl1k/*`) and **FFL3kster** (`ffl3kster`, `@ffl3k/*`) port their games end to end (verification of the last uncovered routines goes on). |
 | **TOLkster** | The future master engine of `docs/END_GOAL.md`. Name reserved; nothing is built. |
 
 ## Bring your own ROM
@@ -100,6 +100,20 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.54.0` — Legend I and III: targeted recordings for the code the earlier sweeps never reached,
+  each one played on the original and replayed on the port. Legend I: every field item and
+  ability used from the menu (62), mutants' growth and monsters' meat after won battles (16),
+  the reaction items (inflict, spikes, the counter; 12), selling worn items (12), the spheres, the
+  title's sound test and name entry, and a soft reset into Continue. Legend III: every map event
+  type with its parameters (176), one known spell (48) and a bag of six item kinds (35) per
+  battle. They found real differences, now fixed: Legend I's soft reset (A+B+Select+Start) stopped
+  the game in replays instead of restarting it, a mutant's uses change added a random amount
+  where the original adds the item's full uses, the spheres' quake and shake skipped the end of
+  their event (the bank and the event left set), and two menus kept wrong values for the next
+  window; the teleport wave raced the screen when it started late, and PyBoy's drawing of a line
+  is now recorded exactly, closing Legend I's last three one-line frames. Legend III's text end
+  lets a frame work on the next line run before its count drops. The app's game pages now say
+  both games are ported.
 - `1.53.0` — Legend I and III: a coverage run showed code in both ports that no recorded run had
   ever exercised (the sweeps mostly pressed A on the defaults). A new input sweep plays seeded
   random buttons with a party given every spell and a full bag through battles, the field and

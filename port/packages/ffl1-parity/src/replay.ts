@@ -239,8 +239,14 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
       if (!p) return false;
       if (p[0] < f) { latePolls++; if (process.env.FFL1K_POLLLOG && latePolls < 4) console.log(`late poll ${pollAt - 1} [${p}] at f ${f}`); }
       if (p[0] > f) tickedPolls++;
-      if (process.env.FFL1K_POLLLOG && f > 3436 && f < 3446) console.log(`poll ${pollAt - 1} [${p}] at f ${f} g.frame ${rig.g.frame}`);
+      if (process.env.FFL1K_POLLLOG && f > Number(process.env.FFL1K_POLLLOG) && f < Number(process.env.FFL1K_POLLLOG) + 30) console.log(`poll ${pollAt - 1} [${p}] at f ${f} g.frame ${rig.g.frame}`);
       return p[0] > f;
+    };
+    // a soft reset in this frame's tick (line 0): the code the port ran before it (at the frame's
+    // start) read nothing the original read; its reads go on with the new code's
+    rig.g.onRestart = () => {
+      const i = polls.findIndex((p) => p[0] > f);
+      pollAt = i < 0 ? polls.length : i;
     };
   }
   rig.g.onTickInFrame = () => { rig.g.buttons = btn(f + 1); };
@@ -249,6 +255,10 @@ export function replay(name: string, opts: ReplayOptions = {}): ReplayResult {
     rig.g.onPointTimes = (addr) => pts[`${(addr >> 16).toString(16).toUpperCase().padStart(2, "0")}:${(addr & 0xffff).toString(16).toUpperCase().padStart(4, "0")}`];
     rig.g.traceFrame = () => rig.g.frame + off;
     rig.g.lineTime ??= (ly) => (rig.g.frame + off) * 154 + ly;
+  }
+  if (t.waveStores) {
+    const ws = t.waveStores;
+    rig.g.onWaveStores = (fr, ly) => ws.find((w) => w.p[0] === fr && w.p[1] === ly);
   }
   if (t.waveLate?.length) {
     const late = new Map(t.waveLate.map(([fr, , lyc]) => [fr * 154 + lyc, fr * 154 + lyc]));

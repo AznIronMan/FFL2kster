@@ -2324,8 +2324,9 @@ export class Battle {
     const e = ((((a << 4) & 0xf0) << 1) - a + l) & 0xff;
     return 0xcc00 + e;
   }
-  /** 06:549A — every ability's uses change: halved, + or - random (0..field 3 / 4), or reset to
-   *  field 3. */
+  /** 06:549A — every ability's uses change: halved, + or - field 3 (at most 99, at least 0), or
+   *  reset to field 3. (A random 0..field 3 is drawn for + and -, 06:5505, but its result is
+   *  dropped: 54D2 / 54E0 reload a, and the random routine keeps de = field 3.) */
   usesChange(): void {
     let hl = this.recordAt(this.hr(0xffb6), 0x10);
     for (let c = 4; c; c--, hl += 2) {
@@ -2333,10 +2334,9 @@ export class Battle {
       if (u === 0xfe || u === 0xff) continue;
       const k = this.rand(0x54ba, 0, 3);
       const f3 = this.item(this.rd(hl - 1), 3);
-      const e = f3 >> 2;
       if (k === 0) { let a = u >> 1; if (!a) a = 1; this.wr(hl, a); }
-      else if (k === 1) { let a = this.rand(0x54e0, 0, e) + u; if (a >= 0x63) a = 0x63; this.wr(hl, a & 0xff); }
-      else if (k === 2) { let a = u - this.rand(0x54d2, 0, e); if (a < 0) a = 0; this.wr(hl, a); }
+      else if (k === 1) { this.rand(0x54e0, 0, f3); let a = (u + f3) & 0xff; if (a >= 0x63) a = 0x63; this.wr(hl, a); }
+      else if (k === 2) { this.rand(0x54d2, 0, f3); let a = u - f3; if (a < 0) a = 0; this.wr(hl, a); }
       else this.wr(hl, f3);
     }
   }

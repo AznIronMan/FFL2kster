@@ -660,3 +660,8 @@ Decisions and assumptions:
   ports do not model is taken from records at the places a sweep shows it matters (sync points,
   the work's di, the field direction read, the wave's rounds), each kept only while removing it
   fails a trace.
+- 1.54.0: a function counts as verified only when a recorded run executes it; for what the sweeps miss,
+  a targeted recording is built (pokes that set up the state, input weighted to the menu that
+  reaches it) rather than an audit. Out-of-table parameters (events 11 / 12 past their tables)
+  are not swept: the original jumps into data, which no game state does. Ad-hoc helper scripts
+  (effect scans, coverage merges) stay in the local scratch area, not in the tools.
