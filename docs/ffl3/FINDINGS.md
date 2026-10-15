@@ -1272,3 +1272,35 @@ effects of the later bosses), menuitems learnSpell / askDiscard / listUp.
   pushable objects (01:46C5), menuitems listUp, the menu side of the text engine's rare codes
   (textcodes / textmore), and single helpers (events2, banim, benemy, bnative).
 - **Tests:** 1782 FFL3 tests pass.
+
+## 2026-10-15 — Pushed blocks, scrolled lists, yes / no, scene effects (1.60.0)
+
+- **A coverage run of the console sweeps** (zn, zk) and the jumps (zyTj): the ship's lift-off
+  paths (liftOff, liftOffScene, blink, tileAt, keyItemsGone, takeOff) are called; with every run
+  merged, 1395 of 1468 functions before the traces below.
+- **Pushed blocks** (zp00-02): map 77 has two blocks (object kind 0B, 06:6C58 records, shown with
+  story flag 96); door 34 (event 0E) leads there from field_start. A breadth-first walk over the
+  leader's cells in PyBoy (ffl3/scratch/pushbfs.py) found the way to the cell beside the first
+  block; Left held pushes it (eight tries a push, CA26; events2 `pushObject`, 01:46C5's walking
+  twin). zp01 pushes it more ways, zp02 walks on with the zf keys. All pass.
+- **Lists scrolled both ways** (zt00-05: the rich party's full bag in Items, every spell in
+  Abilities; Down past the page, then Up past its top): 09:4812 and 09:47E2 (`listUp`).
+- **The yes / no code** (00:2F5C, code 3C): six texts use it (the ships' "Get on!", the Battle
+  Simulator, a button); two are entries CD / D0 of 0A:4004, so event 16 shows them (ze168,
+  ze169, answered Yes by the event plan's A).
+- **Scene effects** (event 1E, ze1e8-ze1ed: CA28 19-1D, 24): the spawn sequences, the flashes
+  (01:6125) and the tiles' fade (00:1329).
+- **Audited unreachable:** 01:40DD (CA16 = 20 after the menu, the step ahead): spell 20 has no
+  record (09:5D7F gives CE26 = FF, CE28 & 60 = 0: the buzzer) and 09:4D79 is its only way in.
+- **Falsified:** with events2 `pushObject`, `listUp`, `yesNo`, `flashFrames` or `tilesFade`
+  throwing, zp00 / 01, zt00 / 04, ze168 / 169, ze1ec and ze1ed fail.
+- **Still uncalled:** map 01's push out of the vehicle (01:6374: in a vehicle, flags E8 / CF clear,
+  C290 60-1AF and C2B0 200-37F; from sve / svf the vehicle reaches 133 / 179 cells and none of
+  that box, ffl3/scratch/regionbfs.py) and A on the return point by the field check (ship2), a jump landing on a block (jump.ts `pushObject`), the rare text codes of
+  textcodes / textmore (most only in texts a menu row never shows), the battle helpers of the
+  monster-record natives (banim, benemy, bnative), and a few one-line helpers.
+- **Text codes no text uses** (ffl3/data/text.json, 1639 scripts): 15 (00:27BF, the party restored:
+  `restore`, `healAll`, `wordDown`) and 1A appear nowhere; 06 / 08 / 0B / 0C on the menu side only
+  (`newline`, `scrollBox`, `waitA`, `pause`: the text side handles them in text.ts); 31 once, in
+  battle message 0A of 09:78FE ("Received").
+- **Tests:** 1801 FFL3 tests pass.

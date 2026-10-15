@@ -424,6 +424,11 @@ def fuzz_sweep(nb=72, nf=36):
             p += [(b + 0x51 + i, (1 << (j % 8)) if i == j // 8 else 0) for i in range(6)]
             p += [(b + 0x10, 0x05), (b + 0x11, 0x00)]
         out[f"zv{j:02d}"] = ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40," + fuzz_plan(5500 + j, 100, FUZZ_USE_KEYS), tuple(p))
+    # the lists scrolled (ztNN: the rich party's full bag in Items, 0-3, and every spell known in
+    # Abilities, 4-5; Down past the page, then Up past its top: 09:4812 / 09:47E2, then the keys)
+    for j in range(6):
+        head = "none:30,start:3,none:60," + ("a:3,none:60," if j < 4 else "down:3,none:20,a:3,none:40,a:3,none:40,")
+        out[f"zt{j:02d}"] = ("field_start", FIELD, head + "down:3,none:12," * 12 + "up:3,none:12," * 14 + fuzz_plan(5900 + j, 60, FUZZ_LIST_KEYS), rich_party(j))
     # a spell back to the bag with nine of its book there (zdNN: the field spells as zv, bag slot 0
     # nine of the book of the spell known, id 8 (J >> 3 ^ 1) + J & 7, the bit's byte C551 + (id >> 3
     # ^ 1)): the question 09:6FAE (0B:6DB3, 09:4921), A gives the spell up, B keeps it
@@ -532,6 +537,7 @@ FUZZ_COMMAND_KEYS = (("a", 6), ("b", 2), ("up", 2), ("down", 3), ("left", 1), ("
 
 
 FUZZ_USE_KEYS = (("a", 6), ("b", 1), ("up", 1), ("down", 2), ("right", 1))
+FUZZ_LIST_KEYS = (("up", 3), ("down", 3), ("a", 2), ("b", 1))
 FUZZ_JUMP_KEYS = (("b", 4), ("up", 3), ("down", 3), ("left", 3), ("right", 3), ("a", 1))
 FIELD_SPELLS = (0x21, 0x20, 0x25, 0x1B, 0x2C)
 FUZZ_THIRD_KEYS = (("a", 5), ("b", 1), ("up", 2), ("down", 2))
@@ -545,7 +551,11 @@ EVENT_PARAMS = (0x00, 0x01, 0x02, 0x03, 0x05, 0x12, 0x21, 0x47)
 # the map's objects again (7), a member's status scene (8), a return stack (A), back to C6E9 (B,
 # E), off the vehicle (C), the place kept (D)
 EVENT_PARAMS_OF = {0x11: tuple(range(6)), 0x12: tuple(range(0x12)),
-                   0x10: EVENT_PARAMS + (0x61, 0x71, 0x81, 0x82, 0x83, 0xA1, 0xA2, 0xB1, 0xC1, 0xD1, 0xE1, 0x31)}
+                   0x10: EVENT_PARAMS + (0x61, 0x71, 0x81, 0x82, 0x83, 0xA1, 0xA2, 0xB1, 0xC1, 0xD1, 0xE1, 0x31),
+                   # event 16: texts CD / D0 of 0A:4004, the ships' "Get on!" with code 3C (yes / no)
+                   0x16: EVENT_PARAMS + (0xCD, 0xD0),
+                   # event 1E: the other scene effects (spawns 19-1C, the flashes 1D, the tiles fade 24)
+                   0x1E: EVENT_PARAMS + (0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x24)}
 PLAN_EVENT = "none:10," + "a:3,none:37," * 40 + "b:3,none:40," * 3 + "none:200"
 
 FUZZ_SPELL_KEYS = (("a", 7), ("b", 1), ("up", 1), ("down", 3), ("left", 1), ("right", 3))
@@ -601,6 +611,17 @@ WAIT_POKES["zj00"] = tuple((("frame", f), TANK_MEMBERS) for f in range(600, 9000
 # once a Fireball has fallen, a Fireball's battle ability 7E (action 08 -> 0C:499B) copies a
 # monster of its group into the free slot and 02:4F3E (effect 13) shows it (frame 14295); the
 # members' HP 9999 every 1500 frames from 600 (ffl3/scratch/effscan3.py found it).
+# Pushable objects (zpNN: map 77 through door 34 from field_start, story flag 96 set so its two
+# blocks (kind 0B) are shown; the walk found by ffl3/scratch/pushbfs.py to the cell right of the
+# first block, then Left held: 8 tries (CA26) per push, 01:46C5; then more pushes or the zf keys)
+PUSH_WALK = ("none:200," + "up:17,none:12," * 5 + "left:17,none:12," * 3 + "down:17,none:12," * 2
+             + "left:17,none:12,down:17,none:12,left:200,none:30,")
+PUSH_POKES = ((0xC2F0, 0xCE), (0xCA28, 0x34), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0), (0xC772, 0x02, 0x02))
+SCENARIOS["zp00"] = ("field_start", FIELD, PUSH_WALK + "none:100")
+SCENARIOS["zp01"] = ("field_start", FIELD, PUSH_WALK + "up:120,none:20,right:200,none:20,down:200,none:20,left:200,none:100")
+SCENARIOS["zp02"] = ("field_start", FIELD, PUSH_WALK + fuzz_plan(8900, 120, FUZZ_FIELD_KEYS))
+for _n in ("zp00", "zp01", "zp02"):
+    POKES[_n] = PUSH_POKES
 SCENARIOS["zj01"] = ("field_start", FIELD, "none:10," + "a:3,none:37," * 425 + "none:300")
 POKES["zj01"] = rich_party(0x1D) + ((0xC2F0, 0xDB), (0xCA28, 0x1D), (0xCA56, 1), (0xCA52, 0), (0xC6E3, 0))
 WAIT_POKES["zj01"] = tuple((("frame", f), TANK_MEMBERS) for f in range(600, 17000, 1500))

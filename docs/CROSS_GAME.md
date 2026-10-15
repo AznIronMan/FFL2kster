@@ -162,3 +162,6 @@ both ROMs; differences are listed first because they are the valuable part.
   the start code from deep inside a frame: the port's reset needs the start code's first
   instruction as a sync point, so the LCD-off poll and the pending interrupts come at the
   recorded lines.
+- 1.60.0: to reach a map feature no story state stands near (Legend III's pushable blocks), a door
+  event poked from a known state plus a breadth-first walk over the leader's cells in the
+  emulator (save / load states) gives a plain input plan the recorder can replay.
