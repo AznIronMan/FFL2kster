@@ -409,7 +409,35 @@ def fuzz_sweep(nb=72, nf=36):
             p += [(b + 0x51 + i, (1 << (j % 8)) if i == j // 8 else 0) for i in range(6)]
             p += [(b + 0x10, 0x05), (b + 0x11, 0x00)]
         out[f"zv{j:02d}"] = ("field_start", FIELD, "none:30,start:3,none:60,down:3,none:20,a:3,none:40," + fuzz_plan(5500 + j, 100, FUZZ_USE_KEYS), tuple(p))
+    # the command sweep (zcNN): battles with Start in the input, which turns a member's command
+    # page (0B:6095): page 2's Defend (0B:64B4) and Cover (0B:64BE), undone by B (0B:5E93)
+    for j in range(24):
+        k = FUZZ_FORMATIONS[(j * 29 + 3) % len(FUZZ_FORMATIONS)]
+        out[f"zc{j:02d}"] = ("field_start", FIELD, fuzz_plan(6000 + j, 160, FUZZ_COMMAND_KEYS), rich_party(j) + battle + ((0xCA28, k),))
+    # the console sweep (zkNN): the ship's console (event 23, as ship1) with key item bit NN % 16
+    # (C6F8 bits 0-7, C6F9 bits 0-7) and story flags by NN // 16 (none; 05; 0E; 05, 0E and 56),
+    # input weighted to A and down: the items confirmed (01:642E: the stages, the wave flash, the
+    # lift-off 01:647B), Depart (01:63E6)
+    for j in range(64):
+        bit, fl = j % 16, j // 16
+        p = list(rich_party(j)) + [(0xC6F8 + bit // 8, 1 << (bit % 8), 1 << (bit % 8))]   # (address, value, mask)
+        p += [((0xC760, 0x04, 0x04),), ((0xC761, 0x02, 0x02),), ((0xC760, 0x04, 0x04), (0xC761, 0x02, 0x02), (0xC76A, 0x02, 0x02))][fl - 1] if fl else []
+        out[f"zk{j:02d}"] = ("field_start", FIELD, "none:100,down:64,none:60,up:24,none:80," + fuzz_plan(7000 + j, 60, FUZZ_CONSOLE_KEYS), tuple(p))
+    # the console's items chosen (znIRF): every key item (C6F8 / C6F9 = FF), console item I (0-3:
+    # Engine, Warp, Weapon, Option), sub-menu row R (0-2) confirmed with A, story flags F (0: as
+    # field_start; 1: 0E set; 2: 56 set): 01:642E's stages (flags 0E / 0F), the wave flash and the
+    # lift-off (CA50 2: 01:647B)
+    for i in range(4):
+        for r in range(3):
+            for fl in range(3):
+                p = list(rich_party(i)) + [(0xC6F8, 0xFF), (0xC6F9, 0xFF)] + [[], [(0xC761, 0x02, 0x02)], [(0xC76A, 0x02, 0x02)]][fl]
+                out[f"zn{i}{r}{fl}"] = ("field_start", FIELD, "none:100,down:64,none:60,up:24,none:80," + "down:3,none:20," * i + "a:3,none:80,"
+                                         + "down:3,none:20," * r + "a:3,none:60,a:3,none:600,a:3,none:200,b:3,none:100", tuple(p))
     return out
+
+
+FUZZ_CONSOLE_KEYS = (("a", 6), ("b", 1), ("up", 2), ("down", 3))
+FUZZ_COMMAND_KEYS = (("a", 6), ("b", 2), ("up", 2), ("down", 3), ("left", 1), ("right", 2), ("start", 2))
 
 
 FUZZ_USE_KEYS = (("a", 6), ("b", 1), ("up", 1), ("down", 2), ("right", 1))

@@ -669,3 +669,6 @@ Decisions and assumptions:
   likely but stay real: long battles (every entity's HP 9999 from a frame wait, WAIT_POKES) and
   real weapons in the weapon slot. States the game cannot reach (spells or armor as weapons) are
   not kept as traces, even when they reach more code.
+- 1.56.0: a frame that differs only because a timing model has no finer record to follow (bytes spread
+  evenly between two recorded times) is pinned in the test with its pixel count and documented;
+  any other difference is fixed or the trace is not kept.

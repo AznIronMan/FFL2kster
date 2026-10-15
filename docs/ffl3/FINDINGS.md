@@ -1112,3 +1112,33 @@ removed; the work's di ignored, a code-run work keeping the interrupts, the obje
   frame 4058, without 01:7023 zv45, without the paced rows or the slack zucf, without
   the paced text line the seven shop traces (zs00, zs06, zs09, zs34, zs42, zs44, zs45).
 - **Tests:** 1159 FFL3 tests pass. **Coverage:** 1321 of 1468 functions called.
+
+## 2026-10-15 — Command page 2, the ship's console (1.56.0)
+
+- **Defend and Cover** (0B:64B4 / 0B:64BE): reached from a member's second command page, which
+  Start turns (0B:6095: CDD8 = 4). The battle sweeps never pressed Start; zcNN (24) do, with the
+  zb keys. All pass after one fix: **sync point 02:40A7** (the figures trading places when a
+  member acts on a member, 02:403D): the original starts the swap after the action's CPU time,
+  a frame after the port (zc22 frame 4686, 302 px). Falsified: without it zc22 fails.
+- **The ship's console** (event 23): zkNN (64) open it with one key item bit (C6F8 / C6F9) and
+  story flags 05 / 0E / 56 (masked pokes) and random input; znIRF (36) choose console item I and
+  sub-menu row R with every key item and flags F. Row 2 of item 2 (CA50 2, 01:647B) runs the
+  lift-off (0F:7F08 scene, 0F:7F5E blinks, 0F:7A1B key items given up, door 2F, text 0A:6D37):
+  zn220-zn222 pass.
+- **Pinned:** zk43 frame 2211, 15 px: a jump frame's map animation (strip scroll, 01:54A0) writes
+  its tile bytes over the lines up to 01:49D5; `vramUntil` spreads the changed bytes evenly, and
+  one tile's rows 39-42 show them a line or two off the original's. The traces record no time per
+  byte, so the frame is pinned with its size (as zf13).
+- **Effects 5 and 8, where they could come from:** 09:5466's records with C9BD bit 7 clear show
+  the effect itself: 5 in table 2 at 5E / 72 (DE / F2) and in table 0 at 2F; 8 only in table 0 at
+  8E / 93 (armor) and EB (no item). With bit 7 set, an enemy's action data (02:53EE) names effects
+  too: action 6A (C9BD EA, table 2 at 44 / C4) shows 5 then 2, action 6D (named by no record)
+  8. So effect 5 belongs to the battle abilities 72 (Hydra, Medusa, Lamia, Naga, Scylla, Echidna,
+  Remora, Garuda, Dwelg), 5E (Mushroom, Thoth, Horus) and 44 (Monitor, Searcher, Alert, IronLady,
+  Venus); effect 8 is unreachable in play. Scans of their formations (31, 34, 39, 6B; 5B, 5C, 5E,
+  61, 4C, 4D, 27, 6F; 150,000-400,000 frames each, effscan2.py) saw no battle ability: with the
+  starting party those battles end early.
+- **A lost battle** (the "continue" question 0F:7F8F) is not reached from field_start: with every
+  member at HP 1 and the enemies' HP 9999, two members fall but the battle script ends the
+  battle without CEDA = FF (the traces were kept aside, ffl3/scratch/old_zl2).
+- **Tests:** 1286 FFL3 tests pass.

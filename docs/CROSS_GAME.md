@@ -150,3 +150,6 @@ both ROMs; differences are listed first because they are the valuable part.
   frame with nothing in it; a game that blinks the LCD in its vblank (Legend III's effect 04)
   needs the port to count that frame too. Legend I's wave and Legend III's menus both write VRAM
   or registers over lines the CPU time decides; the traces' records of those lines are the way.
+- 1.56.0: a timing model that spreads a routine's VRAM bytes evenly (Legend III's `vramUntil`) can
+  land a byte a line or two off; where the traces record no per-byte time, such a frame is pinned
+  with its size rather than special-cased.

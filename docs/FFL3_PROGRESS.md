@@ -106,3 +106,4 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 - 2026-10-13 (1.23.0): M2b — field and menu states; armor through the Equip menu; stat names, MP, EXP; tests/ffl3 30 passed (7 emulator).
 - 2026-10-15 (1.54.0): event sweep 176/176, spells 48/48, battle items 35/35; text end 00:1DFA after a work on the next line (zm31); 1272 of 1464 functions called.
 - 2026-10-15 (1.55.0): enemy abilities zx 3, weapons zw00, field items zu 64, field spells zv 48; LCD restart frame, sync points 02:43C8 and 01:7023, paced menu rows and text lines; 1321 of 1468 functions called.
+- 2026-10-15 (1.56.0): command page 2 zc 24 (Defend, Cover), ship console zk 64 and zn 36 (the lift-off); sync point 02:40A7; zk43 frame 2211 pinned (15 px); 1286 tests pass.

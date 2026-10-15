@@ -245,7 +245,7 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 
 | 00:0851 / 00:01E7 | Select: C6F3 turned left 2 (the next member leads), sound 3C; 00:01E7 the leader redrawn (00:04F7 a = 0B in bank 0B, 00:04B1, 01:5272, a frame) | verified (select1) |
 | 00:0861 | B in the field: by C6E3 (0 nothing, 1 01:4311, 2 01:4272, 3-8 01:4250 off the vehicle) | verified (ship3, sweep) |
-| 01:63E6 / 01:642E | the console's Depart (C6E9 -> C6E4, C6E3 by flags 3A / 39 and C6FA, 00:027D) / an item chosen by CA50 (flags 0E / 0F, 0F:7DF2; 2: 01:647B the lift-off) | verified (ship3, ship4; CA50 2 unverified) |
+| 01:63E6 / 01:642E | the console's Depart (C6E9 -> C6E4, C6E3 by flags 3A / 39 and C6FA, 00:027D) / an item chosen by CA50 (flags 0E / 0F, 0F:7DF2; 2: 01:647B the lift-off) | verified (ship3, ship4; CA50 2 verified by zn220-zn222: the lift-off scene 0F:7F08, blinks 0F:7F5E, key items given up 0F:7A1B) |
 | 00:025C / 00:3D38 | after the title with a saved game (flag 31): the map load 00:027D, IE STAT on | verified (cont1) |
 | 01:5F9D / 00:06D2 | the map load's fade in for CA6B 2 / the follower object | ported, unverified |
 
@@ -329,3 +329,4 @@ banks ≥ 1. Status words as in docs/ffl1/ROM_MAP.md: **verified** (code + emula
 | 00:1B50 | the event walk's handlers back (sync point) | verified (opening2) |
 | 01:5F12 | the battle wipe after its own sound tick (sync point: a tick past line 0 costs a frame) | verified (ending1) |
 | 0C:7E42 / 7E53 | the last boss C1's scene states (C9DA): HP reset to 60000; from round 2 D897 vs C920; 0C:7EB3 the change into Xagor (CC59 C2, CC5C E3, 0C:6B4F) | verified (xagor1) |
+| 02:40A7 | figures DE01 and DE10 trade places (a member's action on a member): starts after the action's CPU time, sync point (zc22) | verified (zc) |

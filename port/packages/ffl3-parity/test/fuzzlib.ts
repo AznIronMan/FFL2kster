@@ -11,7 +11,9 @@ import { haveRom, haveTrace, replay, summarize, summarizeWaits, TRACES } from ".
 
 /** Known residual frames, exactly as they stand (any change fails): zf13 frame 2834, 59 pixels of
  *  a menu text row drawn while a frame work crossed the vblank (docs/ffl3/FINDINGS.md 1.53.0). */
-const RESIDUAL: Record<string, [number, number][]> = { zf13: [[2834, 59]] };
+// (zk43: the map animation's strip bytes of a jump frame, spread evenly over the lines to 01:49D5
+// by `vramUntil`, land a line or two off the original's on one tile's rows 39-42)
+const RESIDUAL: Record<string, [number, number][]> = { zf13: [[2834, 59]], zk43: [[2211, 15]] };
 
 export function inputSweep(kind: string, label: string, suffix = "[0-9]{2}"): void {
   const names = existsSync(TRACES) ? readdirSync(TRACES).filter((n) => new RegExp(`^z${kind}${suffix}$`).test(n)).sort() : [];

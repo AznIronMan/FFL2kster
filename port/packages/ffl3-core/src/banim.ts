@@ -1491,6 +1491,7 @@ function* targetHop(g: Game, de: number): Co {
  *  c, 3 frames, DE01 to x + c and DE10 to x, 3 frames twice (02:40D6 called, then fallen into). */
 function* figureSwap(g: Game): Co {
   const m = g.m;
+  yield* g.point(0x0240a7); // (after the action's CPU time: the first step a frame later, zc22)
   const e = m.rd(0xde10);
   const d = m.rd(0xde01);
   const c = d < e ? 0xf0 : 0x10;

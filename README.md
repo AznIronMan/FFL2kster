@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.55.0`
+Version: `1.56.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
 (FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
 (docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers on hold).** The port plays from the title through
@@ -100,6 +100,12 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.56.0` — Legend III: recordings of the battle's second command page (Defend and Cover, reached
+  with Start: 24) and of the ship's console with key items and story flags (64 with random
+  input, 36 with each item and row chosen, the lift-off scene among them). They found one fix:
+  when a member acts on another member, the two figures now trade places after the action's
+  setup time, as in the original. One frame is pinned with its size (zk43, 15 pixels: the map
+  animation's bytes during a jump land a line or two off). Legend I: no change.
 - `1.55.0` — Legend III: recordings for the battle effects only enemy abilities and some weapons
   show (long battles where every side's HP is set to 9999 partway through, found by scanning
   every formation and every item), and for every field item and spell used from the menu (112).

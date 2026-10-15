@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ffl2kster"
-version = "1.55.0"
+version = "1.56.0"
 description = "FFL2kster, the Legend II toolkit of FFTOL (Tower of Legends): local editor and patch compiler for Final Fantasy Legend II (USA) on Game Boy"
 requires-python = ">=3.10"
 dependencies = []

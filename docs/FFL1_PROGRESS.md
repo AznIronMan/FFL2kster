@@ -455,3 +455,6 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 ### 2026-10-15 — Reflect (1.55.0)
 - The reaction sweep's first six traces with all stats 1: the reflect (06:460E) recorded; 739 of 744
   functions called.
+
+### 2026-10-15 — No Legend I change (1.56.0)
+- Version bump only (Legend III sweeps).
