@@ -1,7 +1,7 @@
 # Installing and running Tower of Legends
 
 Tower of Legends plays **Legend I, II and III** (Game Boy, USA). Every build ships engine code
-only: on first start, choose your own ROM file; the game data is built on that computer. The
+only: on first start, drop your own ROM file onto the window (or click to choose it); the game data is built on that computer. The
 other two games are one button away on each game's summary screen (import their ROMs the same
 way). Saves stay on the computer; Options → Saves exports or imports `legend1.sav`,
 `legend2.sav` or `legend3.sav` (the cartridge's battery RAM: the same file works on every target

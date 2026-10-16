@@ -51,6 +51,9 @@ export class Player1 {
     ui.canvas.height = SCREEN_H;
     ui.canvas.style.setProperty("--ar", String(SCREEN_W / SCREEN_H));
     this.img = this.ctx.createImageData(SCREEN_W, SCREEN_H);
+    // The player is made in the Play click (a user gesture): start the sound now, so the title
+    // music is heard; where the browser still holds it back, the next key or tap starts it.
+    void this.audio.start();
     const gesture = () => void this.audio.start();
     window.addEventListener("keydown", gesture, { once: true });
     window.addEventListener("pointerdown", gesture, { once: true });

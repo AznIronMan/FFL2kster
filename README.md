@@ -6,7 +6,7 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.61.0`
+Version: `1.61.1`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
 (FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
 (docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers: docs/INSTALL.md).** The port plays from the title through
@@ -100,6 +100,9 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.61.1` — Fixes from the first desktop test: a ROM can be dragged onto the app window
+  (anywhere on the import page; the macOS app ignored drops), and the sound starts with the Play
+  click, so each game's title music is heard (it waited for the first key before).
 - `1.61.0` — Installers for Windows, macOS and Linux, now for all three Legends: a setup
   program, an MSI and a no-install portable `.exe` for Windows; a disk image and a zipped app for
   macOS (Apple silicon and Intel); an AppImage, a `.deb` and an `.rpm` for Linux. Plain file

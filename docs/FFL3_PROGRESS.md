@@ -113,3 +113,4 @@ passed (130 ROM-free + 29 emulator); FFL2 guard clean.
 - 2026-10-15 (1.59.0): the reset (point 00:0200), spell books (point 00:3054; zu20/22/2e pinned), spells to the bag zd 24, targets zg 24, Continue zo 9, forge and mix zr 32, field spells and jumps from saves zyTs 50 / zyTj 40 (point 01:5FFB), event 10 subs, long battles zj00 (Xagor shatters) and zj01 (effect 13); 1388 of 1473 functions; 1782 tests pass.
 - 2026-10-15 (1.60.0): pushed blocks zp 3 (door 34, BFS walk), scrolled lists zt 6, yes / no (ze168-169), scene effects ze1e8-1ed; zn / zk coverage (the lift-off called); spell 20's step ahead audited unreachable; 1801 tests pass.
 - 2026-10-15 (1.61.0): desktop installers for Windows, macOS, Linux with all three games (docs/INSTALL.md).
+- 2026-10-16 (1.61.1): drag and drop of the ROM in the desktop app; title music heard from the start (sound starts with Play).

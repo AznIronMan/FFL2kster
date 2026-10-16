@@ -696,3 +696,8 @@ Decisions and assumptions:
   secrets for a Developer ID still take over when present.
 - The repository is public: CI artifacts and a published release would be public. Release
   drafts stay private until the owner publishes them; the builds hold no game content either way.
+- 1.61.1 (the owner's first desktop test): the Tauri window takes file drops itself unless
+  `dragDropEnabled` is false, so the page never saw them on macOS: now false, and the import
+  page takes a ROM dropped anywhere on it. The players made their sound graph at the first key
+  or tap after Play, so the title music played to no one: the sound now starts in the Play click
+  (a user gesture), the next key or tap still resuming it where a browser holds it back.

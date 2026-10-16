@@ -476,3 +476,6 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 
 ### 2026-10-15 — Installers (1.61.0)
 - The desktop installers (Tauri) carry Legend I too; see docs/INSTALL.md.
+
+### 2026-10-16 — App fixes (1.61.1)
+- Sound starts with Play (the title music was silent until the first key); ROM drag and drop in the desktop app.

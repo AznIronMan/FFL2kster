@@ -73,10 +73,14 @@ function showImporter(message?: string) {
     const f = await pickFile(["gb"]);
     if (f) void handle(f.bytes, status);
   };
-  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
-  drop.ondragleave = () => drop.classList.remove("over");
-  drop.ondrop = async (e) => {
+  // A ROM dropped anywhere on the page counts (not only on the box). The desktop shell lets the
+  // page take file drops (tauri.conf.json dragDropEnabled false).
+  const files = (e: DragEvent) => drop.isConnected && !!e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files");
+  document.body.ondragover = (e) => { if (!files(e)) return; e.preventDefault(); drop.classList.add("over"); };
+  document.body.ondragleave = (e) => { if (!e.relatedTarget) drop.classList.remove("over"); };
+  document.body.ondrop = async (e) => {
     e.preventDefault();
+    if (!drop.isConnected) return;
     drop.classList.remove("over");
     const f = e.dataTransfer?.files[0];
     if (f) void handle(new Uint8Array(await f.arrayBuffer()), status);
@@ -274,6 +278,10 @@ function showPlayer(pkg: DataPackage) {
 
 // The desktop window takes the title of the game being played.
 followTitle();
+
+// A file dropped outside the importer must not replace the app with the file (browsers open it).
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
 
 /** Installable web app: the service worker caches this app's own code for offline play (never
  *  game data, which stays in IndexedDB). Only in browsers, over https or on localhost. */
