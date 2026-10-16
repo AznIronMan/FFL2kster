@@ -8,7 +8,7 @@ import { aboutPanel } from "./about";
 import { modsPanel } from "./mods";
 import { Player } from "./player";
 import { PACKAGE_FORMAT } from "@ffl2k/importer";
-import { pickFile, platform, platformName, toggleFullscreen } from "./platform";
+import { followTitle, pickFile, platform, platformName, toggleFullscreen } from "./platform";
 import { exportSave, importSave, SAV_NAME } from "./saves";
 import { TouchPad, touchByDefault } from "./touch";
 import { optionsPanel, applyDisplay } from "./options";
@@ -271,6 +271,9 @@ function showPlayer(pkg: DataPackage) {
   if (new URLSearchParams(location.search).has("debug")) (globalThis as { fftolPlayer?: Player }).fftolPlayer = player;
   void player.start();
 }
+
+// The desktop window takes the title of the game being played.
+followTitle();
 
 /** Installable web app: the service worker caches this app's own code for offline play (never
  *  game data, which stays in IndexedDB). Only in browsers, over https or on localhost. */

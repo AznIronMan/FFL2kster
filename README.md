@@ -6,10 +6,10 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.60.0`
+Version: `1.61.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
 (FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
-(docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers on hold).** The port plays from the title through
+(docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers: docs/INSTALL.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -100,6 +100,11 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.61.0` — Installers for Windows, macOS and Linux, now for all three Legends: a setup
+  program, an MSI and a no-install portable `.exe` for Windows; a disk image and a zipped app for
+  macOS (Apple silicon and Intel); an AppImage, a `.deb` and an `.rpm` for Linux. Plain file
+  names, the app's version taken from the repository's, the window titled with the game being
+  played; a version tag drafts a release with them. Player notes: docs/INSTALL.md.
 - `1.60.0` — Legend III: more of the game recorded and matching: pushing blocks in a dungeon,
   scrolling the item and spell lists both ways, the yes / no question in dialogs (the ships'
   "Get on!"), and the remaining map scene effects; the ship's lift-off is confirmed covered.

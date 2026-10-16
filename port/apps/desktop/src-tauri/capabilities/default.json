@@ -1,12 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window: native open/save dialogs and reading/writing the files the player chose (ROM import, save export/import), fullscreen.",
-  "windows": ["main"],
+  "description": "The main window: native open/save dialogs and reading/writing the files the player chose (ROM import, save export/import), fullscreen, the title of the game played.",
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-set-fullscreen",
     "core:window:allow-is-fullscreen",
+    "core:window:allow-set-title",
     "dialog:allow-open",
     "dialog:allow-save",
     "fs:allow-read-file",

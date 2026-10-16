@@ -6,21 +6,25 @@ direction note C).
 
 ## Targets and how to install a build
 
-Builds come from the `Platforms` workflow (GitHub Actions → a run → Artifacts).
+Builds come from the `Platforms` workflow (GitHub Actions → a run → Artifacts); a `v*` tag also
+drafts a release with them (release.yml). Desktop files get plain names
+(`port/scripts/stage-installers.sh`), and the shells take the repository version from
+pyproject.toml (`port/scripts/sync-version.mjs`; CI fails when a shell is behind). The desktop
+window takes the title of the game being played. Install notes for players: docs/INSTALL.md.
 
 | Target | Artifact | Install | Status |
 |---|---|---|---|
 | Web / PWA | `fftol-web-pwa` (static files) | host anywhere static (code only); browsers offer "Install app" | built in CI; offline shell verified in Chromium |
-| Windows | `fftol-desktop-windows` (`.msi`, setup `.exe`) | run the installer; unsigned builds show a SmartScreen prompt ("More info → Run anyway") | built in CI |
-| macOS | `fftol-desktop-macos` (`.dmg`, universal) | drag to Applications; unsigned builds: right-click → Open the first time (or sign and notarize, below) | built in CI |
-| Linux | `fftol-desktop-linux` (`.deb`, `.rpm`, `.AppImage`) | install the package, or `chmod +x` the AppImage | built in CI |
+| Windows | `fftol-desktop-windows`: `TowerOfLegends-<v>-windows-setup.exe`, `-windows.msi`, `-windows-portable.exe` | run the installer, or the portable `.exe` as it is; unsigned builds show a SmartScreen prompt ("More info → Run anyway") | built in CI |
+| macOS | `fftol-desktop-macos`: `TowerOfLegends-<v>-macos.dmg` (universal), `-macos-app.zip` | drag to Applications (or unzip anywhere); ad-hoc signed, not notarized: right-click → Open the first time (or sign and notarize, below) | built in CI |
+| Linux | `fftol-desktop-linux`: `TowerOfLegends-<v>-linux-x86_64.AppImage`, `-linux-amd64.deb`, `-linux-x86_64.rpm` | `chmod +x` the AppImage and run it, or install the package | built in CI |
 | Android | `fftol-android-apk` (debug-signed `.apk`) | allow installs from the file manager/browser, open the APK (or `adb install`) | built in CI and locally |
 | iOS | `fftol-ios` (simulator app zip, unsigned device `.ipa`) | simulator: drag the app onto a booted simulator; device: needs signing (below) | built in CI |
 
 ## Saves are portable
 
-The game's battery RAM is exported and imported as `legend2.sav`: 8 KiB, the raw cartridge RAM,
-the same file on every target and the format Game Boy emulators use for this cartridge. Export
+Each game's battery RAM is exported and imported as `legend1.sav`, `legend2.sav` or
+`legend3.sav`: the raw cartridge RAM, the same file on every target and the format Game Boy emulators use for this cartridge. Export
 uses a download (browsers), a save dialog (desktop) or the share sheet (phones); import uses the
 system file picker. Verified: a `.sav` taken from the emulator (PyBoy) imports in the web build and
 Continue loads it (slot "Save1", party and map as saved).

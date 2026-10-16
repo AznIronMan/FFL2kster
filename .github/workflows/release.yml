@@ -1,9 +1,11 @@
 name: Release (private draft)
 
 # A version tag (v1.2.3) builds every target (platforms.yml) and attaches the web, Windows,
-# macOS and Linux builds to a DRAFT GitHub release. Drafts are visible only to people with write
-# access to the repository; nothing is published unless the owner publishes the draft.
-# Android and iOS are built by platforms.yml too but are deferred targets and not attached.
+# macOS and Linux builds (under plain names, port/scripts/stage-installers.sh) to a DRAFT GitHub
+# release. Drafts are visible only to people with write access to the repository; nothing is
+# published unless the owner publishes the draft. Android and iOS are built by platforms.yml
+# too but are deferred targets and not attached.
+
 on:
   push:
     tags: ["v*"]
@@ -25,8 +27,8 @@ jobs:
       - name: Collect files
         run: |
           mkdir -p out
-          (cd artifacts/fftol-web-pwa && zip -qr "../../out/TowerOfLegends-${GITHUB_REF_NAME}-web.zip" .)
-          find artifacts/fftol-desktop-* -type f \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -exec cp {} out/ \;
+          (cd artifacts/fftol-web-pwa && zip -qr "../../out/TowerOfLegends-${GITHUB_REF_NAME#v}-web.zip" .)
+          cp artifacts/fftol-desktop-*/* out/
           ls -la out
       - name: Draft release
         env:
@@ -34,4 +36,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --draft \
             --title "Tower of Legends $GITHUB_REF_NAME (private build)" \
-            --notes "Private build. Ships no game content: import your own ROM on first start. Install notes: docs/INSTALL.md. Targets: web (static files), Windows (.msi / setup .exe), macOS (.dmg), Linux (.deb / .rpm / .AppImage). Unsigned builds: see docs/INSTALL.md for the first-start prompts."
+            --notes "Private build of Tower of Legends: Legend I, II and III. Ships no game content: import your own ROMs on first start. Pick one file for your system: Windows: -windows-setup.exe (installer) or -windows-portable.exe (no install); macOS: -macos.dmg (drag to Applications) or -macos-app.zip (unzip and run); Linux: -linux-x86_64.AppImage (chmod +x and run), -linux-amd64.deb or -linux-x86_64.rpm; any browser: -web.zip. The builds are not code-signed: see docs/INSTALL.md for the first-start prompts."

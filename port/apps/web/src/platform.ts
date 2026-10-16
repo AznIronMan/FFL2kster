@@ -11,7 +11,7 @@ interface TauriGlobal {
     open(o: { multiple?: boolean; filters?: { name: string; extensions: string[] }[] }): Promise<string | string[] | null>;
   };
   fs: { writeFile(path: string, data: Uint8Array): Promise<void>; readFile(path: string): Promise<Uint8Array> };
-  window: { getCurrentWindow(): { isFullscreen(): Promise<boolean>; setFullscreen(v: boolean): Promise<void> } };
+  window: { getCurrentWindow(): { isFullscreen(): Promise<boolean>; setFullscreen(v: boolean): Promise<void>; setTitle(t: string): Promise<void> } };
 }
 
 interface CapacitorGlobal {
@@ -97,4 +97,19 @@ export async function toggleFullscreen(): Promise<void> {
   }
   if (document.fullscreenElement) await document.exitFullscreen();
   else await document.documentElement.requestFullscreen?.().catch(() => {});
+}
+
+/** The desktop window's title follows the page's (each game sets its own: "Tower of Legends —
+ *  Legend III"); browsers and the phone shells show the page title themselves. */
+export function followTitle(): void {
+  if (platform() !== "tauri") return;
+  const win = w.__TAURI__!.window.getCurrentWindow();
+  let last = "";
+  const sync = () => {
+    if (document.title === last) return;
+    last = document.title;
+    win.setTitle(last).catch(() => {});
+  };
+  sync();
+  new MutationObserver(sync).observe(document.head, { subtree: true, childList: true, characterData: true });
 }

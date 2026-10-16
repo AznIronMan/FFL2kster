@@ -681,3 +681,18 @@ Decisions and assumptions:
   code 43 figure placement and the STAT on line 3) are modelled at the routine's exit when that
   matches most traces; the frames where the original splits them between entries are pinned with
   their pixel counts (zu20, zu22, zu2e), as 1.56.0's rule.
+
+## 2026-10-15 — Installers released from hold (1.61.0)
+
+- The owner asked for the desktop installers. The Tauri shell (P4) now names Legend I, II and III,
+  takes the version from pyproject.toml (`port/scripts/sync-version.mjs`, checked in CI) and
+  titles its window with the game being played.
+- Desktop builds keep plain names (`TowerOfLegends-<version>-<system>...`,
+  `port/scripts/stage-installers.sh`). Extra "just run" forms: the Windows app `.exe` itself
+  (portable; its pages are built in, WebView2 comes with Windows 10/11) and the macOS `.app`
+  zipped; the Linux AppImage already is one.
+- Unsigned macOS builds are ad-hoc signed (`bundle.macOS.signingIdentity "-"`), so Apple
+  silicon starts them after the one-time "Open" approval instead of calling them damaged; the CI
+  secrets for a Developer ID still take over when present.
+- The repository is public: CI artifacts and a published release would be public. Release
+  drafts stay private until the owner publishes them; the builds hold no game content either way.
