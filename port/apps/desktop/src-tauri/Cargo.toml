@@ -1,6 +1,6 @@
 [package]
 name = "fftol"
-version = "1.61.1"
+version = "1.61.2"
 description = "Tower of Legends (FFTOL) desktop shell. Ships no game content."
 edition = "2021"
 publish = false

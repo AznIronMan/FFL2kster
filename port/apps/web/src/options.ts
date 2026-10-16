@@ -1,5 +1,6 @@
 /** The Options panel (P5 extras): game options (off = the original), speed, display and
  *  accessibility, and control bindings. Changes apply at once and are kept on this device. */
+import { currentAudio } from "./audio";
 import { settings, update, resetSettings, onSettings, layoutBindings, PALETTES, BUTTON_NAMES, DEFAULT_KEYS, DEFAULT_PAD, type Settings, type PaletteId } from "./settings";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, ...kids: (Node | string)[]) {
@@ -93,6 +94,23 @@ function bindings(): HTMLElement {
   return el("div", {}, el("label", {}, "A/B layout", layout), grid, el("p", { class: "muted" }, "Hold Tab or the right shoulder button to fast-forward. The left stick always moves."), reset);
 }
 
+/** A live readout of the sound delay while a game plays (our buffer, the system's output). */
+function soundDelay(): HTMLElement {
+  const line = el("div", { class: "hint" }, "");
+  const show = () => {
+    const a = currentAudio();
+    if (!line.isConnected && line.textContent) return;
+    if (!a) { line.textContent = "Sound delay: shown while a game plays."; }
+    else {
+      const d = a.delayMs();
+      line.textContent = `Sound delay now: ${d.buffer + d.device} ms (buffer ${d.buffer} ms, system output ${d.device} ms). Wireless headphones add their own delay.`;
+    }
+    setTimeout(show, 500);
+  };
+  show();
+  return line;
+}
+
 export function optionsPanel(onClose?: () => void): HTMLElement {
   const speeds: [string, string][] = [["1", "Normal"], ["2", "×2"], ["3", "×3"], ["4", "×4"]];
   const reset = el("button", {}, "Reset all options") as HTMLButtonElement;
@@ -114,6 +132,7 @@ export function optionsPanel(onClose?: () => void): HTMLElement {
     el("h3", {}, "Sound"),
     ...check("muted", "Mute", "Also on the play screen (Sound button) and the M key."),
     ...choose("audioLatency", "Audio latency", [["low", "Low (fast machines)"], ["normal", "Normal"], ["safe", "Safe (if sound crackles)"]]),
+    soundDelay(),
     el("h3", {}, "Controls"),
     bindings(),
     el("div", { class: "row" }, reset, ...(onClose ? [Object.assign(el("button", { class: "primary" }, "Close"), { onclick: onClose })] : [])),

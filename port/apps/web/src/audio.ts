@@ -27,11 +27,14 @@ class FflOut extends AudioWorkletProcessor {
       if (e.data === "clear") { this.q = []; this.off = 0; this.n = 0; this.started = false; return; }
       if (e.data && e.data.latency) { this.target = Math.round(e.data.latency[0] * sampleRate); this.max = Math.round(e.data.latency[1] * sampleRate); return; }
       this.q.push(e.data); this.n += e.data.length / 2;
-      while (this.n > this.max && this.q.length > 1) { const d = this.q.shift(); this.n -= (d.length - this.off) / 2; this.off = 0; }
+      // past the most: back down to the target (whole chunks, oldest first), so a backlog never stays
+      if (this.n > this.max) while (this.n > this.target && this.q.length > 1) { const d = this.q.shift(); this.n -= (d.length - this.off) / 2; this.off = 0; }
     };
+    this.t = 0;
   }
   process(_in, outs) {
     const l = outs[0][0], r = outs[0][1] || outs[0][0];
+    if ((this.t += l.length) >= sampleRate / 4) { this.t = 0; this.port.postMessage({ level: this.n / sampleRate }); }
     if (!this.started && this.n >= this.target) this.started = true;
     for (let i = 0; i < l.length; i++) {
       if (!this.started || !this.q.length) { l[i] = 0; r[i] = 0; continue; }
@@ -46,6 +49,10 @@ class FflOut extends AudioWorkletProcessor {
 }
 registerProcessor("ffl-out", FflOut);
 `;
+
+/** The sound output playing now (for the Options readout). */
+let current: AudioOut | null = null;
+export const currentAudio = (): AudioOut | null => current;
 
 export class AudioOut {
   readonly apu = new Apu({ sampleRate: 48000, gain: 0.6 });
@@ -114,7 +121,9 @@ export class AudioOut {
       await ctx.audioWorklet.addModule(url);
       URL.revokeObjectURL(url);
       this.node = new AudioWorkletNode(ctx, "ffl-out", { numberOfInputs: 0, outputChannelCount: [2] });
+      this.node.port.onmessage = (e) => { if (e.data && typeof e.data.level === "number") this.level = e.data.level; };
       this.node.connect(ctx.destination);
+      current = this;
       this.node.port.postMessage({ latency: this.latency });
       await ctx.resume();
     } catch (e) {
@@ -150,6 +159,16 @@ export class AudioOut {
     if (this.ctx && this.ctx.state !== "running" && !this.paused) void this.ctx.resume().catch(() => {});
   }
   private paused = false;
+
+  /** Seconds buffered in the audio thread (reported 4 times a second). */
+  private level = 0;
+
+  /** The delay from the game making a sound to the speaker, in ms: our buffer plus what the
+   *  system reports for its own output (the latter may be 0 where a browser does not say). */
+  delayMs(): { buffer: number; device: number } {
+    const c = this.ctx as (AudioContext & { outputLatency?: number }) | null;
+    return { buffer: Math.round(this.level * 1000), device: Math.round(((c?.baseLatency ?? 0) + (c?.outputLatency ?? 0)) * 1000) };
+  }
 
   setMuted(on: boolean): void {
     if (on && !this.muted) this.node?.port.postMessage("clear");

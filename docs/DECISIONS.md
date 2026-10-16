@@ -701,3 +701,7 @@ Decisions and assumptions:
   page takes a ROM dropped anywhere on it. The players made their sound graph at the first key
   or tap after Play, so the title music played to no one: the sound now starts in the Play click
   (a user gesture), the next key or tap still resuming it where a browser holds it back.
+- 1.61.2: the owner heard sound 0.5-1 s late. The audio thread trimmed a backlog only to its
+  most (0.2 s at "normal"), so a clock mismatch held the delay there; it now trims back to the
+  target (0.06 s). The rest of a long delay comes after the app (the system's output, wireless
+  headphones): Options → Sound shows both parts live so a report can say which.

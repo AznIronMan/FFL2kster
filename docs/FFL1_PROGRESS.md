@@ -479,3 +479,6 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 
 ### 2026-10-16 — App fixes (1.61.1)
 - Sound starts with Play (the title music was silent until the first key); ROM drag and drop in the desktop app.
+
+### 2026-10-16 — Sound delay (1.61.2)
+- App only: the sound buffer drops back to its target; Options shows the delay.
