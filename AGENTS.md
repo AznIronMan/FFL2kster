@@ -7,8 +7,8 @@ working on FFTOL (Tower of Legends) and its toolkits.
 
 - Project name: FFTOL (full title: Tower of Legends, short TOL; logo mark F²)
 - Toolkits: FFL2kster (Legend II, exists: editor, patch compiler, data package,
-  web port); FFL1kster (Legend I, in progress: `src/ffl1kster`, `ffl1/`, docs/FFL1_PROGRESS.md);
-  FFL3kster (Legend III, in progress: `src/ffl3kster`, `ffl3/`, docs/FFL3_PROGRESS.md); TOLkster (future master engine,
+  web port); FFL1kster (Legend I, port complete 1.62.0: `src/ffl1kster`, `ffl1/`, docs/FFL1_PROGRESS.md);
+  FFL3kster (Legend III, port complete 1.62.0: `src/ffl3kster`, `ffl3/`, docs/FFL3_PROGRESS.md); TOLkster (future master engine,
   reserved — see docs/END_GOAL.md)
 - Description: Private preservation and modding project for the Game Boy
   *Final Fantasy Legend* trilogy; currently the Legend II toolkit and port
@@ -17,7 +17,7 @@ working on FFTOL (Tower of Legends) and its toolkits.
 - Company: Clark & Burke LLC
 - Website: https://www.cnb.llc
 - Developer email: streetkings@cnb.llc
-- Current version: `1.61.2`
+- Current version: `1.62.0`
 
 ## Required Workflow
 

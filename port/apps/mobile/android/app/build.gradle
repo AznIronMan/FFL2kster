@@ -7,8 +7,8 @@ android {
         applicationId "llc.cnb.fftol"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16102
-        versionName "1.61.2"
+        versionCode 16200
+        versionName "1.62.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

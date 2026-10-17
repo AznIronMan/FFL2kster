@@ -497,3 +497,45 @@ battle continues. Screenshots in `ffl1/build/test-artifacts/`.
   the first six reaction traces now give the members all stats 1 (Defence 1 alone was not
   enough). Coverage 739 of 744 functions: what is left is rowMove (no text uses 1C-1F) and the
   classes and setters only the app or a missing hook use.
+
+## 2026-10-16 — The not-ported branches audited; play from power-on (1.62.0)
+
+Every branch of `@ffl1k/core` that stops the engine with a not-ported error, with its ruling
+(`tools/ffl1/unported_audit.py` reads the facts from the ROM; `tests/ffl1/test_unported_audit.py`
+asserts them):
+
+- **07:7A0E** (`NotPortedBattle`, screen effect 8, "horizontal steps"): **unreachable, accepted.**
+  The only reference to 07:7A0E in bank 07 is the word at 07:7AE3, entry 8 of the effect table
+  07:7AD5 (no call or jump in banks 00 / 07 targets it). Effects start in two places only: a screen
+  script (07:77AF, called from 07:6E54 alone) and a sprite script's kind-0 command (07:6EB9, the only
+  jump to 07:77D1). Both scripts are chosen by the item's effect byte (+6 of 06:7700, read by
+  07:6E0F, which only 07:6E03 / 06:5E06 enter): high nibble = screen script, low nibble = sprite
+  script. Effect 8 occurs in screen script 8 only (07:7BCC: `08 00`); the 256 items' high nibbles
+  are 0-7, 9 and A, never 8. The 15 sprite scripts, walked with the command lengths of 07:6EA8 /
+  6ED5 / 711A / 6F1E (verified by their framing: each ends on the byte before the next begins,
+  07:7CAC-07:7FB1), run effects 3, 9 and 1 only. Effects any item can start: 1-7 and 9, all ported.
+- **An effect past the table** (`NotPortedBattle`, the default of `screenEffect`): unreachable by
+  the same walk (the scripts hold only 1-9).
+- **An event command past F** (`NotPortedEvent`): unreachable by construction (the command is
+  C3A9 & 0F and commands 0-F are all ported).
+- **`NotPorted`** (engine.ts): declared, thrown nowhere.
+- Guards that are not not-ported stops but would mean a broken ROM or state, checked against the
+  data: battle handler addresses (all 49 of 06:403A are cases of `handler`, the port's table equal
+  to the ROM's); field item handlers (every entry of 00:3739 and the 7 of 00:3769 is a case);
+  dialogue code 11 (00:0F9E) with a high nibble above 3 (the 133 code-11 conditions in the text
+  tables use 0-3 only); sound command F6 (no song stream of the 18 uses it).
+- **Item FC / handler 47 (06:5098):** not dead content. No monster's ability list holds FC and no
+  shop sells it (the audit); it is the action 06:5A37 / 06:5A68 gives a monster none of whose
+  abilities is usable, and 06:5098 makes it flee (outside boss formations). Ported and verified
+  by flee2 (1.20.0: REDBULL after 10 HORNs, 12,159 waits, 0 differences). Its only item-table
+  entry (FC, handler 2F = 47, uses FE) is never held by anyone in play.
+- **07:75C6** (the CREATOR's death, picture type 2): ported, frame-exact in bsw21 (the closing fill
+  of tile C3, see the battle round 3 entry above). No `NotPorted` remains for it.
+
+Play from power-on (`port/packages/ffl1-parity/test/play.test.ts`): the start code 00:0224 as the
+app boots it, newgame2's buttons 31 frames in, then a seeded walk (directions, A, B, Start) with
+the app's line renderer and seeded random counters, 90,000 frames for each of three seeds: no
+engine error, no not-ported stop, the frame counter advancing every frame, the field loop
+(00:1243) 3,021-5,336 passes and 16-20 battles a run (defeats restart the game, as on the
+cartridge). Without Start in the walk a run waits in the name entry after a defeat's restart
+(the name entry ends only with Start or END), so the walk presses Start every 997 frames.

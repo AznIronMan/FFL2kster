@@ -6,10 +6,11 @@ Private preservation and modding project for the Game Boy *Final Fantasy Legend*
 decoded data package, and a faithful TypeScript port of the game that runs in a web browser
 on data imported from the player's own ROM.
 
-Version: `1.61.2`
+Version: `1.62.0`
 Status: **Legend II port complete for private use (1.0.0); Legend I (FFL1kster) and Legend III
-(FFL3kster) ported from power-on to the ending and verified against recorded runs of the original
-(docs/FFL1_PROGRESS.md, docs/FFL3_PROGRESS.md; installers: docs/INSTALL.md).** The port plays from the title through
+(FFL3kster) ports complete (1.62.0): played from power-on to the ending and verified against
+recorded runs of the original, acceptance A1–A5 checked for both (docs/FFL1_PROGRESS.md,
+docs/FFL3_PROGRESS.md; installers: docs/INSTALL.md).** The port plays from the title through
 party creation, towns, shops, inns, menus, the world map, encounters and battles, with music,
 and saves and loads, verified frame by frame against the original in an emulator: the whole
 field (P2, 1,637 sweep traces) and the battle system (P3, 2,152 battle traces). It installs on
@@ -27,7 +28,7 @@ gathering (milestones 1–7) is complete. See `docs/PORT_PLAN.md` (the active co
 | **FFTOL** | The project (this folder and the GitHub repository `fftol`). |
 | **Tower of Legends** (short **TOL**) | Full title. Private working title: an unrelated Steam game already uses it, so a public or store release needs a distinguisher (see `docs/END_GOAL.md`). |
 | **F²** | Logo mark (visual glyph only). |
-| **FFL1kster**, **FFL2kster**, **FFL3kster** | Per-game toolkits for Legend I, II and III. **FFL2kster** is complete (the Python package `ffl2kster`, its CLI and the Legend II port); **FFL1kster** (`ffl1kster`, `@ffl1k/*`) and **FFL3kster** (`ffl3kster`, `@ffl3k/*`) port their games end to end (verification of the last uncovered routines goes on). |
+| **FFL1kster**, **FFL2kster**, **FFL3kster** | Per-game toolkits for Legend I, II and III. **FFL2kster** is complete (the Python package `ffl2kster`, its CLI and the Legend II port); **FFL1kster** (`ffl1kster`, `@ffl1k/*`) and **FFL3kster** (`ffl3kster`, `@ffl3k/*`) port their games end to end; both ports are complete (1.62.0). |
 | **TOLkster** | The future master engine of `docs/END_GOAL.md`. Name reserved; nothing is built. |
 
 ## Bring your own ROM
@@ -100,6 +101,17 @@ remastered graphics/music, schemas) may be included.
 
 ## Changelog
 
+- `1.62.0` — Legend I and III ports declared complete. Legend I: the branches that would stop the
+  engine as "not ported" were audited against the game's own data — the one remaining screen
+  effect (07:7A0E) is listed in a table no item or animation script can reach, and the item FC
+  that no monster holds turns out to be the action a monster gets when its abilities run out (it
+  flees; ported and verified long ago) — with a tool and a test that read these facts from the
+  ROM; a new test plays Legend I from power-on the way the app does (three seeded runs of 90,000
+  frames, battles included) without an error. Legend III: the questions the data milestones left
+  open are settled from the port's verified runs (the level-up curve, where a battle's GP comes
+  from, shop prices and shopping, the tile changes some maps make, Xagor's picture; the sound's
+  timbre stays outside the comparison) and the pinned frames are documented. Every suite of the
+  three games ran green.
 - `1.61.2` — Sound delay: when sound piles up (the computer's audio clock running slower than the
   game's), the app now drops back to its short target buffer instead of holding the most it
   allows, and Options → Sound shows the delay live (the app's buffer and what the system

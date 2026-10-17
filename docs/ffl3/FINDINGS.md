@@ -1304,3 +1304,57 @@ effects of the later bosses), menuitems learnSpell / askDiscard / listUp.
   (`newline`, `scrollBox`, `waitA`, `pause`: the text side handles them in text.ts); 31 once, in
   battle message 0A of 09:78FE ("Received").
 - **Tests:** 1801 FFL3 tests pass.
+
+## 2026-10-16 — The milestone opens settled; the pinned frames (1.62.0)
+
+Each item the data milestones left open, with its ruling. Where the port runs the game's own
+routine, the evidence is the routine traced in a recording the port replays wait-exact (all of
+WRAM, HRAM and the cartridge RAM compared at every frame wait, the screen at every frame); the
+traced runs below used the port's replay with a write watch (`debug.test.ts`, `FFL3K_MEMW`).
+
+- **M2 level-up: resolved.** The level threshold is 0F:79D4 (names.ts `levelValues`):
+  (L + 4)(L + 1)² EXP for level L, kept per member at CD9D + 3k; the status screen's NEXT (text
+  code 23, 00:2A7B) is that value minus the EXP (C504 + 0x60k). This fits M2b's own reading: L1,
+  EXP 14, NEXT 6 = 20 − 14 = (1 + 4)(1 + 1)² − 14. The battle script raises the level (enc1's run:
+  0C:4941 stores C905 into the member's entity +03 at D083) and the script's native 0C:4B9F
+  (bnative.ts `slotsToC500`: 0x59 bytes of each slot D000 + 0x80k to C500 + 0x60k) copies it to
+  the party record (C563) after the battle. Recorded and wait-exact: enc1
+  (member 1 level 1 → 2 at wait 8308) and zj00 (level 28 → 29).
+- **M4 GP source: resolved.** Battles pay GP through the battle script, not the 4A19 record (which
+  M4 tested): per enemy group 0C:5826 computes C978 = C975 (the group's count, D882 + group) ×
+  C9A2 (entity +66: byte 2 of the 0B:470D record, copied by 0B:45CB to D6E5-D6E7 = +65..+67) ×
+  C97E (10 in enc1's run, set by the script); 0C:5841 sums C978 into C985 and 0C:592C stores the
+  new total at C6E0. enc1: groups of 2 × record 78 (b2 = 12) and 2 × record 04 (b2 = 0E) give 360 +
+  280 = 640, GP 960 → 1600 (wait 7803), the entity bytes read from the trace (D365-D367 = 0F 12 AA,
+  D465-D467 = 0F 0E FF). The prologue and Talon battles M4 used paid none. The 470D byte stays
+  `hypothesis` in the schema until a controlled change is recorded (the data package is unchanged).
+- **M5 shop prices: resolved.** 00:2E54: for item ids below D2 the price is the word at 01:7E4F +
+  2·id (bank 01), else 0 (shop.ts `itemPrice`); the clinic's price is computed (01:7731), the GP
+  arithmetic is 01:7778 / 01:7794 with the 999999 cap (01:77CA). **In-game shop use: resolved.**
+  The shop sweep zs (64 traces: buying, selling, forge, mix, clinic, services) is wait-exact; 17
+  of its traces change GP at a purchase, a sale or a clinic visit (e.g. zs16 120 → 70, zs07 999990
+  → 974990, zs47 999990 → 999999 at the cap). The prices are not exported in ffl3/data (accepted:
+  the importer and the port read them from the ROM as the game does).
+- **M6 per-map tile overrides: resolved in the port, accepted in the export.** 00:0535 loads the
+  tileset (07:7F5B), 07:7FBC (map 5D: four extra tiles from bank 05), then 01:5501 (maps 0A / 0B),
+  01:6092 (map B4, the Talon in the hangar) and 01:6082 (maps 02-05: 05:7B90 → 9600)
+  (mapload.ts); 01:54A0's map animations run every frame in all 36 modes. The field sweep (425/425,
+  every map entered) is screen-exact. `gfx-export` still draws the base tileset for those maps:
+  a known limitation of the exported pictures, not of the game data or the port.
+- **M6 Xagor's picture: resolved.** It is not a sheet picture: Xagor appears only by the last
+  boss's transformation (02:50ED, effect 12), whose 0E:7D63 draws the new picture from 0x5A0 bytes
+  at 0E:6735 through the mask 0E:7D9A (banim2.ts `newMonsterPicture`). trans1 and xagor1 replay
+  wait-exact and screen-exact (1.51.0). The export leaves it out (accepted, as above).
+- **M7 timbre: accepted as a known limitation of the comparison.** The sound driver 0F:4006 is
+  ported (sound.ts) and its whole state, CB00-CBFE and FFBB-FFC5, is compared at every frame wait
+  of every trace (SOUND_KNOWN empty since 1.49.1); the envelope and wave selections live in that
+  state. The values the driver writes to the APU (FF10-FF3F) are not compared, because PyBoy reads
+  them back masked; the Python model (ffl3kster.music) stays a pointer and timing model.
+- **Pinned frames (exact expectations, any change fails; fuzzlib.ts `RESIDUAL`):** zf13 frame
+  2834, 59 px on lines 19-23 (x 64-150) of a menu text row drawn while a frame work crossed the
+  vblank (waits at 2833 and 2839). Re-examined: of the 59 pixels the original's frame equals the
+  next frame on 24 and the previous on 11, and on 24 neither: it shows a partial state of the
+  original's stores, which the port writes at once; matching it needs a per-store line time the
+  recorder does not take for that code (as zk43). Root cause known, not reproduced; kept pinned,
+  state identical. Also pinned with their causes in the entries above: zk43 2211 (15 px),
+  zyqf02 1273 (3 px), zu20 / zu22 / zu2e (9 frames of 37 px each).

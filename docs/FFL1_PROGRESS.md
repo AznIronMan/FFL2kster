@@ -20,6 +20,17 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
       traces (every map), battle 24 traces + slice 17 (see the log; the 2 residual frames closed in 1.52.0)
 - [x] A5. All suites green (FFL2kster suite and its byte-identical no-op build included), CI green
 
+**Port complete (1.62.0).** Every not-ported branch has a written ruling (docs/ffl1/FINDINGS.md,
+1.62.0): 07:7A0E and an effect past the table 07:7AD5 are unreachable by the game's data (only
+screen script 8 holds effect 8 and no item selects it; the sprite scripts run effects 1, 3 and 9:
+`tools/ffl1/unported_audit.py`, `tests/ffl1/test_unported_audit.py`); an event command past F is
+unreachable by construction; item FC (handler 47, 06:5098) is held by no monster and sold by no
+shop, and is the flee action 06:5A37 gives a monster whose abilities are spent (flee2, 1.20.0);
+07:75C6 is ported (bsw21). Legend I plays from power-on the app's way without a trace
+(`ffl1-parity/test/play.test.ts`: three seeds × 90,000 frames, 16-20 battles each, no error).
+The whole suite of the three games is green in the 1.62.0 run (log). P4 signing and controller
+work and P5 extras beyond the web player's options stay with the owner.
+
 ## Milestone 1 — one verified enemy-data slice
 
 1. Inventory and preserve the input
@@ -65,7 +76,7 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 | P1 vertical slice | done | start code (00:0224), title, prologue, hero creation, map load, field loop/NPC walk, dialogue, events, menus, items, inn/shop/guild, battle (victory, escape, defeat and restart): frame-exact (slice 17 traces); the sound driver (1.16.0, sound RAM compared in 53 traces) and the web player (1.15.0, A3) |
 | P2 full field | done (1.53.0: input sweep) | field + event sweep: 327 traces (every map; trigger cells, objects, talk and text-started events: commands 0, 1, 3-F), 333,695 waits, 0 state differences; 0 residual frames since 1.52.0 (the battle dissolve 00:1BBE drawn at the line times the original wrote it); 1.53.0: a coverage run (665 of 740 functions run by the traces) and the input sweep (seeded random buttons, random items in the party and the bag: yf 48 field, ys 41 facilities) reached the item uses, the menus, selling and the teleport; fixes: the direction read after the next tick (00:209D), the bracket helpers' stores paced, the wave's rounds (00:3E35 / 3E7B), the window latched as PyBoy draws it, the menu's close (00:26F1); 3 frames of one line each kept as exact expectations (yf06 2914 / 2915, yf36 4102) |
 | P3 full battle | done (1.53.0: input sweep) | battle sweep 33 traces, 95,039 waits, 0 differences, plus flee2 (a monster flees): all 49 effect handlers, every reachable screen effect and both boss deaths; escape, defeat and restart, encounters and event battles (field sweep) frame-exact; sound verified separately; 1.53.0: the input sweep's 48 battles (random items, classes, stats) frame-exact after the fix of 06:4938's early exit (its popped return address in HL, read by the death check) |
-| P4 platforms | desktop installers built (1.61.0; Windows, macOS, Linux, docs/INSTALL.md); signing and controller work held by the owner | |
+| P4 platforms | desktop installers built (1.61.0; Windows, macOS, Linux, docs/INSTALL.md); signing and controller work held by the owner | one app for the three games (1.46.1); the MBC2 battery RAM (512 nibbles) kept in IndexedDB (player1.ts) |
 | 1.54.0 targeted sweeps | done | yi 62, yg 16, yr 12, yv 12 and 6 single traces for the code the sweeps had not run; 5 fixes; 743 of 750 functions called; 0 residual frames |
 | P5 extras | partly (fast text, fast-forward, colours, sound, controls in the web player) | |
 
@@ -482,3 +493,20 @@ Reference ROM: `ffl1/input/original.gb` (read-only, never committed), SHA-256
 
 ### 2026-10-16 — Sound delay (1.61.2)
 - App only: the sound buffer drops back to its target; Options shows the delay.
+
+### 2026-10-16 — Port complete (1.62.0)
+- The not-ported branches audited against the game's data (docs/ffl1/FINDINGS.md 1.62.0;
+  `tools/ffl1/unported_audit.py`, `tests/ffl1/test_unported_audit.py` 2 passed): 07:7A0E and
+  effects past 07:7AD5 unreachable; the event command default unreachable; item FC / handler 47
+  the flee action (flee2); 07:75C6 ported (bsw21).
+- `ffl1-parity/test/play.test.ts`: from power-on with newgame2's buttons, then a seeded walk with
+  Start, 90,000 frames × 3 seeds: field loop passes 4,475 / 3,021 / 5,336, battles 19 / 16 / 20,
+  no engine error, no not-ported stop.
+- The local `ffl1/data` regenerated (Pillow 13.0 encodes the font and tileset PNGs differently;
+  pixels and palettes identical, checked per file), so `test_export_all_reproduces_package` passes.
+- The 1.62.0 run (Mac): port `tsc -b` clean; `vitest run` 57 files, 6,806 passed, 19 opt-in skipped
+  (the Legend I suites inside: slice 23, battle sweep 33, field sweep 324, sound 53, input and
+  targeted sweeps, play 3); the Legend II opt-in sweeps `SWEEP=sw_` 1,637/1,637 and `BSWEEP=bs_`
+  2,152/2,152; web build and the no-content check clean; shells at 1.62.0; Python 202 passed
+  (46 emulator), 156 without the emulator (CI's set); the FFL2 guard against v1.0.0 empty; no ROM
+  or save tracked.

@@ -705,3 +705,25 @@ Decisions and assumptions:
   most (0.2 s at "normal"), so a clock mismatch held the delay there; it now trims back to the
   target (0.06 s). The rest of a long delay comes after the app (the system's output, wireless
   headphones): Options → Sound shows both parts live so a report can say which.
+
+## 2026-10-16 — Legend I and III declared complete (1.62.0)
+
+- A not-ported branch counts as closed when it is ported and traced, or when the game's own data
+  cannot reach it and the audit is written down with the addresses and a test that reads them
+  from the ROM (Legend I: `tools/ffl1/unported_audit.py`). The branch stays a not-ported stop in
+  the code: a modified ROM that reaches it stops with a clear message instead of guessing.
+- An open item of the data milestones that the port runs as the game's own routine is resolved by
+  a traced, wait-exact recording (all RAM compared at every wait), even when the exported data
+  package does not carry it as a table (Legend III: the level curve, GP, prices, map tile
+  changes, Xagor's picture). What the comparison cannot see (the APU's registers, which PyBoy
+  reads back masked) is accepted as a written limitation, not claimed.
+- A residual frame that needs CPU time the recorder does not take stays pinned as an exact
+  expectation with its cause (Legend III: zf13 and the others in fuzzlib.ts `RESIDUAL`).
+- The play-from-power-on tests (Legend I and III) check robustness, not parity: no engine error
+  and no not-ported stop over 90,000 frames of the app's way of running. Legend I's walk presses
+  Start as well (its name entry, reached again after a defeat restarts the game, only ends with
+  Start or END); the random counters come from a seed so a run repeats.
+- The data-package byte comparisons depend on the PNG encoder: with Pillow 13.0 the font and
+  tileset PNGs of `ffl1/data` encode differently while their pixels and palettes are identical
+  (checked file by file), so the local package was regenerated with `ffl1kster export-all`. The
+  package is local and gitignored; nothing committed changed.
